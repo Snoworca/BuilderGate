@@ -195,7 +195,8 @@ import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 import { t } from '../../i18n/i18n.ts';
-import { panWheelSteps, routeMobilePan } from '../../utils/mobileTouchScroll.ts';
+import { accumulatePanRows, mobilePanSpeed, panWheelSteps, routeMobilePan } from '../../utils/mobileTouchScroll.ts';
+import { readBrowserMobileScrollSpeed } from '../../utils/mobileScrollSettings.ts';
 import { applyLatchToTypedData, takeLatchedPaste } from '../../utils/mobileModifierLatch.ts';
 import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoint } from '../../utils/terminalPathLinks.ts';
 
@@ -566,6 +567,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const mobilePanStartRef = useRef<{ x: number; y: number } | null>(null);
     const mobilePanLastYRef = useRef<number | null>(null);
     const mobilePanResidualYRef = useRef(0);
+    // FR-ARCH-015: this browser's full-screen program scroll speed, read as each drag starts.
+    const mobilePanSpeedRef = useRef(1);
     const mobilePanActiveRef = useRef(false);
     const mobilePinchActiveRef = useRef(false);
     const suppressNextClickRef = useRef(false);
@@ -1491,6 +1494,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       mobilePanResidualYRef.current = 0;
       mobilePanStartRef.current = { x: touch.clientX, y: touch.clientY };
       mobilePanLastYRef.current = touch.clientY;
+      mobilePanSpeedRef.current = readBrowserMobileScrollSpeed();
     }, [handleTouchStart, resetMobileTouchGesture]);
 
     const handleMobileTouchMove = useCallback((event: TouchEvent) => {
@@ -1551,23 +1555,19 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const previousY = mobilePanLastYRef.current ?? touch.clientY;
       const deltaY = touch.clientY - previousY;
       mobilePanLastYRef.current = touch.clientY;
-      mobilePanResidualYRef.current += deltaY;
-
+      // FR-ARCH-008: a full-screen program (alternate screen) or one tracking the mouse has no
+      // scrollback to move; it gets what a desktop wheel sends, through xterm's own wheel handling.
+      const route = routeMobilePan({ bufferType: term.buffer.active.type, mouseTrackingMode: term.modes.mouseTrackingMode });
+      // FR-ARCH-015: on that route the drag is scaled by this browser's scroll speed.
       const cellHeight = getTerminalCellHeight();
-      if (cellHeight <= 0) {
-        return;
-      }
-
-      const rowDelta = Math.trunc(mobilePanResidualYRef.current / cellHeight);
+      const step = accumulatePanRows(mobilePanResidualYRef.current, deltaY, mobilePanSpeed(route, mobilePanSpeedRef.current), cellHeight);
+      mobilePanResidualYRef.current = step.residualPx;
+      const rowDelta = step.rows;
       if (rowDelta === 0) {
         return;
       }
 
-      mobilePanResidualYRef.current -= rowDelta * cellHeight;
-
-      // FR-ARCH-008: a full-screen program (alternate screen) or one tracking the mouse has no
-      // scrollback to move; it gets what a desktop wheel sends, through xterm's own wheel handling.
-      if (routeMobilePan({ bufferType: term.buffer.active.type, mouseTrackingMode: term.modes.mouseTrackingMode }) === 'wheel') {
+      if (route === 'wheel') {
         const target = term.element;
         if (target) {
           for (const deltaY of panWheelSteps(rowDelta)) {

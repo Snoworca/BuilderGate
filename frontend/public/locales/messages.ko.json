@@ -1436,6 +1436,12 @@
   "settings.redraw.onTabSwitchHelp": "탭 보기에서 탭을 옮기고 잠시 뒤, 새로 보이는 터미널을 다시 그립니다.",
   "settings.redraw.delay": "다시 그리기 전 대기 시간",
   "settings.redraw.delayHelp": "0~5초 사이로 적습니다. 0 이면 옮긴 즉시 다시 그립니다. 기본값은 0초(즉시)입니다. 단축키(기본 Ctrl+Alt+R)를 누르면 언제든 바로 다시 그립니다.",
+  "settings.mobileScroll.title": "모바일 터미널",
+  "settings.mobileScroll.description": "이 브라우저에만 저장하고 바로 적용합니다. 다른 브라우저나 기기에서는 따로 설정합니다.",
+  "settings.mobileScroll.speed": "전체 화면 프로그램 스크롤 속도",
+  "settings.mobileScroll.speedHelp": "휴대폰이나 태블릿에서 Claude Code 같은 전체 화면 프로그램을 한 손가락으로 밀 때 스크롤되는 양입니다. 너무 빨리 스크롤되면 낮추세요. 일반 터미널 출력은 이 값과 상관없이 손가락을 그대로 따라갑니다. 기본값은 1배입니다.",
+  "settings.mobileScroll.option": "{speed}배",
+  "settings.mobileScroll.optionDefault": "{speed}배 (기본값)",
   "mcp.endpoint.label": "MCP 연결 주소",
   "mcp.endpoint.copied": "MCP 연결 주소를 복사했습니다.",
   "git.detail.splitter": "커밋 정보 크기 조절"
