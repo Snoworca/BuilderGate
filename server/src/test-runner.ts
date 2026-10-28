@@ -5586,6 +5586,7 @@ async function testSessionManagerResizeReplayRefreshDeadline(): Promise<void> {
   harness.sessionData.pendingHeadlessWrites = 1;
   (manager as any).wsRouter = {
     recordReplayEvent: () => undefined,
+    sendSessionEvent: () => undefined,
     refreshReplaySnapshots: () => {
       refreshReplaySnapshotsCount += 1;
     },
@@ -5628,6 +5629,7 @@ async function testSessionManagerResizeReplayRefreshQuietWindow(): Promise<void>
   harness.sessionData.pendingHeadlessWrites = 1;
   (manager as any).wsRouter = {
     recordReplayEvent: () => undefined,
+    sendSessionEvent: () => undefined,
     refreshReplaySnapshots: () => {
       refreshReplaySnapshotsCount += 1;
     },
@@ -5669,6 +5671,7 @@ async function testSessionManagerResizeReplayRefreshAfterNoisyDeadline(): Promis
   harness.sessionData.pendingHeadlessWrites = 1;
   (manager as any).wsRouter = {
     recordReplayEvent: () => undefined,
+    sendSessionEvent: () => undefined,
     refreshReplaySnapshots: () => {
       refreshReplaySnapshotsCount += 1;
     },
@@ -5713,6 +5716,7 @@ async function testSessionManagerResizeReplayRefreshNearDeadlineRearm(): Promise
   const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
   (manager as any).wsRouter = {
     recordReplayEvent: () => undefined,
+    sendSessionEvent: () => undefined,
     routeSessionOutput: () => undefined,
     refreshReplaySnapshots: () => {
       refreshReplaySnapshotsCount += 1;
@@ -5752,6 +5756,7 @@ async function testSessionManagerResizeReplayRefreshAfterDeadlineRearm(): Promis
   const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
   (manager as any).wsRouter = {
     recordReplayEvent: () => undefined,
+    sendSessionEvent: () => undefined,
     refreshReplaySnapshots: () => {
       refreshReplaySnapshotsCount += 1;
     },

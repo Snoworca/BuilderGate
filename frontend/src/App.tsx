@@ -379,7 +379,7 @@ function AppContent() {
   // In the grid it redraws every pane of the workspace, one after another; in the tab view the one.
   const redrawSchedulerRef = useRef<TerminalRedrawScheduler | null>(null);
   redrawSchedulerRef.current ??= createTerminalRedrawScheduler({
-    run: (tabId) => terminalRefsMap.current.get(tabId)?.current?.requestGridRepair?.('manual'),
+    run: (tabId, nudge) => terminalRefsMap.current.get(tabId)?.current?.requestGridRepair?.('manual', nudge),
   });
   const isMobileRef = useRef(isMobile);
   isMobileRef.current = isMobile;
@@ -890,8 +890,12 @@ function AppContent() {
       previousTabIds: previous.tabIds.split('\n'),
       tabIds: autoRedrawTabIds.split('\n'),
     });
-    if ((workspaceSwitched && settings.onWorkspaceSwitch) || (tabSwitched && settings.onTabSwitch)) {
+    // REL-BGSTAB-058 AC-4: after a tab switch the terminal is resized only when another screen
+    // or device resized it meanwhile; otherwise the redraw does not move the screen.
+    if (workspaceSwitched && settings.onWorkspaceSwitch) {
       redrawSchedulerRef.current?.redrawAfter(settings.delayMs, () => redrawTargetsFor(null));
+    } else if (tabSwitched && settings.onTabSwitch) {
+      redrawSchedulerRef.current?.redrawAfter(settings.delayMs, () => redrawTargetsFor(null), 'if-resized-elsewhere');
     }
   }, [autoRedrawWorkspaceId, autoRedrawTabId, autoRedrawTabIds, renderedViewMode, redrawTargetsFor]);
 

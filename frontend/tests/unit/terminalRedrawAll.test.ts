@@ -188,3 +188,24 @@ test('REL-BGSTAB-053 AC-6: with the Korean IME in Hangul mode the R key (ㄱ) st
   const result = resolveTerminalShortcut({ event: hangul, state: emptyState, workspaceId: 'w', sessionId: 's', imeActive: false, hasSelection: false });
   assert.deepEqual(result.kind === 'matched' && result.action, { type: 'redraw' });
 });
+
+// REL-BGSTAB-058 AC-4, AC-5 (#191): a tab switch's automatic redraw resizes the PTY only after
+// another screen or device resized it; the menu, the shortcut and a workspace switch always do.
+test('REL-BGSTAB-058 AC-4, AC-5: the redraw passes on how it may resize; a plain redraw always does', () => {
+  const timers = fakeTimers();
+  const ran: string[] = [];
+  const scheduler = createTerminalRedrawScheduler({ timers, run: (id, nudge) => ran.push(`${id}:${nudge}`) });
+  scheduler.redraw(['a']);
+  scheduler.redrawAfter(0, () => ['b']);
+  timers.advance(0);
+  scheduler.redrawAfter(0, () => ['c'], 'if-resized-elsewhere');
+  timers.advance(0);
+  assert.deepEqual(ran, ['a:always', 'b:always', 'c:if-resized-elsewhere']);
+});
+
+test('REL-BGSTAB-058 AC-4, AC-5: App asks the conditional redraw for a tab switch and the full one for a workspace switch', () => {
+  const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /run: \(tabId, nudge\) => terminalRefsMap\.current\.get\(tabId\)\?\.current\?\.requestGridRepair\?\.\('manual', nudge\)/u);
+  assert.match(app, /workspaceSwitched && settings\.onWorkspaceSwitch\) \{\s*redrawSchedulerRef\.current\?\.redrawAfter\(settings\.delayMs, \(\) => redrawTargetsFor\(null\)\);/u);
+  assert.match(app, /tabSwitched && settings\.onTabSwitch\) \{\s*redrawSchedulerRef\.current\?\.redrawAfter\(settings\.delayMs, \(\) => redrawTargetsFor\(null\), 'if-resized-elsewhere'\);/u);
+});
