@@ -23,6 +23,12 @@ import {
   clampAutoRedrawDelay,
   type AutoRedrawSettings,
 } from '../../utils/autoRedrawSettings';
+import {
+  MOBILE_SCROLL_SPEED_DEFAULT,
+  MOBILE_SCROLL_SPEED_OPTIONS,
+  readBrowserMobileScrollSpeed,
+  writeBrowserMobileScrollSpeed,
+} from '../../utils/mobileScrollSettings';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import { reloadRuntimeConfig } from '../../utils/inputReliabilityMode';
@@ -129,6 +135,13 @@ export function SettingsPage({ visible, onBack }: Props) {
     next.delayMs = clampAutoRedrawDelay(next.delayMs);
     setAutoRedraw(next);
     writeBrowserAutoRedrawSettings(next);
+  };
+
+  // FR-ARCH-015: how fast a one-finger drag scrolls a mobile terminal, kept in this browser.
+  const [mobileScrollSpeed, setMobileScrollSpeed] = useState<number>(readBrowserMobileScrollSpeed);
+  const updateMobileScrollSpeed = (speed: number) => {
+    setMobileScrollSpeed(speed);
+    writeBrowserMobileScrollSpeed(speed);
   };
 
   const [saving, setSaving] = useState(false);
@@ -793,6 +806,25 @@ export function SettingsPage({ visible, onBack }: Props) {
                     if (Number.isFinite(seconds)) updateAutoRedraw({ delayMs: seconds * 1000 });
                   }}
                 />
+              </SettingField>
+            </Card>
+
+            <Card title={t('settings.mobileScroll.title')} icon="settings" description={t('settings.mobileScroll.description')}>
+              <SettingField htmlFor="settings-mobile-scroll-speed" label={t('settings.mobileScroll.speed')} local help={t('settings.mobileScroll.speedHelp')}>
+                <Select
+                  id="settings-mobile-scroll-speed"
+                  data-testid="settings-mobile-scroll-speed"
+                  value={String(mobileScrollSpeed)}
+                  onChange={(e) => updateMobileScrollSpeed(Number(e.target.value))}
+                >
+                  {MOBILE_SCROLL_SPEED_OPTIONS.map((speed) => (
+                    <option key={speed} value={String(speed)}>
+                      {speed === MOBILE_SCROLL_SPEED_DEFAULT
+                        ? t('settings.mobileScroll.optionDefault', { speed })
+                        : t('settings.mobileScroll.option', { speed })}
+                    </option>
+                  ))}
+                </Select>
               </SettingField>
             </Card>
           </div>

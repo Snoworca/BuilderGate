@@ -1,94 +1,94 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-28T04:43:13.125Z",
+  "generatedAt": "2026-10-28T06:39:29.042Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "e5fe5e0c1134596a3b9821d745bc188fc7d51b9eb33e7ebbfdbb936ee4219b19",
+    "value": "574fda1ade94436fa957f2ff8e9e9ca8001ff9e1ac366a7877870dec50b7bb0a",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "fce3541663ee9b5d0dd38c3b77f58328b4decf3a584269dc76a84cb69ae34caa",
-        "size": 15207,
-        "mtimeMs": 1793149556454.5967
+        "sha256": "b29e936261eeb72a6ae48d1a038cc925c761ec4a442e584636b482b8f5dc5173",
+        "size": 15481,
+        "mtimeMs": 1793168414045.031
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "4cbe94fba6ed5d0ba2f3cd373920206de2a6cf574846a74fe12ecb568a9f9755",
-        "size": 69458,
-        "mtimeMs": 1793162583919.644
+        "sha256": "7cddf3da630fdc25702b84b989558fe8205353a8f349e84afac4988cc5b973b1",
+        "size": 75980,
+        "mtimeMs": 1793169568652.4807
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "8116f4b5e21da79daf7e23aa9d9f301986bbb3a8c0516b2e48678a08ee1ca018",
         "size": 107460,
-        "mtimeMs": 1793149556456.1248
+        "mtimeMs": 1793168335267.1426
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "a22f18ee60518866543e0046945cadac9c8e9e5b3828c16459d94056dd0aecd0",
         "size": 1550236,
-        "mtimeMs": 1793149556462.674
+        "mtimeMs": 1793168335272.7168
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "229115589c1cdc445ed9d0f1f812fc019f0ebf6855cc4d482c1ec24ae3eb6ac5",
         "size": 148689,
-        "mtimeMs": 1793149556463.187
+        "mtimeMs": 1793168335273.721
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "4a1fd7d8b18198031df6d5c15b67fa05416306f4ddb4f3d060f6108bade9f91c",
         "size": 315996,
-        "mtimeMs": 1793162583923.647
+        "mtimeMs": 1793168335274.7207
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "8d6a89b595e6881acc04dcfdd7d1f73483a6e5fcdecb4f68b841d933919ba121",
         "size": 150699,
-        "mtimeMs": 1793149556466.7068
+        "mtimeMs": 1793168335275.7202
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
         "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
         "size": 72202,
-        "mtimeMs": 1793149556467.7063
+        "mtimeMs": 1793168335276.7205
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "2eef998fb93ea5d0951e48d877fdb5e157a30af7bcc0389343b569fd3458ea38",
         "size": 47478,
-        "mtimeMs": 1793149556469.7078
+        "mtimeMs": 1793168335276.7205
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
-        "mtimeMs": 1793149556471.2156
+        "mtimeMs": 1793168335276.7205
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "a42124313d439ad96e7e206bf1eabeab09122ae8496d527d41f55a255f24c8aa",
         "size": 81538,
-        "mtimeMs": 1793149556471.2156
+        "mtimeMs": 1793168335278.2246
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "d24090b0f318a8f655ab85cc4ce2d3aaa91c749878b4144195ee162c26756a1e",
         "size": 38573,
-        "mtimeMs": 1793149556472.2205
+        "mtimeMs": 1793168335278.2246
       },
       {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
-        "mtimeMs": 1793149556472.2205
+        "mtimeMs": 1793168335278.2246
       }
     ]
   },
   "idCounters": {
     "functional": {
-      "ARCH": 14,
+      "ARCH": 15,
       "AITUI": 20,
       "BGSTAB": 35,
       "MCP": 14,

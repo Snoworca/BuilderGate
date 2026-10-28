@@ -253,6 +253,7 @@
     "tests/unit/htmlTabToolbarOverflow.test.ts",
     "tests/unit/htmlFrameFit.test.ts",
     "tests/unit/htmlFrameZoom.test.ts",
+    "tests/unit/mobileScrollSpeed.test.ts",
     "tests/unit/dialogGeometry.test.ts",
     "tests/unit/editorTabBarLabel.test.ts",
     "tests/unit/imeTransaction.test.ts",
