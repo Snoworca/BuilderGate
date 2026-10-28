@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { fileApi } from '../services/api';
 import type { TerminalPathTarget } from '../utils/terminalPathDetection';
 import type { TerminalPathsAtPoint } from '../utils/terminalPathLinks';
-import { verifyScreenPaths } from '../utils/terminalPathVerification';
+import { checkMenuPaths } from '../utils/terminalPathVerification';
 
 export interface VerifiedTerminalPaths {
   near: TerminalPathTarget | null;
@@ -34,20 +34,10 @@ export function useVerifiedScreenPaths(
     if (sessionId === null || paths === null || !hasAny) return;
     let live = true;
     const stat = (path: string) => fileApi.statPath(sessionId, path);
-    // The near path is usually on the screen list too; each path is asked once.
-    const near = paths.near;
-    const targets = near !== null && !paths.screen.some((target) => target.path === near.path)
-      ? [near, ...paths.screen]
-      : paths.screen;
-    verifyScreenPaths(targets, stat)
-      .then((verified) => {
-        const openable = new Set(verified.map((target) => target.path));
-        if (!live) return;
-        setChecked({
-          source: paths,
-          near: near !== null && openable.has(near.path) ? near : null,
-          screen: paths.screen.filter((target) => openable.has(target.path)),
-        });
+    // AC-12: the check ends after MENU_PATH_CHECK_TIMEOUT_MS even when the server never answers.
+    checkMenuPaths(paths, stat)
+      .then((result) => {
+        if (live) setChecked({ source: paths, ...result });
       })
       .catch((error: unknown) => {
         console.warn('[terminal-path] menu path check failed', error);

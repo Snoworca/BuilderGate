@@ -5,8 +5,8 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { Icon, isIconName } from '../common';
 import {
   createContextMenuChildPage,
-  createContextMenuRootPage,
   formatContextMenuPath,
+  resolveContextMenuPages,
   type ContextMenuNavigationPage,
 } from './contextMenuNavigation';
 import { placeRootContextMenu, placeSubContextMenu } from './contextMenuGeometry';
@@ -529,6 +529,11 @@ export function ContextMenu({ position, onClose, items, restoreFocusElement }: P
   );
 }
 
+/** The submenu labels behind the pages shown, so the next state starts from what is on screen. */
+function labelsOfPages(pages: ContextMenuNavigationPage[]): string[] {
+  return pages.slice(1).map(page => page.path[page.path.length - 1]);
+}
+
 function MobileContextMenuDialog({
   items,
   onClose,
@@ -544,9 +549,10 @@ function MobileContextMenuDialog({
   // FR-FEX-020 AC-2: set by a pointerdown on the backdrop after the menu opened.
   const backdropPressRef = useRef(false);
   const backdropCloseOnTouchEndRef = useRef(false);
-  const [pageStack, setPageStack] = useState<ContextMenuNavigationPage[]>(() => [
-    createContextMenuRootPage(items),
-  ]);
+  // FR-ARCH-013 AC-11: only the open submenus' labels are state. The pages are rebuilt from the
+  // latest items, so a menu whose items change while it is open (the path check) shows the change.
+  const [childLabels, setChildLabels] = useState<string[]>([]);
+  const pageStack = useMemo(() => resolveContextMenuPages(items, childLabels), [items, childLabels]);
 
   const restorePreviousFocus = useCallback(() => {
     if (skipNextFocusRestoreRef.current) {
@@ -568,8 +574,8 @@ function MobileContextMenuDialog({
 
   const canGoBack = useCallback(() => pageStack.length > 1, [pageStack.length]);
   const goBack = useCallback(() => {
-    setPageStack(current => current.length > 1 ? current.slice(0, -1) : current);
-  }, []);
+    setChildLabels(labelsOfPages(pageStack).slice(0, -1));
+  }, [pageStack]);
   const { backWithHistory, closeWithHistory, pushChildPage } = useContextMenuHistory({
     enabled: true,
     canGoBack,
@@ -635,9 +641,9 @@ function MobileContextMenuDialog({
     if (!childPage) {
       return;
     }
-    setPageStack(current => [...current, childPage]);
+    setChildLabels([...labelsOfPages(pageStack), item.label]);
     pushChildPage();
-  }, [currentPage, pushChildPage]);
+  }, [currentPage, pageStack, pushChildPage]);
 
   const handleAction = useCallback((item: ContextMenuActionItem) => {
     if (item.disabled) {

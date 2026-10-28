@@ -1200,6 +1200,8 @@
   "editor.html.unsaved": "저장하지 않은 수정을 보여 주는 중",
   "editor.html.save": "저장 (Ctrl+S)",
   "editor.html.reload": "다시 불러오기",
+  "editor.html.fitWidth": "1280 맞춤",
+  "editor.html.fitWidthHint": "페이지를 PC처럼 1280px 폭으로 배치한 뒤 창에 맞춰 줄입니다. 끄면 이 폭에서 배치되는 원래 모습으로 봅니다.",
   "editor.html.reloadHint": "다시 불러오기 (F5)",
   "editor.html.openTab": "새 탭에서 열기",
   "editor.html.openTabHint": "새 탭에서 열기 (격리된 채로)",
