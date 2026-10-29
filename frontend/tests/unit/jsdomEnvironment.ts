@@ -20,7 +20,7 @@ export function installJsdomEnvironment(): void {
   const carried = [
     'window', 'document', 'navigator', 'HTMLElement', 'HTMLDivElement', 'HTMLTextAreaElement',
     'Element', 'Node', 'Event', 'KeyboardEvent', 'MouseEvent', 'WheelEvent', 'TouchEvent',
-    'CustomEvent', 'ClipboardEvent', 'DOMRect', 'getComputedStyle', 'requestAnimationFrame',
+    'CustomEvent', 'ClipboardEvent', 'InputEvent', 'DOMRect', 'getComputedStyle', 'requestAnimationFrame',
     'cancelAnimationFrame', 'MutationObserver', 'localStorage', 'sessionStorage', 'DataTransfer',
   ] as const;
   for (const key of carried) {

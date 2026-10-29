@@ -145,6 +145,7 @@ import {
   ImeTransaction,
   type ImeDeferredKind,
 } from '../../utils/imeTransaction';
+import { createIosHangulInput, type IosHangulInput } from '../../utils/iosHangulInput';
 import {
   createTerminalWriteCoordinator,
   type TerminalWriteCoordinator,
@@ -576,6 +577,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const suppressNextClickRef = useRef(false);
     // IME 조합 상태 추적: compositionend/keydown(Space) race condition 보조 신호
     const isComposingRef = useRef<boolean>(false);
+    // FR-MKB-015: Hangul from the iOS keyboard, which sends no composition events.
+    const iosHangulInputRef = useRef<IosHangulInput | null>(null);
     const captureSeqRef = useRef(0);
     const programmaticPasteRef = useRef<{
       source: string;
@@ -3417,6 +3420,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         return term ? captureTerminalRetainedState(term) : null;
       },
       sendInput: (data: string) => {
+        iosHangulInputRef.current?.noteSentInput(data);
         const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
         return submitCapturedInput(data, debugInput, 'imperative');
       },
@@ -4198,9 +4202,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         pendingUserXtermDataPermits -= 1;
         return true;
       };
+      // @req FR-MKB-015
+      // The iOS Korean keyboard joins jamo by editing the helper textarea; those edits
+      // are what reaches the PTY, through term.input so that onData handles them as typing.
+      const iosHangulInput = createIosHangulInput({
+        send: (data) => {
+          markUserXtermDataProvenance();
+          term.input(data, true);
+        },
+        textarea: () => helperTextarea,
+      });
+      iosHangulInputRef.current = iosHangulInput;
 
       term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
-        if (ev.type !== 'keydown') return true;
+        if (ev.type !== 'keydown') return iosHangulInput.handleKey(ev);
 
         if (shouldDropStaleRepeatedTerminalKey({ event: ev })) {
           recordTerminalDebugEvent(sessionId, 'stale_key_repeat_dropped', {
@@ -4221,6 +4236,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         userActiveTimerRef.current = setTimeout(() => {
           containerRef.current?.classList.remove('user-active');
         }, 3000);
+
+        // FR-MKB-015: an iOS Hangul jamo is sent from the textarea edits that follow it.
+        if (!iosHangulInput.handleKey(ev)) return false;
 
         // Ctrl+C: 선택 복사는 generation-safe coordinator가 소유한다. 미선택은 xterm 기본 SIGINT 경로다.
         const hasClipboardSelection = term.hasSelection() || (
@@ -4308,6 +4326,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             const debugInput = buildTerminalInputDebugPayload(shortcutResolution.action.data, {
               captureSeq: nextCaptureSeq(),
             }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
+            iosHangulInputRef.current?.noteSentInput(shortcutResolution.action.data);
             submitCapturedInput(shortcutResolution.action.data, debugInput, 'shortcut-binding');
             return false;
           }
@@ -4508,6 +4527,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           noteAutomaticReplyCapture(sessionId, debugInput.details.captureSeq);
         }
         const source = programmaticPaste?.source ?? 'xterm';
+        // FR-MKB-015 AC-4: a terminal reply does not change the line being typed.
+        if (!automaticReply) iosHangulInput.noteSentInput(data);
         const result = submitCapturedInput(data, debugInput, source);
         if (programmaticPaste) {
           programmaticPaste.result = result;
@@ -4529,6 +4550,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const debugInput = buildTerminalInputDebugPayload(decision.data, {
           captureSeq: nextCaptureSeq(),
         }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
+        iosHangulInputRef.current?.noteSentInput(decision.data);
         submitCapturedInput(decision.data, debugInput, 'xterm-mouse');
       });
 
@@ -4645,6 +4667,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             captureSeq: nextCaptureSeq(),
             compositionSeq,
           });
+          iosHangulInput.handleInput(event.isComposing || event.inputType.includes('Composition'));
         }
       };
       const onCompositionStart = (event: CompositionEvent) => {
@@ -4858,6 +4881,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         imeTransactionRef.current?.dispose();
+        if (iosHangulInputRef.current === iosHangulInput) iosHangulInputRef.current = null;
         termEl.removeEventListener('focusin', onFocusIn);
         termEl.removeEventListener('focusout', onFocusOut);
         document.removeEventListener('pointerdown', onDocumentPointerDownCapture, true);
