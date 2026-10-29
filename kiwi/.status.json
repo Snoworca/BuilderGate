@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-29T01:11:10.962Z",
+  "generatedAt": "2026-10-29T15:45:59.445Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "87323c9b085d26065d6ada9c30a653e3923da6b0147114e16c9aff616d124b64",
+    "value": "a5c3ed21ce4a0c31c888e5190a9ec8ec5435a1d70e6836d564a1bd19078f5ddb",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "b29e936261eeb72a6ae48d1a038cc925c761ec4a442e584636b482b8f5dc5173",
-        "size": 15481,
-        "mtimeMs": 1793201240965.4922
+        "sha256": "8149f97ad82e1ec744c317f3cb2e92749aad57a01a91cf2aaba120908596b990",
+        "size": 15801,
+        "mtimeMs": 1793286486219.131
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -79,6 +79,12 @@
         "mtimeMs": 1793162564205.0059
       },
       {
+        "path": "docs/spec/48.loop-scheduler.srs.md",
+        "sha256": "8c74a87c696bb42d15b728df19a9b731d6c25c42237184455ff235b74a2b0d1b",
+        "size": 12940,
+        "mtimeMs": 1793288759008.3953
+      },
+      {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
@@ -97,7 +103,8 @@
       "FOP": 8,
       "UIDS": 15,
       "MKB": 14,
-      "GIT": 13
+      "GIT": 13,
+      "LOOP": 6
     },
     "constraint": {
       "ARCH": 1,

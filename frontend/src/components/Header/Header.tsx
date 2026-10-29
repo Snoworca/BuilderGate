@@ -27,6 +27,10 @@ interface HeaderProps {
   onOpenTerminalShortcutManager?: () => void;
   onOpenAgentCommandManager?: () => void;
   onOpenMcpControlManager?: () => void;
+  /** Tools › Loop. @req FR-LOOP-006 AC-1 */
+  onOpenLoopManager?: () => void;
+  /** How many loops are on; shown beside the Loop entry. @req FR-LOOP-006 AC-1 */
+  loopEnabledCount?: number;
   /** The current workspace holds at least one editor window. @req FR-MDE-008 */
   hasEditorWindows?: boolean;
   /** One entry per editor window of the current workspace. @req FR-MDE-008 */
@@ -83,6 +87,8 @@ export function Header({
   onOpenTerminalShortcutManager,
   onOpenAgentCommandManager,
   onOpenMcpControlManager,
+  onOpenLoopManager,
+  loopEnabledCount = 0,
   hasEditorWindows,
   editorTrayItems,
   editorTrayOpenCount = 0,
@@ -99,7 +105,7 @@ export function Header({
   const displayCwd = activeCwd
     ? truncatePathLeft(activeCwd, isMobile ? 24 : 48)
     : null;
-  const toolsMenuItems = useMemo(() => [
+  const toolsMenuItems = useMemo((): ContextMenuItem[] => [
     ...(onOpenCommandPresetManager ? [{
       label: t('header.tools.commandPresets'),
       onClick: () => onOpenCommandPresetManager?.(),
@@ -116,7 +122,13 @@ export function Header({
       label: t('header.tools.mcp'),
       onClick: () => onOpenMcpControlManager?.(),
     }] : []),
-  ], [onOpenCommandPresetManager, onOpenMcpControlManager, onOpenAgentCommandManager, onOpenTerminalShortcutManager]);
+    // FR-LOOP-006 AC-1: below a separator, with the number of loops that are on.
+    ...(onOpenLoopManager ? [{ separator: true as const }, {
+      label: t('header.tools.loop'),
+      shortcut: loopEnabledCount > 0 ? tn('header.tools.loop.enabledCount', loopEnabledCount) : undefined,
+      onClick: () => onOpenLoopManager?.(),
+    }] : []),
+  ], [onOpenCommandPresetManager, onOpenMcpControlManager, onOpenAgentCommandManager, onOpenTerminalShortcutManager, onOpenLoopManager, loopEnabledCount]);
 
   return (
     <header className="header">

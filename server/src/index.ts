@@ -10,6 +10,7 @@ import cors from 'cors';
 import https from 'https';
 import http, { type ServerResponse } from 'http';
 import { existsSync, readFileSync } from 'fs';
+import { stat } from 'fs/promises';
 import crypto from 'node:crypto';
 import os from 'os';
 import httpProxy from 'http-proxy';
@@ -34,6 +35,8 @@ import { UploadTempRegistry } from './services/upload/uploadTemp.js';
 import { createFileJobRoutes } from './routes/fileJobRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
+import { createLoopRoutes } from './routes/loopRoutes.js';
+import { LoopService, type LoopRuntimePort } from './services/loop/LoopService.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
 import { createRecoveryOptionRoutes } from './routes/recoveryOptionRoutes.js';
 import { AgentAliasService } from './services/AgentAliasService.js';
@@ -208,6 +211,8 @@ let recoveryOptionService: RecoveryOptionService;
 let agentAliasService: AgentAliasService;
 let workspaceService: WorkspaceService;
 let sessionSnapshotService: SessionSnapshotService;
+/** FR-LOOP-001..005: Tools › Loop. */
+let loopService: LoopService;
 /** FR-AITUI-019: the auto save switch, interval and manual save retention in force. */
 let sessionSaveSettings: SessionSaveSettings = sessionSaveSettingsOf(config);
 let mcpListenerControllerInstance: StringRecord | null = null;
@@ -432,6 +437,48 @@ function parseBooleanQuery(value: unknown, defaultValue: boolean): boolean {
     return true;
   }
   return defaultValue;
+}
+
+// FR-LOOP-003/004: what a loop run does to workspaces, tabs and the PTY. Every change broadcasts
+// the event the REST workspace routes send, so open browsers follow it (FR-LOOP-004 AC-8).
+function createLoopRuntime(): LoopRuntimePort {
+  const broadcast = (event: string, data: object) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll(event, data);
+  return {
+    workspaceExists: (id) => workspaceService.getState().workspaces.some((workspace) => workspace.id === id),
+    countTabs: (id) => workspaceService.getWorkspaceTabs(id).length,
+    maxTabsPerWorkspace: () => workspaceService.getLimits().maxTabsPerWorkspace,
+    createWorkspace: async (name) => {
+      const workspace = await workspaceService.createWorkspace(name);
+      broadcast('workspace:created', workspace);
+      return workspace.id;
+    },
+    openTab: async (workspaceId, request) => {
+      const tab = await workspaceService.addTab(workspaceId, request.shell, request.name, request.cwd);
+      broadcast('tab:added', tab);
+      return { tabId: tab.id, sessionId: tab.sessionId };
+    },
+    // The tab may have been moved to another workspace since it opened, so its current one is used.
+    closeTab: async (tabId) => {
+      const { workspaceId } = workspaceService.getTab(tabId);
+      await workspaceService.deleteTab(workspaceId, tabId);
+      broadcast('tab:removed', { id: tabId, workspaceId });
+    },
+    tabExists: (tabId) => workspaceService.getState().tabs.some((tab) => tab.id === tabId),
+    // FR-LOOP-003 AC-1: the text, then Enter on its own after the MCP wait (FR-MCP-002 AC-7/AC-8).
+    submit: async (sessionId, text) => {
+      const result = await submitWithSeparateEnter(
+        (request) => ({ ok: sessionManager.writeInput(sessionId, String(request.data)) }),
+        { data: text, delivery: { mode: 'submit', submit: true } },
+        { delay: currentSubmitEnterDelay() },
+      );
+      return result.ok !== false;
+    },
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    directoryExists: async (cwd) => {
+      const info = await stat(cwd).catch(() => null);
+      return info?.isDirectory() ?? false;
+    },
+  };
 }
 
 // FR-MCP-002 AC-8: read on every delivery, so a saved MCP setting applies to the next one.
@@ -808,6 +855,7 @@ function setupRoutes(): void {
   app.use('/api/settings', authMiddleware, settingsRoutes);
   const commandPresetRoutes = createCommandPresetRoutes(commandPresetService);
   app.use('/api/command-presets', authMiddleware, commandPresetRoutes);
+  app.use('/api/loops', authMiddleware, createLoopRoutes(loopService));
   const terminalShortcutRoutes = createTerminalShortcutRoutes(terminalShortcutService);
   app.use('/api/terminal-shortcuts', authMiddleware, terminalShortcutRoutes);
   const recoveryOptionRoutes = createRecoveryOptionRoutes(recoveryOptionService, {
@@ -1372,9 +1420,13 @@ async function startServer(): Promise<void> {
     // ========================================================================
     workspaceService = new WorkspaceService(sessionManager, { recoveryOptionService });
     await workspaceService.initialize();
+    // FR-LOOP-004 AC-7: loaded before the session save, which leaves the loops' workspaces out.
+    loopService = new LoopService({ runtime: createLoopRuntime() });
+    await loopService.initialize();
     // FR-AITUI-007/008: load the saved sessions before orphan recovery so the
     // tabs waiting to be resumed come back as shells instead of auto-recovering.
     sessionSnapshotService = new SessionSnapshotService({
+      skipWorkspace: (workspaceId) => loopService.isScheduleWorkspace(workspaceId),
       listTabs: () => {
         const state = workspaceService.getState();
         const names = new Map(state.workspaces.map((workspace) => [workspace.id, workspace.name]));

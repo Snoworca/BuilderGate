@@ -2,6 +2,8 @@
  * API Service
  * Phase 7: Frontend Security - Auth API added
  */
+import type { LoopInput, LoopRun, LoopView } from '../components/Loop/loopTypes.ts';
+import { loopRejectionMessage } from '../components/Loop/loopMessages.ts';
 
 import { waitForRefreshInFlight } from './refreshInFlight.ts';
 import type { FileSearchPage } from '../components/fileExplorer/fileSearchController.ts';
@@ -990,3 +992,43 @@ export const terminalShortcutApi = {
   },
 };
 
+
+// FR-LOOP-001 AC-5 / FR-LOOP-006: Tools › Loop.
+export const loopApi = {
+  list: async (): Promise<LoopView[]> => {
+    const res = await authFetch(`${API_BASE}/loops`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).loops;
+  },
+  save: async (id: string | null, input: LoopInput): Promise<LoopView> => {
+    const res = await authFetch(id === null ? `${API_BASE}/loops` : `${API_BASE}/loops/${encodeURIComponent(id)}`, {
+      method: id === null ? 'POST' : 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseLoopError(res);
+    return (await res.json()).loop;
+  },
+  remove: async (id: string): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/loops/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+  },
+  runNow: async (id: string): Promise<LoopRun> => {
+    const res = await authFetch(`${API_BASE}/loops/${encodeURIComponent(id)}/run`, { method: 'POST', headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).run;
+  },
+  history: async (id: string): Promise<LoopRun[]> => {
+    const res = await authFetch(`${API_BASE}/loops/${encodeURIComponent(id)}/runs`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).runs;
+  },
+};
+
+/** FR-LOOP-001 AC-2..4: a refused loop says which rule it broke. */
+async function parseLoopError(res: Response): Promise<Error> {
+  const body: unknown = await res.clone().json().catch(() => null);
+  const reason = (body as { error?: { details?: { reason?: unknown } } } | null)?.error?.details?.reason;
+  const key = typeof reason === 'string' ? loopRejectionMessage(reason) : null;
+  return key !== null ? new Error(t(key)) : parseError(res);
+}

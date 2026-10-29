@@ -228,6 +228,8 @@ export interface SessionSnapshotDeps {
    */
   dataPath?: string;
   listTabs: () => SnapshotTabRecord[];
+  /** FR-LOOP-004 AC-7: a workspace whose tabs are never saved or restored (the loops' @schedule-{n}). */
+  skipWorkspace?: (workspaceId: string) => boolean;
   getRuntime: (sessionId: string) => SnapshotTabRuntime | null;
   scheduleResume: (tabId: string, command: string, args: string[]) => boolean;
   /**
@@ -482,7 +484,11 @@ export class SessionSnapshotService {
   private autoSaveConfig: AutoSaveConfig = { enabled: false, intervalMinutes: 5 };
   private autoSaveTimer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly deps: SessionSnapshotDeps) {
+  private readonly deps: SessionSnapshotDeps;
+
+  constructor(deps: SessionSnapshotDeps) {
+    const skip = deps.skipWorkspace;
+    this.deps = skip ? { ...deps, listTabs: () => deps.listTabs().filter((record) => !skip(record.workspaceId)) } : deps;
     this.legacyPath = path.resolve(deps.dataPath ?? DEFAULT_DATA_PATH);
     this.dataDir = path.dirname(this.legacyPath);
     this.manualDir = path.join(this.dataDir, MANUAL_DIR);

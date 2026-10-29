@@ -24,7 +24,7 @@ import {
   useResetLatchWhenNotMobile,
   useSpecialKeyboardPanel,
 } from './components/MobileKeyboard';
-import { commandPresetApi, fileApi, sessionApi } from './services/api';
+import { commandPresetApi, fileApi, loopApi, sessionApi } from './services/api';
 import { MessageBox } from './components/dialog/MessageBox';
 import { decideTerminalPathOpen, subscribeTerminalPathOpen } from './utils/terminalPathOpen';
 import type { TerminalPathsAtPoint } from './utils/terminalPathLinks';
@@ -83,6 +83,7 @@ import { useWindowState } from './hooks/useWindowState';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
 import { AgentAliasDialog } from './components/AgentAlias/AgentAliasDialog';
+import { LoopDialog } from './components/Loop/LoopDialog';
 import { McpControlDialog } from './components/McpControlManager';
 import {
   RestoreReportBanner,
@@ -195,6 +196,9 @@ function AppContent() {
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
   const [showAgentCommandDialog, setShowAgentCommandDialog] = useState(false);
   const [showMcpControlDialog, setShowMcpControlDialog] = useState(false);
+  // FR-LOOP-006: Tools › Loop, and how many loops are on for the menu.
+  const [showLoopDialog, setShowLoopDialog] = useState(false);
+  const [loopEnabledCount, setLoopEnabledCount] = useState(0);
   // FR-AITUI-009 / FR-AITUI-015: the session save button, the restore report and their dialogs.
   const sessionSnapshot = useSessionSnapshot(true);
   const [sessionDialog, setSessionDialog] = useState<'save' | 'restore' | 'report' | null>(null);
@@ -266,6 +270,7 @@ function AppContent() {
   // Load available shells once on mount (after auth is already verified by AuthGuard)
   useEffect(() => {
     sessionApi.getShells().then(setAvailableShells).catch(() => { /* ignore */ });
+    loopApi.list().then((loops) => setLoopEnabledCount(loops.filter((loop) => loop.enabled).length)).catch(() => { /* ignore */ });
   }, []);
 
   // ============================================================================
@@ -1038,6 +1043,8 @@ function AppContent() {
         onOpenTerminalShortcutManager={() => setShowTerminalShortcutDialog(true)}
         onOpenAgentCommandManager={() => setShowAgentCommandDialog(true)}
         onOpenMcpControlManager={() => setShowMcpControlDialog(true)}
+        onOpenLoopManager={() => setShowLoopDialog(true)}
+        loopEnabledCount={loopEnabledCount}
         hasEditorWindows={hasHeaderTrayWindows(editor.openCount, explorer.windows.length)}
         editorTrayItems={headerTrayItems}
         editorTrayOpenCount={editor.openCount}
@@ -1382,6 +1389,10 @@ function AppContent() {
       )}
 
       {showAgentCommandDialog && <AgentAliasDialog onClose={() => setShowAgentCommandDialog(false)} />}
+
+      {showLoopDialog && (
+        <LoopDialog onClose={() => setShowLoopDialog(false)} defaultCwd={activeTab?.cwd} onEnabledCountChange={setLoopEnabledCount} />
+      )}
 
       {showMcpControlDialog && (
         <McpControlDialog
