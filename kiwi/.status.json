@@ -1,88 +1,88 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-28T15:28:23.946Z",
+  "generatedAt": "2026-10-29T00:30:10.374Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "1a8ca5d915604830ed7438a1b0a0bc80b5a6c7c409bb403ec186fed7da870ecd",
+    "value": "b6e0b41bffe425d0eb1da23d04c75d211444d367a1467a377b65a6232955a083",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "b29e936261eeb72a6ae48d1a038cc925c761ec4a442e584636b482b8f5dc5173",
-        "size": 15481,
-        "mtimeMs": 1793201240965.4922
+        "sha256": "601cf95256cc6206a6c92d5272d4845708e7e4b425d27eba04e4e4b743fa0381",
+        "size": 15604,
+        "mtimeMs": 1793233719251.2546
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
         "sha256": "819502d22c8894f8e62be6854faf9d6202b841261b1ec4dd06056129561c8caa",
         "size": 76940,
-        "mtimeMs": 1793201240970.4922
+        "mtimeMs": 1793233323172.8137
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "8116f4b5e21da79daf7e23aa9d9f301986bbb3a8c0516b2e48678a08ee1ca018",
         "size": 107460,
-        "mtimeMs": 1793085339830.9153
+        "mtimeMs": 1793233323206.357
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "3cf1a97512a9fc144c7cde3e194e950f07aaa571ff5a8b9850ef966cd865285d",
         "size": 1558575,
-        "mtimeMs": 1793201240999.5525
+        "mtimeMs": 1793233323251.3335
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "229115589c1cdc445ed9d0f1f812fc019f0ebf6855cc4d482c1ec24ae3eb6ac5",
         "size": 148689,
-        "mtimeMs": 1793075409915.2676
+        "mtimeMs": 1793233323290.6995
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "7d014e863a92cedd335ea60488eb48605d62bd8d3918057ac72d21036a465788",
         "size": 322084,
-        "mtimeMs": 1793201241010.641
+        "mtimeMs": 1793233323329.6455
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "88a6a51969c5873e6d5f226452416d261e59a8299891fb827478baa8bc4bd358",
         "size": 160689,
-        "mtimeMs": 1793152826756.986
+        "mtimeMs": 1793233323363.9717
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
         "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
         "size": 72202,
-        "mtimeMs": 1793201241017.768
+        "mtimeMs": 1793233323396.1858
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "5ee46f279c8c8fa45d5949db028c21e955bf2011f9710607cfb935ae6094ce1e",
         "size": 50695,
-        "mtimeMs": 1793152057513.0254
+        "mtimeMs": 1793233323430.411
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
-        "mtimeMs": 1790475599389.271
+        "mtimeMs": 1793233323464.5986
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
-        "sha256": "a42124313d439ad96e7e206bf1eabeab09122ae8496d527d41f55a255f24c8aa",
-        "size": 81538,
-        "mtimeMs": 1792574027660.4849
+        "sha256": "33a2647d017c5cf673909db525863a853d174c8a0ce11f7b0c8d82dd1c2cb64a",
+        "size": 88237,
+        "mtimeMs": 1793233802509.4995
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "76d894743eab345010566fdcbfe7578157d673403dc7f804ca5db7429b4ed59f",
         "size": 42161,
-        "mtimeMs": 1793162564205.0059
+        "mtimeMs": 1793233323537.9092
       },
       {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
-        "mtimeMs": 1778345537159.6023
+        "mtimeMs": 1793233323564.66
       }
     ]
   },
@@ -96,7 +96,7 @@
       "FEX": 33,
       "FOP": 8,
       "UIDS": 15,
-      "MKB": 14,
+      "MKB": 15,
       "GIT": 13
     },
     "constraint": {
