@@ -27,9 +27,10 @@ const EXPECTED_PORTED_FILE_COUNT = EXPECTED_SOURCE_FILE_COUNT + EXPECTED_STYLE_F
 // 완전성의 척도가 될 수 없다 — AC-1 은 EditorWindow 가 배럴 하나만 경유하도록
 // 재수출을 더하라고 요구하고, 그 추가가 곧 배럴의 줄 수를 바꾼다.
 // 이식 당시 7296. 그 뒤 이식 파일을 고친 기능의 증가분을 더해 왔다: FR-MDE-024/025/026
-// (6553dca0) 와 REL-BGSTAB-052 의 Mermaid 크기 캐시 상한(mermaid-render.ts). 이 값이 어긋나면
+// (6553dca0) 와 REL-BGSTAB-052 의 Mermaid 크기 캐시 상한(mermaid-render.ts), FR-MDE-031 의 야간 코드 블록
+// 배경(editor.css +9). 이 값이 어긋나면
 // 이식 파일이 잘렸거나 빠졌거나, 고친 기능이 여기 자기 몫을 더하지 않은 것이다.
-const EXPECTED_TOTAL_LINES = 7424;
+const EXPECTED_TOTAL_LINES = 7433;
 const LICENSE_RELATIVE_PATH = 'vendor/atomic-editor/LICENSE';
 const UPSTREAM_NOTE_RELATIVE_PATH = 'vendor/UPSTREAM.md';
 // 이식 트리에 있으나 27파일 집계에 들지 않는 것들. 파일 수를 확장자와 무관한

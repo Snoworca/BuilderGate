@@ -116,6 +116,15 @@
   color: inherit !important;
 }
 
+/* FR-MDE-031: the dark palette defines no `--atomic-editor-code-bg`, so the light fallback above
+ * would put dark-palette text on a light grey. Use the vendor's own dark fallbacks, the same the
+ * fenced lines take (`.cm-line.cm-atomic-fenced-code`). */
+[data-editor-theme='dark'] .dl-code {
+  background: var(--atomic-editor-code-bg, color-mix(in srgb, #2d2d2d 88%, black 12%));
+  box-shadow: inset 2px 0 0
+    var(--atomic-editor-code-rail, color-mix(in srgb, var(--atomic-editor-accent, #7c3aed) 45%, var(--atomic-editor-border, #3d3d3d) 55%));
+}
+
 [data-editor-theme='dark'] .dl-code pre.shiki,
 [data-editor-theme='dark'] .dl-code pre.shiki span,
 [data-editor-theme='dark'] .dl-shiki-token {

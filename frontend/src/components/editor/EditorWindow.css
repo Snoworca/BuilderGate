@@ -35,6 +35,23 @@
   --atomic-editor-measure: min(95%, 1200px);
 }
 
+/* FR-MDE-032: on a desktop a table fits the reading column and its cells wrap. The vendor's
+ * `max-content` is kept for a phone (the media block below), where the wrapper scrolls sideways. */
+.editor-window-surface .cm-atomic-table table {
+  width: 100%;
+}
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
+  .editor-window-surface .cm-atomic-table table { width: max-content; }
+  /* A phone's overlay scrollbar shows only while scrolling, so nothing said the table went on.
+   * A styled one is drawn all the time, in the same colours as the document's. */
+  .editor-window-surface .cm-atomic-table::-webkit-scrollbar { height: 6px; }
+  .editor-window-surface .cm-atomic-table::-webkit-scrollbar-track { background: var(--bg-raised); }
+  .editor-window-surface .cm-atomic-table::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: var(--r-pill);
+  }
+}
+
 /* 편집기가 놓이는 본문. 창 테두리와 제목 표시줄은 다른 창들과 같은 어두운
  * 계열로 남기고, 문서가 놓이는 자리만 흰 종이가 된다. 글자색은 본문이 정하지
  * 않는다: 본문 자체는 paper 표면이 아니어서 토큰으로 검은 글자를 말할 수 없고,
