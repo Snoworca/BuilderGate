@@ -656,6 +656,17 @@ export class SessionSnapshotService {
     // with the ids already taken set aside.
     const resolved = new Map<string, ResolvedAgentSession | null>();
     for (const { ctx } of contexts) resolved.set(ctx.tabId, await resolveOne(ctx, new Set()));
+    // FR-AITUI-021 AC-2: an "exact" id two tabs both read (no process list, a WSL agent, a lone
+    // candidate in a shared folder) is exact for neither. It goes through the collision pass below.
+    const exactTabs = new Map<string, number>();
+    for (const result of resolved.values()) {
+      if (result?.confidence === 'exact') exactTabs.set(result.sessionId, (exactTabs.get(result.sessionId) ?? 0) + 1);
+    }
+    for (const [tabId, result] of resolved) {
+      if (result?.confidence === 'exact' && (exactTabs.get(result.sessionId) ?? 0) > 1) {
+        resolved.set(tabId, { ...result, confidence: 'estimated' });
+      }
+    }
     const claimed = new Set<string>();
     for (const { ctx } of contexts) {
       const result = resolved.get(ctx.tabId);

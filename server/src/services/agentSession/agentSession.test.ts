@@ -419,3 +419,54 @@ test('FR-AITUI-006 AC-8 Codex: flags with values after resume and quoted ids sti
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// FR-AITUI-021 (#203): two Codex tabs in one folder must not both claim the one locked thread.
+const LOCKED = '01a1b2c3-0000-7000-8000-00000000a021';
+function twoCodexProcesses(mineStartedAt: number, otherStartedAt: number): ProcessInfo[] {
+  return [
+    { pid: 20, ppid: 1, name: 'cmd.exe' },
+    { pid: 40, ppid: 20, name: 'codex.exe', commandLine: 'C:\\npm\\vendor\\codex.exe', createdAtMs: mineStartedAt },
+    { pid: 21, ppid: 1, name: 'cmd.exe' },
+    { pid: 41, ppid: 21, name: 'codex.exe', commandLine: 'C:\\npm\\vendor\\codex.exe', createdAtMs: otherStartedAt },
+  ];
+}
+
+test('FR-AITUI-021 AC-1 Codex: a thread locked before this tab\'s Codex started is not this tab\'s', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, LOCKED, CWD, 1_010_000, true, { source: 'cli', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: twoCodexProcesses(1_020_000, 1_000_000),
+    });
+    assert.equal(result, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-021 AC-2 Codex: another Codex running elsewhere does not lower a lone candidate', async () => {
+  // Demoting on any other Codex on the machine made the auto save prefer a stale confirmed resume.
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, LOCKED, CWD, 1_030_000, true, { source: 'cli', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: twoCodexProcesses(1_000_000, 1_020_000),
+    });
+    assert.deepEqual(result, { agent: 'codex', sessionId: LOCKED, method: 'codex-writer-lock', confidence: 'exact' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-021 AC-3 Codex: one candidate and no other Codex stays exact', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, LOCKED, CWD, 1_030_000, true, { source: 'cli', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: twoCodexProcesses(1_000_000, 1_020_000).slice(0, 2),
+    });
+    assert.deepEqual(result, { agent: 'codex', sessionId: LOCKED, method: 'codex-writer-lock', confidence: 'exact' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -324,6 +324,12 @@ function codexResumeId(processes: readonly ProcessInfo[]): string | null {
   return null;
 }
 
+/**
+ * How far a process start may read later than the lock it took: Linux derives the start from
+ * `ps` elapsed whole seconds after the listing returns (processList.ts), so it runs late.
+ */
+const LOCK_CLOCK_SLACK_MS = 5000;
+
 async function resolveCodex(
   ctx: TabAgentContext,
   env: ResolveEnv,
@@ -353,8 +359,14 @@ async function resolveCodex(
   }
   // A BuilderGate tab is a terminal: when a terminal-launched thread is there, an editor
   // integration's thread in the same folder is not this tab's.
-  const fromTerminal = sameDir.filter((thread) => thread.terminal);
-  const inCwd = fromTerminal.length > 0 ? fromTerminal : sameDir;
+  // FR-AITUI-021 AC-1: a writer lock is taken only after the Codex holding it started, so a thread
+  // locked before this tab's Codex started belongs to another one (an idle Codex holds no lock).
+  const ownStart = agentProcess?.createdAtMs;
+  const possible = ownStart === undefined
+    ? sameDir
+    : sameDir.filter((thread) => (thread.lockedAtMs ?? thread.createdAt) >= ownStart - LOCK_CLOCK_SLACK_MS);
+  const fromTerminal = possible.filter((thread) => thread.terminal);
+  const inCwd = fromTerminal.length > 0 ? fromTerminal : possible;
   if (inCwd.length === 0) return null;
   if (inCwd.length === 1) return { agent: 'codex', sessionId: inCwd[0].id, method: 'codex-writer-lock', confidence: 'exact' };
   const best = pickNearest(inCwd, (thread) => thread.createdAt, ctx.agentStartedAtMs);
