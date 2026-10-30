@@ -4654,6 +4654,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             captureSeq: nextCaptureSeq(),
             compositionSeq,
           });
+          iosHangulInput.handleBeforeInput();
         }
       };
       const onHelperInput = (event: Event) => {
@@ -4667,7 +4668,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             captureSeq: nextCaptureSeq(),
             compositionSeq,
           });
-          iosHangulInput.handleInput(event.isComposing || event.inputType.includes('Composition'));
+          iosHangulInput.handleInput(event.isComposing || event.inputType.includes('Composition'), event.inputType);
         }
       };
       const onCompositionStart = (event: CompositionEvent) => {

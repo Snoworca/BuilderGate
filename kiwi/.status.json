@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-29T00:30:10.374Z",
+  "generatedAt": "2026-10-30T12:55:02.818Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "b6e0b41bffe425d0eb1da23d04c75d211444d367a1467a377b65a6232955a083",
+    "value": "edd2c9f6035ba28db8e14621f31fb896ab82f97433cc38eff0eea51972776c8c",
     "files": [
       {
         "path": "docs/spec/00.index.md",
         "sha256": "601cf95256cc6206a6c92d5272d4845708e7e4b425d27eba04e4e4b743fa0381",
         "size": 15604,
-        "mtimeMs": 1793233719251.2546
+        "mtimeMs": 1793236106397.273
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "3cf1a97512a9fc144c7cde3e194e950f07aaa571ff5a8b9850ef966cd865285d",
-        "size": 1558575,
-        "mtimeMs": 1793233323251.3335
+        "sha256": "7f694163c9c0291e68ca01976622bc0492dbebfccb403d3a6ae8ffb952a32206",
+        "size": 1563504,
+        "mtimeMs": 1793364901813.6616
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -70,7 +70,7 @@
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "33a2647d017c5cf673909db525863a853d174c8a0ce11f7b0c8d82dd1c2cb64a",
         "size": 88237,
-        "mtimeMs": 1793233802509.4995
+        "mtimeMs": 1793236106399.7983
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
@@ -90,7 +90,7 @@
     "functional": {
       "ARCH": 15,
       "AITUI": 20,
-      "BGSTAB": 35,
+      "BGSTAB": 36,
       "MCP": 14,
       "MDE": 30,
       "FEX": 33,

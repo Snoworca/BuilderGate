@@ -242,3 +242,21 @@ test('FR-MKB-015 AC-6: a composing key (keyCode 229) is not taken by the iOS pat
   assert.deepEqual(submittedData(), [], 'nothing is sent by the iOS path');
   await view.unmount();
 });
+
+test('FR-BGSTAB-036 AC-1: the view sends a macOS Safari replacement of the textarea', async () => {
+  const view = await render();
+  const change = (inputType: string, value: string, data: string) => {
+    view.textarea.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType, data }));
+    view.textarea.value = value;
+    view.textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType, data }));
+  };
+  // The first jamo, with no key held, is xterm's insertText (the fake xterm sends nothing).
+  change('insertText', 'ㅇ', 'ㅇ');
+  view.key('keydown', { key: 'ㅇ', keyCode: 229 });
+  view.key('keyup', { key: 'ㅇ', keyCode: 68 });
+  await view.flush();
+  change('insertReplacementText', '아', '아');
+  await view.flush();
+  assert.deepEqual(submittedData(), [`${DEL}아`]);
+  await view.unmount();
+});
