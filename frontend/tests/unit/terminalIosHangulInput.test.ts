@@ -243,6 +243,27 @@ test('FR-MKB-015 AC-6: a composing key (keyCode 229) is not taken by the iOS pat
   await view.unmount();
 });
 
+test('FR-BGSTAB-037 AC-1, AC-4: a dictation rewrite is sent as its change and kept from xterm\'s listener', async () => {
+  const view = await render();
+  // xterm listens on the textarea itself, in the capture phase.
+  const reachedXterm: string[] = [];
+  view.textarea.addEventListener('input', (event) => { reachedXterm.push((event as InputEvent).data ?? ''); }, true);
+  const dictate = (text: string) => {
+    view.textarea.setSelectionRange(0, view.textarea.value.length);
+    view.textarea.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: text }));
+    view.textarea.value = text;
+    view.textarea.setSelectionRange(text.length, text.length);
+    view.textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+  };
+  dictate('안');
+  dictate('안녕하');
+  dictate('안녕하세요');
+  await view.flush();
+  assert.deepEqual(reachedXterm, ['안'], 'only the first insertText, with nothing selected, reaches xterm');
+  assert.deepEqual(submittedData(), ['녕하', '세요']);
+  await view.unmount();
+});
+
 test('FR-BGSTAB-036 AC-1: the view sends a macOS Safari replacement of the textarea', async () => {
   const view = await render();
   const change = (inputType: string, value: string, data: string) => {

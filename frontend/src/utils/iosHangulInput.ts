@@ -39,7 +39,7 @@ export interface HangulKeyEventLike {
 export interface IosHangulInputOptions {
   /** Sends typed data to the terminal; TerminalView passes term.input. */
   send: (data: string) => void;
-  textarea: () => { value: string } | null;
+  textarea: () => { value: string; selectionStart?: number | null; selectionEnd?: number | null } | null;
   /** Runs a callback on the next tick; defaults to setTimeout(callback, 0), as xterm uses. */
   schedule?: (callback: () => void) => void;
 }
@@ -53,6 +53,11 @@ export interface IosHangulInput {
   handleInput: (composing?: boolean, inputType?: string) => void;
   /** Data that reached the terminal by any path; keeps the textarea in step with it. */
   noteSentInput: (data: string) => void;
+  /**
+   * An input event, seen before xterm's listener: true when the view sends it and xterm must
+   * not see it (an insertText that replaced a selection, as dictation does).
+   */
+  interceptInput: (composing: boolean, inputType: string) => boolean;
 }
 
 const DEL = '\x7f';
@@ -102,6 +107,8 @@ export function createIosHangulInput(options: IosHangulInputOptions): IosHangulI
   let keySentByXterm = false;
   let xtermComparing = false;
   let beforeChange: string | null = null;
+  // FR-BGSTAB-037: the textarea had a selection when the change began.
+  let beforeSelected = false;
   const schedule = options.schedule ?? ((callback: () => void) => { setTimeout(callback, 0); });
 
   const send = (data: string) => {
@@ -147,7 +154,22 @@ export function createIosHangulInput(options: IosHangulInputOptions): IosHangulI
       return true;
     },
     handleBeforeInput() {
-      beforeChange = textareaValue();
+      const textarea = options.textarea();
+      beforeChange = textarea?.value ?? '';
+      beforeSelected = textarea?.selectionStart != null && textarea.selectionStart !== textarea.selectionEnd;
+    },
+    // @req FR-BGSTAB-037
+    // Dictation selects all it has inserted and inserts its new result over it. xterm would
+    // send the whole result again; the change is sent instead and xterm never sees the event.
+    interceptInput(composing, inputType) {
+      if (keystroke !== null || composing || inputType !== 'insertText' || !beforeSelected) return false;
+      const before = beforeChange;
+      beforeChange = null;
+      beforeSelected = false;
+      if (before === null) return false;
+      const change = lineChange(before, textareaValue());
+      if (change) send(change);
+      return true;
     },
     handleInput(composing = false, inputType = '') {
       const before = beforeChange;
