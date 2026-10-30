@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-30T08:13:46.334Z",
+  "generatedAt": "2026-10-30T21:51:01.090Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "8a3e4866145baa425d97ecd734e7dfe59f1618f43a8310c7ca76950296dfeac5",
+    "value": "908924b39d4e67ac88b0b7d453e3ba5805b276006e10417d5753fca311f08219",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "8149f97ad82e1ec744c317f3cb2e92749aad57a01a91cf2aaba120908596b990",
-        "size": 15801,
-        "mtimeMs": 1793286486219.131
+        "sha256": "9aff1675f390d4f20dac7318f39e0bcfcc37e2a8117113a88808d5b68ed92717",
+        "size": 15924,
+        "mtimeMs": 1793397016793.4888
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "01f8a67508f7b15a85814211e36a5f7b46561a9313779dd3e0b5519c2a6e7702",
-        "size": 1566076,
-        "mtimeMs": 1793347987924.0337
+        "sha256": "e873f8533c3c0350bf49cb5700ba376758e1be9d74eb576b0d07d9f6d349b95b",
+        "size": 1575402,
+        "mtimeMs": 1793397009650.6316
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -68,9 +68,9 @@
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
-        "sha256": "a42124313d439ad96e7e206bf1eabeab09122ae8496d527d41f55a255f24c8aa",
-        "size": 81538,
-        "mtimeMs": 1792574027660.4849
+        "sha256": "33a2647d017c5cf673909db525863a853d174c8a0ce11f7b0c8d82dd1c2cb64a",
+        "size": 88237,
+        "mtimeMs": 1793396977857.5396
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
@@ -96,13 +96,13 @@
     "functional": {
       "ARCH": 15,
       "AITUI": 21,
-      "BGSTAB": 35,
+      "BGSTAB": 37,
       "MCP": 14,
       "MDE": 32,
       "FEX": 33,
       "FOP": 8,
       "UIDS": 15,
-      "MKB": 14,
+      "MKB": 15,
       "GIT": 13,
       "LOOP": 7
     },
