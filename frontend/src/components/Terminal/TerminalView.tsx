@@ -4640,6 +4640,18 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       };
       termEl.addEventListener('paste', onPasteCapture, { capture: true });
 
+      // @req FR-BGSTAB-037
+      // Dictation rewrites its result by inserting it over all it inserted before. On termEl,
+      // in the capture phase, this runs before xterm's own listener on the textarea, so such
+      // an event is sent as its change and never reaches xterm, which would send it whole.
+      const onInputInterceptCapture = (event: Event) => {
+        if (!(event instanceof InputEvent) || event.target !== helperTextarea) return;
+        markUserXtermDataProvenance();
+        const composing = event.isComposing || event.inputType.includes('Composition');
+        if (iosHangulInput.interceptInput(composing, event.inputType)) event.stopPropagation();
+      };
+      termEl.addEventListener('input', onInputInterceptCapture, { capture: true });
+
       // Helper textarea IME event tape는 원문 없이 sequence/length metadata만 기록한다.
       const onHelperKeyDown = (event: KeyboardEvent) => {
         recordHelperTape('helper_keydown', event, { captureSeq: nextCaptureSeq() });
@@ -4854,6 +4866,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const disposeTerminalRuntime = () => {
         containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
         termEl.removeEventListener('paste', onPasteCapture, { capture: true });
+        termEl.removeEventListener('input', onInputInterceptCapture, { capture: true });
         unregisterInputTransportOverride();
         unregisterInputGateSnapshotReader();
         unregisterRepairLayoutHandler();
