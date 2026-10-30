@@ -126,7 +126,12 @@ async function waitForReadiness({
   return { ok: false, reason };
 }
 
+// REL-BGSTAB-059 (#208): an app restores every orphan tab before it listens. With about 48 tabs
+// that took longer than 30 s, so a start or a sentinel restart killed the app mid-restore.
+const APP_READINESS_TIMEOUT_MS = 180000;
+
 module.exports = {
+  APP_READINESS_TIMEOUT_MS,
   fetchHealth,
   matchesHealthIdentity,
   waitForReadiness,

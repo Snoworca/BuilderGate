@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createHeadlessTerminalState } from '../utils/headlessTerminal.js';
 import { SessionManager } from './SessionManager.js';
+import { createCloseSignal } from '../utils/closeSignal.js';
 
 /**
  * A retained resize must not wait behind output that never stops arriving.
@@ -56,7 +57,7 @@ function managerWithSession(overrides: Partial<ResizeSessionData>): ManagerInter
     // Never settles: a session under continuous output holds a chain like this.
     headlessWriteChain: new Promise<void>(() => {}),
     headlessHealth: 'healthy',
-    headlessCloseSignal: { promise: new Promise<void>(() => {}), resolve: () => {} },
+    headlessCloseSignal: createCloseSignal(),
     headless: createHeadlessTerminalState({ cols: 80, rows: 24, scrollbackLines: 100 }),
     screenSeq: 1,
     authorityRevision: 1,

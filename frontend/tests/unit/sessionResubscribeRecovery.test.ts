@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   chooseVisibleRecoveryTransport,
+  createRecoveryReconnectGate,
   createSessionResubscribeFence,
   resubscribeSessionOnSocket,
 } from '../../src/utils/sessionResubscribe.ts';
@@ -12,10 +13,45 @@ import {
 
 // @req REL-BGSTAB-055
 test('REL-BGSTAB-055 AC-1/AC-4: every attempt but the last resubscribes; the last reconnects', () => {
-  assert.equal(chooseVisibleRecoveryTransport({ attempt: 1, maxAttempts: 3 }), 'resubscribe');
-  assert.equal(chooseVisibleRecoveryTransport({ attempt: 2, maxAttempts: 3 }), 'resubscribe');
-  assert.equal(chooseVisibleRecoveryTransport({ attempt: 3, maxAttempts: 3 }), 'reconnect');
-  assert.equal(chooseVisibleRecoveryTransport({ attempt: 1, maxAttempts: 1 }), 'reconnect');
+  const allowed = () => true;
+  assert.equal(chooseVisibleRecoveryTransport({ attempt: 1, maxAttempts: 3, fullReconnectAllowed: allowed }), 'resubscribe');
+  assert.equal(chooseVisibleRecoveryTransport({ attempt: 2, maxAttempts: 3, fullReconnectAllowed: allowed }), 'resubscribe');
+  assert.equal(chooseVisibleRecoveryTransport({ attempt: 3, maxAttempts: 3, fullReconnectAllowed: allowed }), 'reconnect');
+  assert.equal(chooseVisibleRecoveryTransport({ attempt: 1, maxAttempts: 1, fullReconnectAllowed: allowed }), 'reconnect');
+});
+
+// @req REL-BGSTAB-060
+test('REL-BGSTAB-060 AC-2/AC-3: a last attempt the cooldown refuses resubscribes; earlier attempts never ask', () => {
+  let asked = 0;
+  const refused = () => { asked += 1; return false; };
+  assert.equal(chooseVisibleRecoveryTransport({ attempt: 1, maxAttempts: 3, fullReconnectAllowed: refused }), 'resubscribe');
+  assert.equal(chooseVisibleRecoveryTransport({ attempt: 2, maxAttempts: 3, fullReconnectAllowed: refused }), 'resubscribe');
+  assert.equal(asked, 0, 'earlier attempts do not spend the cooldown');
+  assert.equal(chooseVisibleRecoveryTransport({ attempt: 3, maxAttempts: 3, fullReconnectAllowed: refused }), 'resubscribe');
+  assert.equal(asked, 1);
+});
+
+// @req REL-BGSTAB-060
+test('REL-BGSTAB-060 AC-1: the shared socket is closed for recovery at most once per 60 s across all terminals', () => {
+  let now = 1_000_000;
+  const gate = createRecoveryReconnectGate({ cooldownMs: 60_000, now: () => now });
+  assert.equal(gate.tryAcquire(), true);
+  now += 1_000;
+  assert.equal(gate.tryAcquire(), false, 'a second terminal within the cooldown');
+  now += 58_999;
+  assert.equal(gate.tryAcquire(), false);
+  now += 1;
+  assert.equal(gate.tryAcquire(), true, 'after 60 s one more is allowed');
+});
+
+// @req REL-BGSTAB-060
+test('REL-BGSTAB-060 AC-1/AC-4: every terminal asks one gate held by the WebSocket provider, and a refusal is recorded', () => {
+  assert.match(contextSource, /createRecoveryReconnectGate\(\{ cooldownMs: RECOVERY_RECONNECT_COOLDOWN_MS \}\)/);
+  assert.match(contextSource, /acquireRecoveryReconnect: \(\) => boolean/);
+  const start = containerSource.indexOf('const requestBoundedVisibleRecoveryReconnect = useCallback');
+  const chunk = containerSource.slice(start, start + 2600);
+  assert.match(chunk, /fullReconnectAllowed: acquireRecoveryReconnect/);
+  assert.match(chunk, /'visible_output_resync_reconnect_deferred'/);
 });
 
 const request = { sessionId: 's1', reason: 'screen-repair-reconnect-required', attempt: 1 };
@@ -150,4 +186,34 @@ test('REL-BGSTAB-055 AC-3: the context fences JSON frames before any routing and
   assert.match(contextSource, /sharesOneSocket: \(\) => outputWsRef\.current === null/);
   const onOpen = contextSource.indexOf('ws.onopen = () => {');
   assert.match(contextSource.slice(onOpen, onOpen + 900), /resubscribeFenceRef\.current\.clear\(\)/);
+});
+
+// @req REL-BGSTAB-060
+test('REL-BGSTAB-060 AC-2: a deferred last attempt gives its attempt back, so the terminal is never left without one', async () => {
+  const { createVisibleOutputRecoveryAttemptBudget } = await import('../../src/utils/visibleOutputRecovery.ts');
+  const budget = createVisibleOutputRecoveryAttemptBudget({ maxFreshSnapshotAttempts: 1, maxReconnectAttempts: 3 });
+  budget.consume('reconnect');
+  budget.consume('reconnect');
+  assert.deepEqual(budget.consume('reconnect'), { allowed: true, attempt: 3 });
+  budget.refund('reconnect');
+  assert.deepEqual(budget.consume('reconnect'), { allowed: true, attempt: 3 }, 'the last attempt is still there');
+  budget.refund('reconnect');
+  budget.refund('reconnect');
+  budget.refund('reconnect');
+  budget.refund('reconnect');
+  assert.deepEqual(budget.consume('reconnect'), { allowed: true, attempt: 1 }, 'refunds stop at zero');
+});
+
+// @req REL-BGSTAB-060
+test('REL-BGSTAB-060 AC-1/AC-2: a resubscribe that cannot be sent falls back to closing the socket only through the gate', () => {
+  const start = containerSource.indexOf('const requestBoundedVisibleRecoveryReconnect = useCallback');
+  const end = containerSource.indexOf('}, [acquireRecoveryReconnect', start);
+  assert.notEqual(end, -1, 'the end of requestBoundedVisibleRecoveryReconnect was found');
+  const body = containerSource.slice(start, end);
+  const resubscribe = body.indexOf('resubscribeSession(sessionId,');
+  const fallbackGate = body.indexOf('acquireRecoveryReconnect()', resubscribe);
+  const reconnect = body.indexOf('return requestReconnect(reason)');
+  assert.ok(resubscribe > 0 && fallbackGate > resubscribe && reconnect > fallbackGate, 'resubscribe, then the gate, then the close');
+  assert.match(body, /visibleOutputRecoveryAttemptBudgetRef\.current\.refund\('reconnect'\)/);
+  assert.match(body, /stage: 'resubscribe-unsent'/, 'the two deferrals are told apart');
 });

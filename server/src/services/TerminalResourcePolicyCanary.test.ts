@@ -23,6 +23,7 @@ import { SessionManager } from './SessionManager.js';
 import { getRegisteredTerminalResourcePolicyProfiles } from './TerminalResourcePolicy.js';
 import { createHeadlessOutputQueue } from '../utils/headlessOutputQueue.js';
 import { jsonWirePayloadText, wirePayloadByteLength } from '../ws/wirePayload.js';
+import type { CloseSignal } from '../utils/closeSignal.js';
 
 // @req REL-BGSTAB-010
 const CANARY_MODULE_PATH: string = './TerminalResourcePolicyCanary.js';
@@ -468,7 +469,7 @@ interface ActualHeadlessSessionState {
   terminalTitleDetector: { destroy(): void };
   terminalTitleSignalDetector: { destroy(): void };
   foregroundDetectorRegistry: { reset(): void };
-  headlessCloseSignal: { promise: Promise<void>; resolve(): void };
+  headlessCloseSignal: CloseSignal;
   cwdFilePath: null;
   parserTailOverflow: boolean;
   parserComplete: boolean;

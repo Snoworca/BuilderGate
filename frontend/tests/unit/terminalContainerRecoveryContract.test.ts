@@ -917,7 +917,10 @@ test('TerminalContainer production recovery requests a token-fenced fresh snapsh
   assert.match(webSocketContextSource, /requestReconnect: \(reason: string\) => boolean/);
   assert.match(webSocketContextSource, /const requestReconnect = useCallback/);
   const requestReconnectIndex = source.indexOf('const requestBoundedVisibleRecoveryReconnect');
-  const requestReconnectChunk = source.slice(requestReconnectIndex, requestReconnectIndex + 2400);
+  // The whole function, not a fixed number of characters: REL-BGSTAB-060 made it longer.
+  const requestReconnectEnd = source.indexOf('}, [acquireRecoveryReconnect', requestReconnectIndex);
+  assert.notEqual(requestReconnectEnd, -1, 'the end of requestBoundedVisibleRecoveryReconnect was found');
+  const requestReconnectChunk = source.slice(requestReconnectIndex, requestReconnectEnd);
   assert.match(requestReconnectChunk, /recordTerminalDebugEvent\(sessionId, 'visible_output_resync_reconnect_requested'/);
   assert.ok(
     requestReconnectChunk.indexOf("'visible_output_resync_reconnect_requested'")

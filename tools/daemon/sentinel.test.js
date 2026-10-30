@@ -509,3 +509,74 @@ test('runSentinelTick exits when stop begins immediately after restart readiness
   assert.equal(nextState.status, 'stopping');
   assert.equal(nextState.appPid, 48003);
 });
+
+// REL-BGSTAB-059 (#208): an app restored with ~48 orphan tabs was still spawning shells when the
+// 30 s restart wait ran out, so the sentinel killed it and the service stayed down.
+test('REL-BGSTAB-059 AC-1: a restarted app gets 180 seconds to become ready by default', async () => {
+  const { paths, running } = createFixture({ appPid: 59001, sentinelPid: 59002 });
+  const timeouts = [];
+  await runSentinelTick({
+    statePath: paths.statePath,
+    startAttemptId: running.startAttemptId,
+    logPath: paths.sentinelLogPath,
+    appExitProvider: async () => ({ exited: true, lastExitCode: 134 }),
+    sleep: async () => {},
+    restartPreflight: async () => {},
+    spawnApp: async () => ({ pid: 59003 }),
+    waitForReadiness: async ({ state, timeoutMs }) => {
+      timeouts.push(timeoutMs);
+      return { ok: true, identity: state };
+    },
+  });
+  assert.deepEqual(timeouts, [180000]);
+});
+
+test('REL-BGSTAB-059 AC-1: an explicit readinessTimeoutMs still wins', async () => {
+  const { paths, running } = createFixture({ appPid: 59011, sentinelPid: 59012 });
+  const timeouts = [];
+  await runSentinelTick({
+    statePath: paths.statePath,
+    startAttemptId: running.startAttemptId,
+    logPath: paths.sentinelLogPath,
+    appExitProvider: async () => ({ exited: true, lastExitCode: 134 }),
+    sleep: async () => {},
+    restartPreflight: async () => {},
+    spawnApp: async () => ({ pid: 59013 }),
+    readinessTimeoutMs: 5000,
+    waitForReadiness: async ({ state, timeoutMs }) => {
+      timeouts.push(timeoutMs);
+      return { ok: true, identity: state };
+    },
+  });
+  assert.deepEqual(timeouts, [5000]);
+});
+
+// REL-BGSTAB-059 AC-3 (#208 review): stop refuses a stale heartbeat; a 180 s readiness wait must
+// keep the heartbeat fresh or stop is refused for most of that wait.
+test('REL-BGSTAB-059 AC-3: the heartbeat stays fresh while a restarted app is coming up', async () => {
+  const { paths, running } = createFixture({ appPid: 59021, sentinelPid: 59022 });
+  let clock = Date.parse('2026-10-30T07:00:00.000Z');
+  let polls = 0;
+  let release;
+  const ready = new Promise((resolve) => { release = resolve; });
+  const heartbeats = [];
+  await runSentinelTick({
+    statePath: paths.statePath,
+    startAttemptId: running.startAttemptId,
+    logPath: paths.sentinelLogPath,
+    appExitProvider: async () => ({ exited: true, lastExitCode: 134 }),
+    now: () => new Date(clock),
+    readinessStatePollIntervalMs: 1000,
+    sleep: async (ms) => {
+      clock += ms;
+      polls += 1;
+      if (polls > 3) heartbeats.push(readState(paths.statePath).heartbeatAt);
+      if (polls === 40) release();
+    },
+    restartPreflight: async () => {},
+    spawnApp: async () => ({ pid: 59023 }),
+    waitForReadiness: async ({ state }) => { await ready; return { ok: true, identity: state }; },
+  });
+  const last = Date.parse(heartbeats.at(-1));
+  assert.ok(clock - last <= 10000, `heartbeat ${heartbeats.at(-1)} is within 10 s of ${new Date(clock).toISOString()}`);
+});

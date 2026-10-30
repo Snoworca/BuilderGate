@@ -7,6 +7,7 @@ import {
 } from '../utils/headlessTerminal.js';
 import { advanceTerminalPartialEscapeTail } from '../utils/terminalPartialEscapeTail.js';
 import { SessionManager } from './SessionManager.js';
+import { createCloseSignal } from '../utils/closeSignal.js';
 
 const SIGNATURES = {
   race: 'expected mixed snapshot N and parser-tail N+1 authority sample to be rejected or retried',
@@ -56,10 +57,8 @@ function createHarness() {
     lastActiveAt: new Date(),
     sortOrder: 0,
   };
-  let closeResolve!: () => void;
-  const closePromise = new Promise<void>((resolve) => {
-    closeResolve = resolve;
-  });
+  // REL-BGSTAB-061: the session close signal is a CloseSignal, not a bare promise.
+  const closeSignal = createCloseSignal();
   const sessionData = {
     session,
     pty: { resize() {}, kill() {}, write() {}, pid: 1 } as never,
@@ -68,7 +67,7 @@ function createHarness() {
     headless,
     headlessHealth: 'healthy',
     headlessWriteChain: Promise.resolve(),
-    headlessCloseSignal: { promise: closePromise, resolve: closeResolve },
+    headlessCloseSignal: closeSignal,
     pendingHeadlessWrites: 0,
     headlessApplyInFlight: 0,
     nextTerminalAuthoritySourceSeq: 0n,
@@ -105,7 +104,7 @@ function createHarness() {
     },
     dispose() {
       (manager as any).sessions.delete(session.id);
-      closeResolve();
+      closeSignal.close();
       disposeHeadlessTerminal(headless);
     },
   };

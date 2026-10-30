@@ -4,6 +4,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Session } from '../types/index.js';
 import { SessionManager } from './SessionManager.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
+import { createCloseSignal } from '../utils/closeSignal.js';
 
 test('SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', async (t) => {
   const manager = new SessionManager({
@@ -37,7 +38,7 @@ test('SessionManager.updateRuntimeConfig affects later idle timers and cached sn
     headless: null,
     headlessHealth: 'degraded',
     headlessWriteChain: Promise.resolve(),
-    headlessCloseSignal: { promise: new Promise<void>(() => {}), resolve: () => {} },
+    headlessCloseSignal: createCloseSignal(),
     pendingHeadlessWrites: 0,
     cols: 80,
     rows: 24,

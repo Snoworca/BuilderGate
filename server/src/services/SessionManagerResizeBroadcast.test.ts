@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createHeadlessTerminalState } from '../utils/headlessTerminal.js';
 import { SessionManager } from './SessionManager.js';
+import { createCloseSignal } from '../utils/closeSignal.js';
 
 /**
  * REL-BGSTAB-058 AC-2: the PTY is shared, and a browser terminal hidden behind
@@ -30,7 +31,7 @@ function setup(): { manager: ManagerInternals; events: Array<{ sessionId: string
     pendingRetainedResizes: 0,
     pendingHeadlessWrites: 0,
     headlessWriteChain: Promise.resolve(),
-    headlessCloseSignal: { promise: new Promise<void>(() => {}), resolve: () => {} },
+    headlessCloseSignal: createCloseSignal(),
     headlessHealth: 'healthy',
     headless: createHeadlessTerminalState({ cols: 80, rows: 24, scrollbackLines: 100 }),
     screenSeq: 1,

@@ -109,6 +109,7 @@ import { sanitizeWebhookPublicRecord } from './services/WebhookInvocationService
 import express from 'express';
 import type { Request } from 'express';
 import { withLocalHttpServer } from './testing/localHttpTestServer.js';
+import { createCloseSignal } from './utils/closeSignal.js';
 
 async function main(): Promise<void> {
   const tests: Array<{ name: string; tags?: string[]; run: () => Promise<void> | void }> = [
@@ -2276,7 +2277,7 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     headless: null,
     headlessHealth: 'degraded',
     headlessWriteChain: Promise.resolve(),
-    headlessCloseSignal: createTestDeferredSignal<void>(),
+    headlessCloseSignal: createCloseSignal(),
     pendingHeadlessWrites: 0,
     headlessApplyInFlight: 0,
     nextTerminalAuthoritySourceSeq: 0n,
@@ -5507,7 +5508,7 @@ function testSessionManagerNoopResizeSkipsRefresh(): void {
     headless: null,
     headlessHealth: 'degraded',
     headlessWriteChain: Promise.resolve(),
-    headlessCloseSignal: createTestDeferredSignal<void>(),
+    headlessCloseSignal: createCloseSignal(),
     pendingHeadlessWrites: 0,
     headlessApplyInFlight: 0,
     nextTerminalAuthoritySourceSeq: 0n,
@@ -14099,7 +14100,7 @@ function createManagedSessionHarness(
     headless: headless.state,
     headlessHealth: 'healthy',
     headlessWriteChain: Promise.resolve(),
-    headlessCloseSignal: createTestDeferredSignal<void>(),
+    headlessCloseSignal: createCloseSignal(),
     pendingHeadlessWrites: 0,
     headlessApplyInFlight: 0,
     nextTerminalAuthoritySourceSeq: 0n,

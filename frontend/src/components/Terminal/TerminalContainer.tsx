@@ -358,6 +358,7 @@ export const TerminalContainer = memo(
       subscribeSession,
       requestReconnect,
       resubscribeSession,
+      acquireRecoveryReconnect,
       publishTerminalDeliveryVisibility,
     } = useWebSocketActions();
     const { status: wsStatus, clientId: wsClientId } = useWebSocketState();
@@ -439,7 +440,18 @@ export const TerminalContainer = memo(
       const transport = chooseVisibleRecoveryTransport({
         attempt: decision.attempt,
         maxAttempts: VISIBLE_OUTPUT_RECOVERY_MAX_RECONNECT_ATTEMPTS,
+        fullReconnectAllowed: acquireRecoveryReconnect,
       });
+      if (transport === 'resubscribe' && decision.attempt >= VISIBLE_OUTPUT_RECOVERY_MAX_RECONNECT_ATTEMPTS) {
+        // REL-BGSTAB-060 AC-4: another terminal closed the shared socket within the cooldown. The
+        // attempt is given back, so the next failure tries the last attempt again rather than
+        // finding the budget spent with nothing left but a page reload.
+        visibleOutputRecoveryAttemptBudgetRef.current.refund('reconnect');
+        recordTerminalDebugEvent(sessionId, 'visible_output_resync_reconnect_deferred', {
+          reason,
+          attempt: decision.attempt,
+        });
+      }
       if (transport === 'resubscribe') {
         recordTerminalDebugEvent(sessionId, 'visible_output_resync_resubscribe_requested', {
           reason,
@@ -447,13 +459,23 @@ export const TerminalContainer = memo(
         });
         prepareSessionResubscribe();
         if (resubscribeSession(sessionId, { reason, attempt: decision.attempt })) return true;
+        // REL-BGSTAB-060 AC-1: the resubscribe could not be sent (a saturated socket is exactly
+        // when that happens); closing the shared socket still has to pass the gate.
+        if (!acquireRecoveryReconnect()) {
+          recordTerminalDebugEvent(sessionId, 'visible_output_resync_reconnect_deferred', {
+            reason,
+            attempt: decision.attempt,
+            stage: 'resubscribe-unsent',
+          });
+          return false;
+        }
       }
       recordTerminalDebugEvent(sessionId, 'visible_output_resync_reconnect_requested', {
         reason,
         attempt: decision.attempt,
       });
       return requestReconnect(reason);
-    }, [requestReconnect, resubscribeSession, sessionId]);
+    }, [acquireRecoveryReconnect, requestReconnect, resubscribeSession, sessionId]);
 
     if (!inputSequencerRef.current) {
       inputSequencerRef.current = new TerminalInputSequencer((input, reason) => {

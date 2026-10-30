@@ -4,12 +4,41 @@
 
 export type VisibleRecoveryTransport = 'resubscribe' | 'reconnect';
 
-/** Every budgeted attempt but the last resubscribes; the last falls back to a full reconnect. */
+/**
+ * Every budgeted attempt but the last resubscribes. The last falls back to a full reconnect only
+ * when `fullReconnectAllowed` agrees (REL-BGSTAB-060); it is asked only on the last attempt, so
+ * earlier attempts do not spend the shared cooldown.
+ */
 export function chooseVisibleRecoveryTransport(input: {
   attempt: number;
   maxAttempts: number;
+  fullReconnectAllowed: () => boolean;
 }): VisibleRecoveryTransport {
-  return input.attempt >= input.maxAttempts ? 'reconnect' : 'resubscribe';
+  if (input.attempt < input.maxAttempts) return 'resubscribe';
+  return input.fullReconnectAllowed() ? 'reconnect' : 'resubscribe';
+}
+
+export interface RecoveryReconnectGate {
+  /** True, and starts the cooldown, when no recovery has closed the shared socket within it. */
+  tryAcquire(): boolean;
+}
+
+/**
+ * REL-BGSTAB-060 (#208): one gate for every terminal on the socket. With about 48 sessions each
+ * terminal's last attempt closed the shared socket, every reconnect resubscribed all of them, and
+ * the next failure closed it again.
+ */
+export function createRecoveryReconnectGate(options: { cooldownMs: number; now?: () => number }): RecoveryReconnectGate {
+  const now = options.now ?? (() => Date.now());
+  let last: number | null = null;
+  return {
+    tryAcquire() {
+      const at = now();
+      if (last !== null && at - last < options.cooldownMs) return false;
+      last = at;
+      return true;
+    },
+  };
 }
 
 export type ResubscribeFenceDecision =

@@ -5,7 +5,7 @@ const path = require('path');
 
 const { appendLog, rotateLogIfOversized } = require('./log');
 const { isActiveDaemonState, isProcessRunning, killProcess } = require('./process-info');
-const { waitForReadiness } = require('./readiness');
+const { APP_READINESS_TIMEOUT_MS, waitForReadiness } = require('./readiness');
 const {
   CONFIG_ENV_KEY,
   ROOT_ENV_KEY,
@@ -659,7 +659,7 @@ async function startDaemon(port, source, bootstrapAllowedIps = [], paths = resol
     const readiness = await waitForReadinessFn({
       port,
       state: runningState,
-      timeoutMs: options.readinessTimeoutMs ?? 30000,
+      timeoutMs: options.readinessTimeoutMs ?? APP_READINESS_TIMEOUT_MS,
       intervalMs: options.readinessIntervalMs ?? 500,
     });
 

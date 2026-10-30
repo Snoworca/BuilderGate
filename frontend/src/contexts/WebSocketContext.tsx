@@ -90,6 +90,7 @@ import { sendOpenBrowserWebSocketMessage } from '../utils/webSocketBackpressure'
 import { createDeliveryVisibilityLedger, type DeliveryVisibilityLedger } from '../utils/terminalDeliveryVisibilityLedger';
 import { respondToTerminalAuthorityViewAttributeCapability } from '../utils/terminalViewAttributes';
 import {
+  createRecoveryReconnectGate,
   createSessionResubscribeFence,
   resubscribeSessionOnSocket,
   type SessionRecoveryReason,
@@ -200,6 +201,8 @@ export interface WebSocketContextValue {
   requestReconnect: (reason: string) => boolean;
   /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
   resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
+  /** REL-BGSTAB-060: may a terminal's last recovery attempt close the shared socket now? */
+  acquireRecoveryReconnect: () => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
     isVisible: boolean;
@@ -237,6 +240,8 @@ export interface WebSocketActionsValue {
   requestReconnect: (reason: string) => boolean;
   /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
   resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
+  /** REL-BGSTAB-060: may a terminal's last recovery attempt close the shared socket now? */
+  acquireRecoveryReconnect: () => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
     isVisible: boolean;
@@ -271,6 +276,8 @@ const WebSocketActionsContext = createContext<WebSocketActionsValue | null>(null
 const RECONNECT_MAX_ATTEMPTS = 10;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+/** REL-BGSTAB-060: at most one recovery-driven close of the shared socket per minute. */
+const RECOVERY_RECONNECT_COOLDOWN_MS = 60_000;
 const SUBSCRIPTION_GRACE_MS = 300;
 
 function getReconnectDelay(attempt: number): number {
@@ -1595,6 +1602,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     terminalCheckpointRegistrationReleaseScheduler,
   ]);
 
+  // REL-BGSTAB-060: one cooldown for every terminal's last-resort recovery reconnect.
+  const recoveryReconnectGateRef = useRef(createRecoveryReconnectGate({ cooldownMs: RECOVERY_RECONNECT_COOLDOWN_MS }));
+  const acquireRecoveryReconnect = useCallback(() => recoveryReconnectGateRef.current.tryAcquire(), []);
+
   const requestReconnect = useCallback((reason: string): boolean => {
     const socket = wsRef.current;
     if (!socket) {
@@ -1627,6 +1638,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     registerFileJobHandler,
     requestReconnect,
     resubscribeSession,
+    acquireRecoveryReconnect,
     publishTerminalDeliveryVisibility,
     registerTerminalCheckpointDispatcher,
     refreshTerminalCheckpointRegistration: requestCurrentTerminalCheckpointCapability,
@@ -1635,6 +1647,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     getTerminalControlSocketReceipt,
     sendTerminalAuthorityControl,
   }), [
+    acquireRecoveryReconnect,
     getTerminalControlSocketReceipt,
     publishTerminalDeliveryVisibility,
     registerFileJobHandler,

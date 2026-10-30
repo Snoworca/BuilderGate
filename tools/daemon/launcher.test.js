@@ -801,3 +801,16 @@ test('FR-BGSTAB-032 AC-2: startDaemon refuses a port another program holds befor
   assert.match(errors.join('\n'), /2002/);
   assert.match(errors.join('\n'), /-p|server\.port/);
 });
+
+// REL-BGSTAB-059 AC-4 (#208 review): a manual start restores every orphan tab too; it gets the
+// same readiness wait as a sentinel restart.
+test('REL-BGSTAB-059 AC-4: a manual start waits 180 seconds for readiness by default', async () => {
+  const paths = createFixturePaths('buildergate-daemon-start-wait-');
+  const timeouts = [];
+  await startDaemon(2002, 'cli', ['127.0.0.1'], paths, {
+    spawnDetached: () => ({ pid: 32101 }),
+    waitForReadiness: async ({ state, timeoutMs }) => { timeouts.push(timeoutMs); return { ok: true, identity: state }; },
+    processExists: () => false,
+  });
+  assert.deepEqual(timeouts, [180000]);
+});

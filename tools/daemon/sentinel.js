@@ -5,7 +5,10 @@ const {
   killProcess,
   validateDaemonAppProcess,
 } = require('./process-info');
-const { waitForReadiness } = require('./readiness');
+const { APP_READINESS_TIMEOUT_MS, waitForReadiness } = require('./readiness');
+
+/** REL-BGSTAB-059 AC-3: stop refuses a heartbeat older than 15 s, so it is kept fresher than that. */
+const READINESS_HEARTBEAT_REFRESH_MS = 5000;
 const { LOG_FILE_NAME, SENTINEL_LOG_FILE_NAME } = require('./runtime-paths');
 const {
   createFatalStateFromState,
@@ -332,6 +335,7 @@ async function waitForReadinessWithStatePolling({
   const pollPromise = (async () => {
     const sleep = options.sleep ?? sleepMs;
     const pollIntervalMs = Math.max(1, options.readinessStatePollIntervalMs ?? DEFAULT_BACKOFF_POLL_INTERVAL_MS);
+    let lastHeartbeatAt = getNow(options).getTime();
 
     while (!readinessSettled) {
       await sleep(pollIntervalMs);
@@ -348,6 +352,15 @@ async function waitForReadinessWithStatePolling({
       if (!latestState || latestState.status !== 'running' || latestState.startAttemptId !== startAttemptId) {
         appendLog(logPath, '[sentinel] daemon state changed during restart readiness wait; exiting sentinel');
         return { type: 'exit' };
+      }
+
+      // REL-BGSTAB-059 AC-3: the readiness wait can be minutes long; stop needs a live heartbeat.
+      const now = getNow(options);
+      if (now.getTime() - lastHeartbeatAt >= READINESS_HEARTBEAT_REFRESH_MS) {
+        lastHeartbeatAt = now.getTime();
+        if (refreshHeartbeat({ statePath, startAttemptId, logPath, now }) === 'exit') {
+          return { type: 'exit' };
+        }
       }
     }
 
@@ -495,7 +508,7 @@ async function restartApp({
       readinessArgs: {
         port: restartedState.port,
         state: restartedState,
-        timeoutMs: options.readinessTimeoutMs ?? 30000,
+        timeoutMs: options.readinessTimeoutMs ?? APP_READINESS_TIMEOUT_MS,
         intervalMs: options.readinessIntervalMs ?? 500,
       },
       statePath,

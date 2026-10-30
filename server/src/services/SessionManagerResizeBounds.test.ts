@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createHeadlessTerminalState } from '../utils/headlessTerminal.js';
 import { VALIDATION_LIMITS } from '../utils/constants.js';
 import { SessionManager } from './SessionManager.js';
+import { createCloseSignal } from '../utils/closeSignal.js';
 
 /**
  * Terminal dimensions reach the PTY unchecked.
@@ -53,7 +54,7 @@ function setup(): { manager: ManagerInternals; ptyCalls: Array<{ cols: number; r
     pendingRetainedResizes: 0,
     pendingHeadlessWrites: 0,
     headlessWriteChain: Promise.resolve(),
-    headlessCloseSignal: { promise: new Promise<void>(() => {}), resolve: () => {} },
+    headlessCloseSignal: createCloseSignal(),
     headlessHealth: 'healthy',
     headless: createHeadlessTerminalState({ cols: 80, rows: 24, scrollbackLines: 100 }),
     screenSeq: 1,

@@ -26,6 +26,7 @@ import {
 } from '../schemas/config.schema.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { createCloseSignal, type CloseSignal } from '../utils/closeSignal.js';
 import {
   createHeadlessTerminalState,
   compareRetainedHeadlessCheckpointRoundTrip,
@@ -227,11 +228,6 @@ export type AtomicRestoreSnapshotResult =
         windowsPty?: WindowsPtyInfo;
       };
     };
-
-interface DeferredSignal<T> {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-}
 
 interface EventLoopDelayObservability {
   mean: number;
@@ -980,7 +976,7 @@ interface SessionData {
   headlessInstanceGeneration: number;
   headlessHealth: HeadlessHealth;
   headlessWriteChain: Promise<void>;
-  headlessCloseSignal: DeferredSignal<void>;
+  headlessCloseSignal: CloseSignal;
   pendingHeadlessWrites: number;
   /**
    * Writes that have begun mutating the headless buffer but have not yet
@@ -1576,7 +1572,7 @@ export class SessionManager {
       headlessInstanceGeneration: 0,
       headlessHealth: 'healthy',
       headlessWriteChain: Promise.resolve(),
-      headlessCloseSignal: createDeferredSignal<void>(),
+      headlessCloseSignal: createCloseSignal(),
       pendingHeadlessWrites: 0,
       headlessApplyInFlight: 0,
       pendingRetainedResizes: 0,
@@ -7503,7 +7499,7 @@ export class SessionManager {
       disposeHeadlessTerminal(data.headless);
       data.headless = null;
     }
-    data.headlessCloseSignal.resolve();
+    data.headlessCloseSignal.close();
     data.snapshotCache = null;
     this.ensureHeadlessPolicyTracking(data);
     data.headlessOutputQueue.clear();
@@ -8733,10 +8729,8 @@ export class SessionManager {
           const trackedHeadlessWrite = this.writeHeadlessTerminalFn(sessionData.headless!, output.data).finally(() => {
             this.observability.headlessWriteCumulativeMs += performance.now() - headlessWriteStartedAt;
           });
-          await Promise.race([
-            trackedHeadlessWrite,
-            sessionData.headlessCloseSignal.promise,
-          ]);
+          // REL-BGSTAB-061: the signal lets go of this wait when the write settles.
+          await sessionData.headlessCloseSignal.race(trackedHeadlessWrite);
         };
         if (sessionData.terminalQueryResponder) {
           const queryResult = await sessionData.terminalQueryResponder.captureCommittedWrite(
@@ -9454,7 +9448,7 @@ export class SessionManager {
       disposeHeadlessTerminal(sessionData.headless);
       sessionData.headless = null;
     }
-    sessionData.headlessCloseSignal.resolve();
+    sessionData.headlessCloseSignal.close();
     sessionData.headlessOutputQueue.recordDegraded();
     this.settleRetainedTerminalPendingOutputsBeforeDegrade(sessionData, phase);
     const pendingOutput = this.drainHeadlessPendingOutput(sessionData);
@@ -9768,14 +9762,6 @@ function cloneHeadlessResourceLimits(source: HeadlessResourceLimitsConfig): Head
     writeBatchMaxBytes: source.writeBatchMaxBytes,
     overflowPolicy: source.overflowPolicy,
   };
-}
-
-function createDeferredSignal<T>(): DeferredSignal<T> {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
 }
 
 function formatDebugPreview(raw: string): string {

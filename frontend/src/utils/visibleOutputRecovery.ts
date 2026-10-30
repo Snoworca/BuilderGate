@@ -83,6 +83,8 @@ export interface VisibleOutputRecoveryAttemptBudget {
     allowed: boolean;
     attempt: number;
   };
+  /** Gives back one attempt of this kind (REL-BGSTAB-060: a deferred last attempt). */
+  refund: (kind: VisibleOutputRecoveryAttemptKind) => void;
   resetAfterConvergence: () => void;
   resetForNewScope: () => void;
   armReconnectConvergence: (identity: VisibleOutputRecoveryConvergenceIdentity) => void;
@@ -127,6 +129,9 @@ export function createVisibleOutputRecoveryAttemptBudget(limits: {
       }
       attempts[kind] = attempt + 1;
       return { allowed: true, attempt: attempts[kind] };
+    },
+    refund(kind) {
+      attempts[kind] = Math.max(0, attempts[kind] - 1);
     },
     resetAfterConvergence: reset,
     resetForNewScope: reset,
