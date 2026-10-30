@@ -1,7 +1,7 @@
 {
   "name": "buildergate",
   "private": true,
-  "version": "0.10.30",
+  "version": "0.10.31",
   "bin": {
     "buildergate": "tools/start-runtime.js"
   },
