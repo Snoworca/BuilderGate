@@ -16,6 +16,14 @@ import {
   isMcpManagementTool,
   type McpWorkspaceControl,
 } from './McpManagementTools.js';
+import {
+  MCP_LOOP_TOOL_DESCRIPTIONS,
+  MCP_LOOP_TOOL_NAMES,
+  MCP_LOOP_TOOL_SCHEMAS,
+  callMcpLoopTool,
+  isMcpLoopTool,
+  type McpLoopControl,
+} from './McpLoopTools.js';
 
 type StringRecord = Record<string, unknown>;
 
@@ -43,6 +51,8 @@ type McpToolServiceDeps = {
   };
   // FR-MCP-007 / FR-MCP-008
   workspaceControl?: McpWorkspaceControl;
+  // FR-LOOP-007
+  loopControl?: McpLoopControl;
   sleep?: (ms: number) => Promise<void>;
   // FR-MCP-010: user-registered agent launch commands (AgentAliasService), read on every request.
   getAgentAliases?: () => { claude?: readonly string[]; codex?: readonly string[] } | undefined;
@@ -166,6 +176,7 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   'buildergate.message.reply_to_leader',
   'buildergate.session.update_status',
   ...MCP_MANAGEMENT_TOOL_NAMES,
+  ...MCP_LOOP_TOOL_NAMES,
 ] as const;
 
 const SECRET_FIELD_NAMES = new Set([
@@ -286,6 +297,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     additionalProperties: false,
   },
   ...MCP_MANAGEMENT_TOOL_SCHEMAS,
+  ...MCP_LOOP_TOOL_SCHEMAS,
 };
 
 /**
@@ -763,6 +775,9 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
     default:
       if (isMcpManagementTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpManagementTool(deps, name, actor, args));
+      }
+      if (isMcpLoopTool(name)) {
+        return withAudit(deps, state, name, actor, context, {}, await callMcpLoopTool(deps.loopControl, name, actor, args));
       }
       return {
         ok: false,
@@ -2410,6 +2425,7 @@ function toolDescription(name: string): string {
     'buildergate.message.reply_to_leader': 'Send a paste or submit request from a follower to its leader session.',
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
     ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
+    ...MCP_LOOP_TOOL_DESCRIPTIONS,
   };
   return descriptions[name] ?? name;
 }

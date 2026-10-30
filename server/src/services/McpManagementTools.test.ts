@@ -275,6 +275,9 @@ test('FR-MCP-007/008: without a workspace control the tools report unavailable',
 test('SEC-MCP-004 AC-1: fixed access key carries the management scopes', () => {
   assert.deepEqual([...getFixedMcpAccessKeyScopes()].sort(), [
     'mcp:editor.open',
+    // FR-LOOP-007 AC-7
+    'mcp:loops.read',
+    'mcp:loops.write',
     'mcp:message.paste',
     'mcp:message.submit',
     'mcp:sessions.list',
@@ -291,6 +294,9 @@ test('SEC-MCP-004 AC-2: session actors get read-only management scopes', () => {
   const scopes = getDefaultMcpSessionScopes();
   assert.deepEqual([...scopes].sort(), [
     'mcp:editor.open',
+    // FR-LOOP-007 AC-7: the user chose (2026-10-30) to let session agents register loops.
+    'mcp:loops.read',
+    'mcp:loops.write',
     'mcp:message.paste',
     'mcp:self.read',
     'mcp:sessions.list',

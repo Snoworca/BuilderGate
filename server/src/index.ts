@@ -1674,6 +1674,8 @@ async function startServer(): Promise<void> {
       setSessionAlias: (targetSessionKey, alias, actorSessionKey) => workspaceService.setMcpSessionAlias(targetSessionKey, alias, actorSessionKey),
       deliverMessage: createMcpGatewayDelivery(),
       agentLifecycle: mcpAgentLifecycleService,
+      // FR-LOOP-007: buildergate.loop.* go through the same loop service as the window and REST.
+      loopControl: loopService,
       workspaceControl: createWorkspaceServiceMcpControl({
         workspaceService,
         sessionManager,

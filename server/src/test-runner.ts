@@ -6339,6 +6339,9 @@ const expectedDefaultMcpScopes = [
   'mcp:terminals.read',
   // FR-MCP-012 AC-6
   'mcp:editor.open',
+  // FR-LOOP-007 AC-7
+  'mcp:loops.read',
+  'mcp:loops.write',
 ];
 
 const requiredMcpDenialCodes = [
@@ -12354,6 +12357,8 @@ async function testMcpSecuritySecMcp002Ac10(): Promise<void> {
   // SEC-MCP-004 extends SEC-MCP-002 AC-10 with the management scopes.
   assert.deepEqual([...scopes as string[]].sort(), [
     'mcp:editor.open',
+    'mcp:loops.read',
+    'mcp:loops.write',
     'mcp:message.paste',
     'mcp:message.submit',
     'mcp:sessions.list',

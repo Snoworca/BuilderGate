@@ -85,6 +85,13 @@ const MCP_AUDIT_ACTION_LABELS: Record<string, MessageKey> = {
   'buildergate.editor.open_code': 'mcp.auditAction.buildergateEditorOpenCode',
   'buildergate.editor.open_image': 'mcp.auditAction.buildergateEditorOpenImage',
   'buildergate.editor.open_html': 'mcp.auditAction.buildergateEditorOpenHtml',
+  // FR-LOOP-007
+  'buildergate.loop.list': 'mcp.auditAction.buildergateLoopList',
+  'buildergate.loop.history': 'mcp.auditAction.buildergateLoopHistory',
+  'buildergate.loop.create': 'mcp.auditAction.buildergateLoopCreate',
+  'buildergate.loop.update': 'mcp.auditAction.buildergateLoopUpdate',
+  'buildergate.loop.delete': 'mcp.auditAction.buildergateLoopDelete',
+  'buildergate.loop.run': 'mcp.auditAction.buildergateLoopRun',
   'mcp.listener.rebind': 'mcp.auditAction.mcpListenerRebind',
   'mcp.request.denied': 'mcp.auditAction.mcpRequestDenied',
   'input-gateway': 'mcp.auditAction.inputGateway',

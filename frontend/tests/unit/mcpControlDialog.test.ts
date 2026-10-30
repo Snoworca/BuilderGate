@@ -577,3 +577,12 @@ test('FR-MCP-014 AC-4: the dialog shows the MCP address above the tabs with a co
   assert.match(dialogSource.slice(endpoint, endpoint + 1200), /t\('common\.copy'\)/);
   assert.ok(koCatalog['mcp.endpoint.label'], 'the address label goes through the i18n catalog');
 });
+
+test('FR-LOOP-007: the audit log labels the loop tools', () => {
+  assert.equal(formatMcpAuditAction('buildergate.loop.list'), '루프 목록');
+  assert.equal(formatMcpAuditAction('buildergate.loop.history'), '루프 실행 기록');
+  assert.equal(formatMcpAuditAction('buildergate.loop.create'), '루프 등록');
+  assert.equal(formatMcpAuditAction('buildergate.loop.update'), '루프 수정');
+  assert.equal(formatMcpAuditAction('buildergate.loop.delete'), '루프 삭제');
+  assert.equal(formatMcpAuditAction('buildergate.loop.run'), '루프 지금 실행');
+});

@@ -94,6 +94,9 @@ const DEFAULT_MCP_SCOPES = [
   'mcp:terminals.read',
   // FR-MCP-012 AC-6: a session agent may open files of its own terminal in the editor.
   'mcp:editor.open',
+  // FR-LOOP-007 AC-7 (user decision 2026-10-30): a session agent may register and run loops.
+  'mcp:loops.read',
+  'mcp:loops.write',
 ] as const;
 const FIXED_MCP_ACCESS_KEY_SCOPES = [
   'mcp:sessions.list',
@@ -107,6 +110,9 @@ const FIXED_MCP_ACCESS_KEY_SCOPES = [
   'mcp:terminals.write',
   'mcp:terminals.exec',
   'mcp:editor.open',
+  // FR-LOOP-007 AC-7
+  'mcp:loops.read',
+  'mcp:loops.write',
 ] as const;
 
 const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);

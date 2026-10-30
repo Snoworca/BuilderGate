@@ -1562,5 +1562,11 @@
   "loop.reason.restart": "서버가 다시 켜졌습니다.",
   "loop.reason.error": "오류: {detail}",
   "loop.stepCount.other": "단계 {count}개",
-  "loop.reason.inputRejected": "세션이 입력을 받지 않았습니다."
+  "loop.reason.inputRejected": "세션이 입력을 받지 않았습니다.",
+  "mcp.auditAction.buildergateLoopList": "루프 목록",
+  "mcp.auditAction.buildergateLoopHistory": "루프 실행 기록",
+  "mcp.auditAction.buildergateLoopCreate": "루프 등록",
+  "mcp.auditAction.buildergateLoopUpdate": "루프 수정",
+  "mcp.auditAction.buildergateLoopDelete": "루프 삭제",
+  "mcp.auditAction.buildergateLoopRun": "루프 지금 실행"
 }

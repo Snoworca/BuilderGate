@@ -1611,5 +1611,11 @@
   "loop.reason.error": "Error: {detail}",
   "loop.stepCount.one": "{count} step",
   "loop.stepCount.other": "{count} steps",
-  "loop.reason.inputRejected": "The session did not take the input."
+  "loop.reason.inputRejected": "The session did not take the input.",
+  "mcp.auditAction.buildergateLoopList": "List loops",
+  "mcp.auditAction.buildergateLoopHistory": "Loop run history",
+  "mcp.auditAction.buildergateLoopCreate": "Register loop",
+  "mcp.auditAction.buildergateLoopUpdate": "Change loop",
+  "mcp.auditAction.buildergateLoopDelete": "Delete loop",
+  "mcp.auditAction.buildergateLoopRun": "Run loop now"
 }

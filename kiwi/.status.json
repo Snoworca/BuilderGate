@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-29T15:45:59.445Z",
+  "generatedAt": "2026-10-30T06:24:34.726Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "a5c3ed21ce4a0c31c888e5190a9ec8ec5435a1d70e6836d564a1bd19078f5ddb",
+    "value": "0242c7fd4977f423fba046786e53d0a6096871fce16123d3897664ba0f9d34f8",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -32,9 +32,9 @@
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "229115589c1cdc445ed9d0f1f812fc019f0ebf6855cc4d482c1ec24ae3eb6ac5",
-        "size": 148689,
-        "mtimeMs": 1793075409915.2676
+        "sha256": "b818506546af9c267e9999c46f54a89c28336d64da677c30e9269ff31237ad41",
+        "size": 149366,
+        "mtimeMs": 1793341330650.7327
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
@@ -80,9 +80,9 @@
       },
       {
         "path": "docs/spec/48.loop-scheduler.srs.md",
-        "sha256": "8c74a87c696bb42d15b728df19a9b731d6c25c42237184455ff235b74a2b0d1b",
-        "size": 12940,
-        "mtimeMs": 1793288759008.3953
+        "sha256": "a2a74683e6bb36560c750631b8e481503addd62f25a5ba0ed69011d5ceb38a72",
+        "size": 15597,
+        "mtimeMs": 1793341471445.3774
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -104,7 +104,7 @@
       "UIDS": 15,
       "MKB": 14,
       "GIT": 13,
-      "LOOP": 6
+      "LOOP": 7
     },
     "constraint": {
       "ARCH": 1,
