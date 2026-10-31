@@ -236,3 +236,18 @@ test('FR-USAGE-004 AC-4: an account with no recorded window is not listed in set
     h.done();
   }
 });
+
+test('FR-USAGE-003 AC-3: with collection on, a server start writes the current relay again (an update would leave the old one)', async () => {
+  const h = harness(() => []);
+  try {
+    await h.service.initialize();
+    await h.service.updateSettings({ claudeCollection: true });
+    h.service.dispose();
+    const again = new UsageLimitsService({ ...(h.service as any).deps });
+    await again.initialize();
+    assert.deepEqual(h.relayCalls, [true, true]);
+    again.dispose();
+  } finally {
+    h.done();
+  }
+});

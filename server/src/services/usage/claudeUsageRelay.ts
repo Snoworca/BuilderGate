@@ -20,7 +20,7 @@ export function claudeRelaySource(): string {
 // runs the statusline it replaced with the same input. Turn it off in BuilderGate to restore it.
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -78,7 +78,20 @@ function record(input) {
   };
   const tmp = file + '.' + process.pid + '.tmp';
   writeFileSync(tmp, JSON.stringify(data, null, 2), { mode: 0o600 });
-  renameSync(tmp, file);
+  // On Windows a rename fails while another Claude session is renaming onto the same file; try a
+  // few times, and never leave the temp file behind (the next render records again anyway).
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      renameSync(tmp, file);
+      return;
+    } catch (error) {
+      if (attempt >= 4) {
+        try { rmSync(tmp, { force: true }); } catch {}
+        throw error;
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15);
+    }
+  }
 }
 
 // Claude Code runs commands on Windows in Git Bash, so the original statusline does too. The bash

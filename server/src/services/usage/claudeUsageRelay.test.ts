@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -87,6 +87,8 @@ test('FR-USAGE-002 AC-4: a recording failure still runs the original; no origina
     writeFileSync(path.join(c.dir, 'buildergate-statusline.json'), JSON.stringify({ original: { type: 'command', command: echoCommand } }));
     mkdirSync(path.join(c.dir, CLAUDE_USAGE_FILE)); // a directory where the file goes: the write fails
     assert.equal(runRelay(c.dir, statusInput).stdout, 'HUD:s1');
+    // Seen on Windows with several Claude sessions at once: a failed rename left its temp file behind.
+    assert.deepEqual(readdirSync(c.dir).filter((name) => name.endsWith('.tmp')), [], 'no temp file is left');
     rmSync(path.join(c.dir, CLAUDE_USAGE_FILE), { recursive: true });
     writeFileSync(path.join(c.dir, 'buildergate-statusline.json'), JSON.stringify({ original: null }));
     const quiet = runRelay(c.dir, statusInput);

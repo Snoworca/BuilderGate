@@ -132,6 +132,14 @@ export class UsageLimitsService {
 
   async initialize(): Promise<void> {
     this.settings = await this.load();
+    // FR-USAGE-003 AC-3: the relay in each Claude folder is a copy; rewrite it so an updated
+    // BuilderGate does not keep running the old one. Wrapping stays single.
+    if (this.settings.claudeCollection) {
+      this.collectionResults = await this.deps.setClaudeCollection(true).catch((error) => {
+        console.warn('[Usage] could not refresh the Claude relay:', error instanceof Error ? error.message : error);
+        return [];
+      });
+    }
     this.arm();
     if (this.deps.startTimer ?? true) void this.refresh().catch((error) => console.warn('[Usage] first refresh failed:', error));
   }

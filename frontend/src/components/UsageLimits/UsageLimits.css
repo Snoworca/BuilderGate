@@ -3,16 +3,17 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  padding: 8px 12px 10px;
+  gap: 12px;
+  padding: 10px 12px 12px;
   border-top: 1px solid var(--line);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
 }
 .usage-panel-head { display: flex; align-items: center; gap: 2px; margin-bottom: -2px; }
-.usage-panel-title { margin-right: auto; color: var(--fg-faint); font-weight: 600; letter-spacing: 0.04em; }
+/* Same size and weight as the "Workspaces" title above it. */
+.usage-panel-title { margin-right: auto; color: var(--fg); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 .usage-icon-btn {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: var(--r-sm);
@@ -28,26 +29,27 @@
 @keyframes usage-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .usage-spin { animation: none; } }
 
-.usage-agent { display: flex; flex-direction: column; gap: 5px; }
+.usage-agent { display: flex; flex-direction: column; gap: 7px; }
 .usage-agent-head,
 .usage-account-head { display: flex; align-items: baseline; gap: 6px; color: var(--fg-muted); }
-.usage-agent-name { color: var(--fg); font-weight: 600; }
-.usage-age { margin-left: auto; color: var(--fg-faint); }
+.usage-agent-name { color: var(--fg); font-size: var(--fs-sm); font-weight: 600; }
+.usage-age { flex-shrink: 0; margin-left: auto; color: var(--fg-faint); white-space: nowrap; }
 .usage-stale .usage-bar-fill { opacity: 0.45; }
 .usage-stale .usage-age { color: var(--warn); }
-.usage-account { display: flex; flex-direction: column; gap: 4px; padding-left: 8px; border-left: 2px solid var(--line); }
-.usage-account-name { max-width: 130px; overflow: hidden; color: var(--fg); text-overflow: ellipsis; white-space: nowrap; }
-.usage-account-where { color: var(--fg-faint); }
+.usage-account { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; border-left: 2px solid var(--line); }
+.usage-account-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--fg); text-overflow: ellipsis; white-space: nowrap; }
+.usage-account-where { flex-shrink: 0; color: var(--fg-faint); white-space: nowrap; }
 .usage-unknown { color: var(--fg-faint); font-style: italic; }
 
-.usage-win { display: grid; grid-template-columns: 30px 1fr; column-gap: 6px; row-gap: 2px; align-items: center; }
+.usage-win { display: grid; grid-template-columns: 36px 1fr; column-gap: 8px; row-gap: 3px; align-items: center; }
 .usage-win-label { grid-row: span 2; color: var(--fg-faint); }
-.usage-bar { height: 3px; overflow: hidden; border-radius: 2px; background: var(--line); }
+.usage-bar { height: 4px; overflow: hidden; border-radius: 2px; background: var(--line); }
 .usage-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background-color 0.3s; }
 .usage-plenty { background: var(--ok); }
 .usage-low { background: var(--warn); }
 .usage-critical { background: var(--danger); }
-.usage-win-text { display: flex; justify-content: space-between; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.usage-win-text { display: flex; justify-content: space-between; gap: 6px; color: var(--fg-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.usage-win-text > span:first-child { color: var(--fg); font-weight: 600; }
 .usage-reset { color: var(--fg-faint); }
 .usage-off { color: var(--fg-faint); line-height: 1.5; }
 .usage-link { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; font: inherit; }

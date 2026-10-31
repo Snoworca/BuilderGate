@@ -104,8 +104,8 @@ export function UsageLimitsPanel() {
     <div className="usage-panel" data-testid="usage-limits-panel">
       <div className="usage-panel-head">
         <span className="usage-panel-title">{t('usage.panel.title')}</span>
-        <button type="button" className={`usage-icon-btn${spinning ? ' usage-spin' : ''}`} title={t('usage.panel.refresh')} aria-label={t('usage.panel.refresh')} onClick={refresh}><Icon name="refresh" size={13} /></button>
-        <button type="button" className="usage-icon-btn" title={t('usage.panel.settings')} aria-label={t('usage.panel.settings')} onClick={() => setSettingsOpen(true)}><Icon name="settings" size={13} /></button>
+        <button type="button" className={`usage-icon-btn${spinning ? ' usage-spin' : ''}`} title={t('usage.panel.refresh')} aria-label={t('usage.panel.refresh')} onClick={refresh}><Icon name="refresh" size={15} /></button>
+        <button type="button" className="usage-icon-btn" title={t('usage.panel.settings')} aria-label={t('usage.panel.settings')} onClick={() => setSettingsOpen(true)}><Icon name="settings" size={15} /></button>
       </div>
       {claudeOff && !hasClaude && (
         <div className="usage-agent">
