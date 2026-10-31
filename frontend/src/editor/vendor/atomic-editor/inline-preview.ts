@@ -73,40 +73,29 @@ const previewFrozenField = StateField.define<boolean>({
   },
 });
 
-function linkIconHitTarget(event: MouseEvent, root?: HTMLElement): HTMLElement | null {
+// Whole-link hit test: the entire rendered link (text + icon) is the open
+// affordance in both modes (BuilderGate FR-MDE-033 AC-1). A link the cursor is
+// in shows its source instead -- the same inclusive overlap the decoration
+// pass uses for `activeLinkStarts` -- and a click there edits it.
+function linkElementFromEvent(event: MouseEvent, view: EditorView): HTMLElement | null {
   const target = event.target;
   if (!(target instanceof Element)) return null;
   const linkEl = target.closest<HTMLElement>('.cm-atomic-link');
-  if (!linkEl || (root && !root.contains(linkEl))) return null;
-
-  // The icon is a `::after` pseudo-element, so it doesn't have its own
-  // event target. Compute the same trailing hit-zone used by the click
-  // opener and treat pointerdown in that zone as "on the icon", not
-  // "inside editable link text".
-  const rects = Array.from(linkEl.getClientRects());
-  if (rects.length === 0) return null;
-  const lastRect = rects[rects.length - 1];
-  const emSize = parseFloat(window.getComputedStyle(linkEl).fontSize);
-  const iconZone = emSize * 1.25;
-  const onIcon =
-    event.clientX >= lastRect.right - iconZone &&
-    event.clientX <= lastRect.right &&
-    event.clientY >= lastRect.top &&
-    event.clientY <= lastRect.bottom;
-
-  return onIcon ? linkEl : null;
+  if (!linkEl || !view.contentDOM.contains(linkEl)) return null;
+  if (view.state.facet(readOnlyFacet) || !view.hasFocus) return linkEl;
+  const pos = view.posAtDOM(linkEl);
+  let node: SyntaxNode | null = pos < 0 ? null : syntaxTree(view.state).resolveInner(pos, 1);
+  while (node && node.name !== 'Link') node = node.parent;
+  if (!node) return linkEl;
+  const link = node;
+  const revealed = view.state.selection.ranges.some((range) => range.from <= link.to && range.to >= link.from);
+  return revealed ? null : linkEl;
 }
 
-// Whole-link hit test, used in read-only mode where the entire link
-// (text + icon) is the open affordance. Mirrors `linkIconHitTarget`'s
-// containment check but without the trailing-icon zone restriction.
-function linkElementFromEvent(event: MouseEvent, root?: HTMLElement): HTMLElement | null {
-  const target = event.target;
-  if (!(target instanceof Element)) return null;
-  const linkEl = target.closest<HTMLElement>('.cm-atomic-link');
-  if (!linkEl || (root && !root.contains(linkEl))) return null;
-  return linkEl;
-}
+// The link a pointerdown claimed, so the click that follows opens it on that
+// decision rather than re-reading focus and selection, which the press may
+// have changed in between.
+const claimedLink = new WeakMap<EditorView, HTMLElement>();
 
 // Tracks mouse state on the editor and drives the freeze flag. We listen
 // on the content DOM for pointerdown and on the window for pointerup —
@@ -131,11 +120,17 @@ const freezeMousePlugin = ViewPlugin.fromClass(
       if (!(target instanceof Node) || !this.view.contentDOM.contains(target)) {
         return;
       }
-      if (linkIconHitTarget(event, this.view.contentDOM)) {
+      // A modified press or the second press of a double-click is ordinary
+      // editing: extend the selection, or enter the link to edit it.
+      const plain = !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) && event.detail <= 1;
+      const claimed = plain ? linkElementFromEvent(event, this.view) : null;
+      if (claimed) claimedLink.set(this.view, claimed);
+      else claimedLink.delete(this.view);
+      if (claimed) {
         // Let the follow-up click open the link, but stop CM6 from
-        // interpreting the icon press as a text-editing click. Without
-        // this, pointerdown moves the selection into the Link node and
-        // reveals `[label](url)` before the click handler opens it.
+        // interpreting the press as a text-editing click. Without this,
+        // pointerdown moves the selection into the Link node and reveals
+        // `[label](url)` before the click handler opens it.
         event.preventDefault();
         event.stopImmediatePropagation();
         return;
@@ -1096,13 +1091,14 @@ function makeLinkClickHandler(onLinkClick: (url: string) => void): Extension {
     click: (event, view) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
       if (event.button !== 0) return false;
-      // In read-only mode there's no editable link text to protect, so
-      // a click anywhere on the link opens it. In edit mode the open
-      // affordance stays scoped to the trailing icon hit-zone so the
-      // text itself remains clickable-to-edit.
-      const linkEl = view.state.facet(readOnlyFacet)
-        ? linkElementFromEvent(event, view.contentDOM)
-        : linkIconHitTarget(event, view.contentDOM);
+      const claimed = claimedLink.get(view);
+      claimedLink.delete(view);
+      // One open per click sequence: a double-click must not open twice.
+      if (event.detail > 1) return false;
+      const target = event.target;
+      const linkEl = claimed && target instanceof Node && claimed.contains(target)
+        ? claimed
+        : linkElementFromEvent(event, view);
       if (!linkEl) return false;
 
       const pos = view.posAtDOM(linkEl);

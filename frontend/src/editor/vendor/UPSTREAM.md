@@ -44,6 +44,7 @@ upstream 이 활발히 개발 중이므로(2026-04 시작, 8월까지 73커밋),
 | # | 커밋 | 대상 파일 | 사유 |
 |---|---|---|---|
 | 1 | (이 행을 넣은 커밋) | `atomic-editor/AtomicCodeMirrorEditor.tsx` (검색 패널 문구 10곳), `atomic-editor/table-widget.ts` (표 메뉴 6곳) | FR-I18N-003 AC-3: 영어 리터럴을 같은 줄에서 `view.state.phrase('<원문>')` 로 바꿔 호스트의 `EditorState.phrases` 로 번역되게 한다. 줄 수 불변(FR-MDE-005 AC-1). 원문을 그대로 phrase 키로 쓰므로 phrases 가 없으면 이전과 같은 영어가 나온다 |
+| 2 | (이 행을 넣은 커밋) | `atomic-editor/inline-preview.ts` (`linkIconHitTarget` 삭제, `linkElementFromEvent` 가 view 를 받음) | FR-MDE-033 AC-1: 편집 모드에서도 렌더된 링크의 글자를 누르면 연다(이전에는 끝 아이콘 영역만). 커서가 링크 안에 있어 원문이 드러난 링크는 열지 않고 편집한다 — 판정은 장식 계산의 `activeLinkStarts` 와 같은 포함 겹침이다. 수정키 클릭과 더블클릭의 두 번째 누름은 가로채지 않고, 더블클릭은 한 번만 연다. click 은 pointerdown 이 잡은 링크를 그대로 연다. 줄 수 −4(FR-MDE-005 AC-1 의 고정값 갱신) |
 
 > 계층 C 패치를 넣을 때마다 이 표에 한 줄 추가하십시오.
 
