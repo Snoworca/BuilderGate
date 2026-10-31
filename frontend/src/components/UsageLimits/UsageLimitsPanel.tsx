@@ -50,8 +50,9 @@ function AccountRows({ accounts, now }: { accounts: UsageAccountView[]; now: num
     <>
       {accounts.map((account) => (
         <div key={account.accountKey ?? `?${account.source}`} className={`usage-account${account.stale ? ' usage-stale' : ''}`}>
+          {/* The name has a line of its own so a full address is not cut off. */}
+          <div className={`usage-account-name${account.unknownAccount ? ' usage-unknown' : ''}`} title={account.label}>{account.unknownAccount ? t('usage.account.unknown') : account.label}</div>
           <div className="usage-account-head">
-            <span className={`usage-account-name${account.unknownAccount ? ' usage-unknown' : ''}`}>{account.unknownAccount ? t('usage.account.unknown') : account.label}</span>
             <span className="usage-account-where">{t(SOURCE_KEYS[account.source])}</span>
             <span className="usage-age">{ageText(account.observedAt, now)}</span>
           </div>

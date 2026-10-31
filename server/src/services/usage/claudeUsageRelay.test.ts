@@ -57,12 +57,12 @@ test('FR-USAGE-002 AC-1/AC-2/AC-3: the relay records rate limits and the hashed 
     const usage = JSON.parse(readFileSync(path.join(c.dir, CLAUDE_USAGE_FILE), 'utf8'));
     const [key, entry] = Object.entries(usage.accounts)[0] as [string, any];
     assert.match(key, /^[0-9a-f]{16}$/u);
-    assert.equal(entry.email, 'b***@hancomins.com');
+    assert.equal(entry.email, 'beom@hancomins.com', 'the whole address (user decision 2026-10-31)');
     assert.equal(entry.plan, 'Max');
     assert.equal(entry.five_hour.used_percentage, 38);
     assert.equal(entry.seven_day.used_percentage, 71);
     const raw = readFileSync(path.join(c.dir, CLAUDE_USAGE_FILE), 'utf8');
-    for (const secret of ['acc-uuid-1', 'org-uuid-1', 'beom@', 'transcript', '/secret/path']) {
+    for (const secret of ['acc-uuid-1', 'org-uuid-1', 'transcript', '/secret/path']) {
       assert.equal(raw.includes(secret), false, `${secret} is not recorded`);
     }
     assert.equal(run.status, 3, 'the original exit code passes through');

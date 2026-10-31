@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import {
   decideAlerts,
   levelFor,
-  maskEmail,
   mergeReadings,
   toUsageView,
   type UsageReading,
@@ -54,7 +53,7 @@ test('FR-USAGE-004 AC-2/AC-5: a passed reset reads 0 and reset; an old reading i
   );
 });
 
-test('FR-USAGE-004 AC-4: the label is the nickname, else masked email and plan, else a short hash; hidden accounts are left out', () => {
+test('FR-USAGE-004 AC-4: the label is the nickname, else plan and email, else a short hash; hidden accounts are left out', () => {
   const view = toUsageView([
     // Different accounts have their own windows: resets apart would otherwise be one quota (see below).
     reading({ accountKey: 'k1', email: 'beom@hancomins.com', plan: 'pro', windows: { weekly: { usedPercent: 11, resetsAt: NOW + 100_000 } } }),
@@ -62,8 +61,8 @@ test('FR-USAGE-004 AC-4: the label is the nickname, else masked email and plan, 
     reading({ accountKey: 'k3', windows: { weekly: { usedPercent: 33, resetsAt: NOW + 300_000 } } }),
   ], { nicknames: { k3: '회사 팀' }, hidden: ['k2'] }, NOW);
   const labels = view.agents[0].accounts.map((a) => a.label);
-  assert.deepEqual(labels.sort(), ['Pro · b***@hancomins.com', '회사 팀'].sort());
-  assert.equal(maskEmail('beom@hancomins.com'), 'b***@hancomins.com');
+  // User decision 2026-10-31: the whole address, so the account can be told at a glance.
+  assert.deepEqual(labels.sort(), ['Pro · beom@hancomins.com', '회사 팀'].sort());
   const hashOnly = toUsageView([reading({ accountKey: 'abcdef1234567890', plan: null })], { nicknames: {}, hidden: [] }, NOW);
   assert.equal(hashOnly.agents[0].accounts[0].label, '#abcdef12');
 });

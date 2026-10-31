@@ -48,9 +48,8 @@ function account() {
   const oauth = file ? readJson(file)?.oauthAccount : null;
   if (!oauth || !oauth.accountUuid) return null;
   const key = createHash('sha256').update('claude\\u0000' + oauth.accountUuid + '\\u0000' + (oauth.organizationUuid || '')).digest('hex').slice(0, 16);
-  const email = typeof oauth.emailAddress === 'string' && oauth.emailAddress.includes('@')
-    ? oauth.emailAddress[0] + '***' + oauth.emailAddress.slice(oauth.emailAddress.indexOf('@'))
-    : null;
+  // The whole address, so the account can be told at a glance (user decision 2026-10-31).
+  const email = typeof oauth.emailAddress === 'string' && oauth.emailAddress.includes('@') ? oauth.emailAddress : null;
   return { key, email, plan: oauth.planDisplayName || oauth.organizationType || null };
 }
 

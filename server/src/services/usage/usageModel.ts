@@ -17,7 +17,6 @@ export interface UsageReading {
   agent: UsageAgent;
   /** A hash of the account identity; null when the record names no account. */
   accountKey: string | null;
-  /** Shown masked only. */
   email: string | null;
   plan: string | null;
   source: UsageSource;
@@ -67,12 +66,6 @@ export function levelFor(usedPercent: number): UsageLevel {
   const remaining = 100 - usedPercent;
   if (remaining >= PLENTY_REMAINING) return 'plenty';
   return remaining >= LOW_REMAINING ? 'low' : 'critical';
-}
-
-export function maskEmail(email: string): string {
-  const at = email.indexOf('@');
-  if (at <= 0) return '***';
-  return `${email[0]}***${email.slice(at)}`;
 }
 
 const groupKey = (reading: UsageReading) => `${reading.agent}\u0000${reading.accountKey ?? `?${reading.source}`}`;
@@ -127,7 +120,7 @@ export function labelFor(reading: UsageReading, prefs: UsageDisplayPrefs): strin
   const nickname = reading.accountKey ? prefs.nicknames[reading.accountKey]?.trim() : '';
   if (nickname) return nickname;
   const plan = reading.plan ? reading.plan.charAt(0).toUpperCase() + reading.plan.slice(1) : null;
-  const email = reading.email ? maskEmail(reading.email) : null;
+  const email = reading.email;
   if (plan || email) return [plan, email].filter(Boolean).join(' · ');
   return reading.accountKey ? `#${reading.accountKey.slice(0, 8)}` : '';
 }

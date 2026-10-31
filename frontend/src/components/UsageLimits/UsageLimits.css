@@ -37,7 +37,7 @@
 .usage-stale .usage-bar-fill { opacity: 0.45; }
 .usage-stale .usage-age { color: var(--warn); }
 .usage-account { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; border-left: 2px solid var(--line); }
-.usage-account-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--fg); text-overflow: ellipsis; white-space: nowrap; }
+.usage-account-name { color: var(--fg); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .usage-account-where { flex-shrink: 0; color: var(--fg-faint); white-space: nowrap; }
 .usage-unknown { color: var(--fg-faint); font-style: italic; }
 
