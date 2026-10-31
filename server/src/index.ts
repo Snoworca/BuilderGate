@@ -37,6 +37,10 @@ import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createLoopRoutes } from './routes/loopRoutes.js';
 import { LoopService, type LoopRuntimePort } from './services/loop/LoopService.js';
+import { createUsageLimitsRoutes } from './routes/usageLimitsRoutes.js';
+import { UsageLimitsService } from './services/usage/UsageLimitsService.js';
+import { createUsageSources } from './services/usage/usageSources.js';
+import { sendGoogleChat, sendTelegram } from './services/usage/usageNotifier.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
 import { createRecoveryOptionRoutes } from './routes/recoveryOptionRoutes.js';
 import { AgentAliasService } from './services/AgentAliasService.js';
@@ -213,6 +217,8 @@ let workspaceService: WorkspaceService;
 let sessionSnapshotService: SessionSnapshotService;
 /** FR-LOOP-001..005: Tools › Loop. */
 let loopService: LoopService;
+/** FR-USAGE-001..007: usage limits under the workspace list. */
+let usageLimitsService: UsageLimitsService;
 /** FR-AITUI-019: the auto save switch, interval and manual save retention in force. */
 let sessionSaveSettings: SessionSaveSettings = sessionSaveSettingsOf(config);
 let mcpListenerControllerInstance: StringRecord | null = null;
@@ -856,6 +862,7 @@ function setupRoutes(): void {
   const commandPresetRoutes = createCommandPresetRoutes(commandPresetService);
   app.use('/api/command-presets', authMiddleware, commandPresetRoutes);
   app.use('/api/loops', authMiddleware, createLoopRoutes(loopService));
+  app.use('/api/usage-limits', authMiddleware, createUsageLimitsRoutes(usageLimitsService));
   const terminalShortcutRoutes = createTerminalShortcutRoutes(terminalShortcutService);
   app.use('/api/terminal-shortcuts', authMiddleware, terminalShortcutRoutes);
   const recoveryOptionRoutes = createRecoveryOptionRoutes(recoveryOptionService, {
@@ -1423,6 +1430,18 @@ async function startServer(): Promise<void> {
     // FR-LOOP-004 AC-7: loaded before the session save, which leaves the loops' workspaces out.
     loopService = new LoopService({ runtime: createLoopRuntime() });
     await loopService.initialize();
+    // FR-USAGE-005: polls local usage files; FR-USAGE-006 AC-4: alert secrets go through the config cipher.
+    const usageSources = createUsageSources();
+    usageLimitsService = new UsageLimitsService({
+      machine: os.hostname(),
+      cipher: { encrypt: (plain) => cryptoService.encrypt(plain), decrypt: (stored) => cryptoService.decrypt(stored) },
+      readReadings: () => usageSources.readReadings(),
+      setClaudeCollection: (on) => usageSources.setClaudeCollection(on),
+      claudeCollectionStatus: () => usageSources.claudeCollectionStatus(),
+      sendGoogleChat: (config, text) => sendGoogleChat(config, text),
+      sendTelegram: (config, text) => sendTelegram(config, text),
+    });
+    await usageLimitsService.initialize();
     // FR-AITUI-007/008: load the saved sessions before orphan recovery so the
     // tabs waiting to be resumed come back as shells instead of auto-recovering.
     sessionSnapshotService = new SessionSnapshotService({

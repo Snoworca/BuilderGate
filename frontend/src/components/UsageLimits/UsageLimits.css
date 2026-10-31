@@ -1,0 +1,81 @@
+/* FR-USAGE-007: usage bars under the workspace list (docs/design/usage-limits.html). */
+.usage-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-2xs);
+}
+.usage-panel-head { display: flex; align-items: center; gap: 2px; margin-bottom: -2px; }
+.usage-panel-title { margin-right: auto; color: var(--fg-faint); font-weight: 600; letter-spacing: 0.04em; }
+.usage-icon-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-faint);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.usage-icon-btn:hover { background: var(--bg-hover); color: var(--fg); }
+.usage-spin { animation: usage-spin 0.8s linear infinite; }
+@keyframes usage-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .usage-spin { animation: none; } }
+
+.usage-agent { display: flex; flex-direction: column; gap: 5px; }
+.usage-agent-head,
+.usage-account-head { display: flex; align-items: baseline; gap: 6px; color: var(--fg-muted); }
+.usage-agent-name { color: var(--fg); font-weight: 600; }
+.usage-age { margin-left: auto; color: var(--fg-faint); }
+.usage-stale .usage-bar-fill { opacity: 0.45; }
+.usage-stale .usage-age,
+.usage-agent:has(> .usage-stale) .usage-age { color: var(--warn); }
+.usage-account { display: flex; flex-direction: column; gap: 4px; padding-left: 8px; border-left: 2px solid var(--line); }
+.usage-account-name { max-width: 130px; overflow: hidden; color: var(--fg); text-overflow: ellipsis; white-space: nowrap; }
+.usage-account-where { color: var(--fg-faint); }
+.usage-unknown { color: var(--fg-faint); font-style: italic; }
+
+.usage-win { display: grid; grid-template-columns: 30px 1fr; column-gap: 6px; row-gap: 2px; align-items: center; }
+.usage-win-label { grid-row: span 2; color: var(--fg-faint); }
+.usage-bar { height: 3px; overflow: hidden; border-radius: 2px; background: var(--line); }
+.usage-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background-color 0.3s; }
+.usage-plenty { background: var(--ok); }
+.usage-low { background: var(--warn); }
+.usage-critical { background: var(--danger); }
+.usage-win-text { display: flex; justify-content: space-between; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.usage-reset { color: var(--fg-faint); }
+.usage-off { color: var(--fg-faint); line-height: 1.5; }
+.usage-link { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; font: inherit; }
+
+/* settings form (dialog and settings page) */
+.usage-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; color: var(--fg); font-size: var(--fs-sm); overflow-y: auto; height: 100%; }
+.usage-section { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: var(--fg-muted); font-size: var(--fs-xs); }
+.usage-section::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.usage-help { margin: -4px 0 0; color: var(--fg-faint); font-size: var(--fs-xs); line-height: 1.5; }
+.usage-warn { margin: 0; color: var(--warn); font-size: var(--fs-xs); }
+.usage-error { color: var(--danger); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.usage-account-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; gap: 8px; align-items: center; font-size: var(--fs-xs); }
+.usage-account-who { color: var(--fg-muted); line-height: 1.4; }
+.usage-account-who b { color: var(--fg); }
+.usage-checks { display: flex; flex-wrap: wrap; gap: 14px; }
+.usage-check { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); }
+.usage-channel { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-app); }
+.usage-channel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.usage-secret { display: flex; gap: 6px; }
+.usage-secret .ui-input { flex: 1; min-width: 0; }
+.usage-test-result { padding: 6px 8px; border-radius: var(--r-sm); background: var(--bg-sunken); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
+.usage-test-result.ok { color: var(--ok); }
+.usage-test-result.fail { color: var(--danger); }
+.usage-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.usage-saved { margin-right: auto; color: var(--ok); font-size: var(--fs-xs); }
+
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
+  .usage-account-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .usage-account-row .ui-input { grid-column: 1 / -1; grid-row: 2; }
+}

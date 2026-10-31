@@ -9,6 +9,7 @@ import type { ShellInfo } from '../../types';
 import './Workspace.css';
 import { t } from '../../i18n/i18n.ts';
 import { APP_COMMIT, APP_VERSION, formatBuildLabel } from '../../utils/appVersion.ts';
+import { UsageLimitsPanel } from '../UsageLimits/UsageLimitsPanel';
 
 const BUILD_LABEL = formatBuildLabel(APP_VERSION, APP_COMMIT);
 
@@ -113,6 +114,9 @@ export function WorkspaceSidebar({
           </div>
         ))}
       </div>
+
+      {/* FR-USAGE-007: Claude and Codex usage limits, above the version line. */}
+      <UsageLimitsPanel />
 
       {/* FR-UIDS-012: which build this is, so an old dist left on a server shows. */}
       <div

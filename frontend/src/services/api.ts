@@ -3,6 +3,7 @@
  * Phase 7: Frontend Security - Auth API added
  */
 import type { LoopInput, LoopRun, LoopView } from '../components/Loop/loopTypes.ts';
+import type { UsageSendResult, UsageSettingsUpdate, UsageState } from '../components/UsageLimits/usageLimitsTypes.ts';
 import { loopRejectionMessage } from '../components/Loop/loopMessages.ts';
 
 import { waitForRefreshInFlight } from './refreshInFlight.ts';
@@ -1032,3 +1033,35 @@ async function parseLoopError(res: Response): Promise<Error> {
   const key = typeof reason === 'string' ? loopRejectionMessage(reason) : null;
   return key !== null ? new Error(t(key)) : parseError(res);
 }
+
+// FR-USAGE-005..007: usage limits under the workspace list.
+export const usageLimitsApi = {
+  get: async (): Promise<UsageState> => {
+    const res = await authFetch(`${API_BASE}/usage-limits`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+  refresh: async (): Promise<UsageState> => {
+    const res = await authFetch(`${API_BASE}/usage-limits/refresh`, { method: 'POST', headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+  saveSettings: async (update: Partial<Omit<UsageSettingsUpdate, 'alerts'>> & { alerts?: Partial<UsageSettingsUpdate['alerts']> }): Promise<UsageState> => {
+    const res = await authFetch(`${API_BASE}/usage-limits/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(update),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+  test: async (channel: 'googleChat' | 'telegram', values: { webhookUrl?: string; botToken?: string; chatId?: string }): Promise<UsageSendResult> => {
+    const res = await authFetch(`${API_BASE}/usage-limits/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ channel, values }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+};

@@ -74,6 +74,7 @@
     "./tests/unit/fileSearchController.test.ts",
     "./tests/unit/agentAliasModel.test.ts",
     "./tests/unit/loopModel.test.ts",
+    "./tests/unit/usageLimitsModel.test.ts",
     "./tests/unit/terminalSavedSelectionDivergence.test.ts",
     "./tests/unit/jsdomEnvironment.ts",
     "./tests/unit/terminalViewHarness.ts",

@@ -52,6 +52,7 @@ import { availableLanguages, readLanguagePreference, t, writeLanguagePreference 
 import type { MessageKey } from '../../i18n/i18n.ts';
 import { APP_VERSION } from '../../utils/appVersion.ts';
 import './SettingsPage.css';
+import { UsageLimitsForm } from '../UsageLimits/UsageLimitsForm';
 
 interface SecretDraft {
   currentPassword: string;
@@ -774,6 +775,11 @@ export function SettingsPage({ visible, onBack }: Props) {
                   onChange={(e) => handleFocusRatioChange(parseFloat(e.target.value) || FOCUS_RATIO_DEFAULT)}
                 />
               </SettingField>
+            </Card>
+
+            {/* FR-USAGE-007 AC-3: the same form the settings button in the workspace list opens. */}
+            <Card title={t('usage.dialog.title')} icon="info" description={t('usage.settings.description')}>
+              <UsageLimitsForm />
             </Card>
 
             <Card title={t('settings.redraw.title')} icon="refresh" description={t('settings.redraw.description')}>
