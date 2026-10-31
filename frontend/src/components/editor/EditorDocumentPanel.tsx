@@ -51,6 +51,7 @@ import { AtomicCodeMirrorEditor, CODE_BLOCK_LANGUAGES, doculightExtensions } fro
 import type { AtomicCodeMirrorEditorHandle } from '../../editor';
 import { analyzeText, encodeForSave, normalizeInsertedLineBreaks } from '../../editor/lineEndings.ts';
 import { resolveEditorMode } from '../../editor/editorMode.ts';
+import { resolveMarkdownLink } from './markdownLinkTarget.ts';
 import { CodeFileEditor } from './CodeFileEditor.tsx';
 import { ImageFileViewer, type ImageViewerNavigation } from './ImageFileViewer.tsx';
 import { imageNavigation, imageStepHandlers } from './imageSiblings.ts';
@@ -320,6 +321,8 @@ export interface EditorDocumentPanelProps {
   paneToggle?: EditorPaneToggle;
   /** An image tab moves to another image of its directory (FR-MDE-027). */
   onNavigateImage?: (toPath: string) => void;
+  /** A document link in this markdown file was clicked (FR-MDE-033 AC-5). */
+  onOpenLinkedFile?: (filePath: string) => void;
   /** FR-MDE-030: this mount is a read-again of an open tab, so the remembered view comes back. */
   reloaded?: boolean;
 }
@@ -345,6 +348,7 @@ export function EditorDocumentPanel({
   onRegisterHandle,
   paneToggle,
   onNavigateImage,
+  onOpenLinkedFile,
   reloaded = false,
 }: EditorDocumentPanelProps) {
   const editorHandleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
@@ -715,6 +719,16 @@ export function EditorDocumentPanel({
     return { index: place.index, count: place.count, ...imageStepHandlers(place, saveState.dirty, onNavigateImage) };
   }, [siblings, onNavigateImage, filePath, saveState.dirty]);
 
+  // @req FR-MDE-033 -- a web address opens in a new browser tab, a path in an editor tab.
+  const openLink = useCallback((url: string) => {
+    const target = resolveMarkdownLink(url, filePath);
+    if (target.kind === 'external') {
+      window.open(target.url, '_blank', 'noopener,noreferrer');
+    } else if (target.kind === 'document' && resolveEditorMode(target.filePath).kind !== 'none') {
+      onOpenLinkedFile?.(target.filePath);
+    }
+  }, [filePath, onOpenLinkedFile]);
+
   const codeEditor = view === 'code' ? (
     <CodeFileEditor
       key={shown ?? 'code'}
@@ -779,6 +793,7 @@ export function EditorDocumentPanel({
               codeLanguages={CODE_BLOCK_LANGUAGES}
               readOnly={access.readOnly}
               editorHandleRef={editorHandleRef}
+              onLinkClick={openLink}
             />
           )}
           {view === 'code' && !isHtml && codeEditor}

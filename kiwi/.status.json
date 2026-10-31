@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-31T18:21:03.645Z",
+  "generatedAt": "2026-10-31T18:47:36.161Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "857ebe7ba72f87499cb16b362a3c385fde5779e582dba575346cc71779175177",
+    "value": "dc4e46b75deda05ee43126191f9ba943265b0317506033137e0f25d92a66944c",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -38,9 +38,9 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "88631865ea8245e832868fbdef0be21e58865fe9a300f2ef0d620ee14f51fa32",
-        "size": 328164,
-        "mtimeMs": 1793470843072.612
+        "sha256": "8520628891d35d0bdab487d709de05bcb306db0417a4192bdd8139b68b3695c0",
+        "size": 331858,
+        "mtimeMs": 1793472425978.234
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
@@ -104,7 +104,7 @@
       "AITUI": 21,
       "BGSTAB": 37,
       "MCP": 14,
-      "MDE": 32,
+      "MDE": 33,
       "FEX": 33,
       "FOP": 8,
       "UIDS": 15,

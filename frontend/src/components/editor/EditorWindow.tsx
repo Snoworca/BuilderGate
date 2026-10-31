@@ -920,6 +920,7 @@ export function EditorWindow({
               paneToggle={paneToggle}
               onNavigateImage={onNavigateImage === undefined ? undefined : (toPath) => onNavigateImage(tab.filePath, toPath)}
               reloaded={(tab.revision ?? 0) > 0}
+              onOpenLinkedFile={(linkedPath) => onOpenFile(linkedPath, tab.tabId)}
             />
           ))}
         </div>
