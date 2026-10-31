@@ -157,7 +157,7 @@ export class UsageLimitsService {
       view: this.settings.showInSidebar ? toUsageView(this.readings, prefs, this.now()) : ({ agents: [] } satisfies UsageView),
       lastRefreshAt: this.lastRefreshAt,
       accounts: merged
-        .filter((reading) => reading.accountKey !== null)
+        .filter((reading) => reading.accountKey !== null && Object.keys(reading.windows).length > 0)
         .map((reading) => ({
           agent: reading.agent,
           accountKey: reading.accountKey!,

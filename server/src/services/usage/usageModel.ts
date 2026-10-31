@@ -82,9 +82,10 @@ const SAME_RESET_TOLERANCE_MS = 5000;
 
 /**
  * FR-USAGE-004 AC-1: one reading per agent account — the newest. Unknown accounts stay per source.
- * Two account keys that report the same quota (every window at the same use, resetting within
- * 5 s) are one bar: Codex was measured on 2026-10-31 writing two creator_account_id values whose
- * weekly limits matched to the second. The smallest key is kept so a nickname stays put.
+ * Two account keys that report the same quota (every window resetting within 5 s of the other's)
+ * are one bar: Codex was measured on 2026-10-31 writing two creator_account_id values whose weekly
+ * limits reset at the same second, read a moment apart at 50 % and 51 %. The smallest key is kept
+ * so a nickname stays put; the values are the newest.
  */
 export function mergeReadings(readings: readonly UsageReading[]): UsageReading[] {
   const newest = new Map<string, UsageReading>();
@@ -97,8 +98,8 @@ export function mergeReadings(readings: readonly UsageReading[]): UsageReading[]
   const ordered = [...newest.values()].sort((a, b) => (a.accountKey ?? '\uffff').localeCompare(b.accountKey ?? '\uffff'));
   for (const reading of ordered) {
     const twin = reading.accountKey === null ? undefined : kept.find((other) => other.accountKey !== null && sameQuota(other, reading));
-    if (twin) twin.observedAt = Math.max(twin.observedAt, reading.observedAt);
-    else kept.push({ ...reading });
+    if (!twin) kept.push({ ...reading });
+    else if (reading.observedAt > twin.observedAt) Object.assign(twin, { ...reading, accountKey: twin.accountKey });
   }
   return kept;
 }
@@ -110,7 +111,7 @@ function sameQuota(a: UsageReading, b: UsageReading): boolean {
   for (const kind of kinds) {
     const x = a.windows[kind];
     const y = b.windows[kind];
-    if (!x || !y || x.usedPercent !== y.usedPercent || x.resetsAt === null || y.resetsAt === null) return false;
+    if (!x || !y || x.resetsAt === null || y.resetsAt === null) return false;
     if (Math.abs(x.resetsAt - y.resetsAt) > SAME_RESET_TOLERANCE_MS) return false;
   }
   return true;
@@ -159,6 +160,8 @@ export function toUsageView(readings: readonly UsageReading[], prefs: UsageDispl
         }),
       }))
       .filter((account) => account.windows.length > 0)
+      // A record with no account whose windows have all reset says nothing any more.
+      .filter((account) => !(account.unknownAccount && account.windows.every((window) => window.reset)))
       .sort((a, b) => Number(a.unknownAccount) - Number(b.unknownAccount) || a.label.localeCompare(b.label));
     if (accounts.length > 0) agents.push({ agent, accounts });
   }

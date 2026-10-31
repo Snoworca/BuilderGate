@@ -74,6 +74,14 @@ export function buildSettingsUpdate(form: UsageSettingsForm, listedAccounts: rea
   };
 }
 
+/**
+ * FR-USAGE-004 AC-5: an agent with one account shows that account's age in its own head, so the
+ * stale mark goes on the agent; with several, each account row carries its own.
+ */
+export function agentClassName(accounts: ReadonlyArray<{ stale: boolean }>): string {
+  return accounts.length === 1 && accounts[0].stale ? 'usage-agent usage-stale' : 'usage-agent';
+}
+
 /** FR-USAGE-007 AC-2: time until a reset, rounded up to the minute. */
 export function durationParts(ms: number): { days: number; hours: number; minutes: number } {
   const minutes = Math.max(0, Math.ceil(ms / 60_000));

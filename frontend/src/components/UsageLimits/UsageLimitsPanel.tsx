@@ -4,7 +4,7 @@ import { WindowDialog } from '../dialog';
 import { Icon } from '../common/Icon';
 import { t } from '../../i18n/i18n.ts';
 import { usageLimitsApi } from '../../services/api.ts';
-import { durationParts } from './usageLimitsModel.ts';
+import { agentClassName, durationParts } from './usageLimitsModel.ts';
 import { AGENT_KEYS, SOURCE_KEYS, WINDOW_KEYS } from './usageLimitsMessages.ts';
 import type { UsageAccountView, UsageState, UsageWindowView } from './usageLimitsTypes.ts';
 import { USAGE_CHANGED_EVENT, UsageLimitsForm } from './UsageLimitsForm.tsx';
@@ -44,7 +44,7 @@ function WindowBar({ window, now }: { window: UsageWindowView; now: number }) {
 function AccountRows({ accounts, now }: { accounts: UsageAccountView[]; now: number }) {
   if (accounts.length === 1) {
     const [only] = accounts;
-    return <div className={only.stale ? 'usage-stale' : undefined}>{only.windows.map((w) => <WindowBar key={w.kind} window={w} now={now} />)}</div>;
+    return <>{only.windows.map((w) => <WindowBar key={w.kind} window={w} now={now} />)}</>;
   }
   return (
     <>
@@ -114,7 +114,7 @@ export function UsageLimitsPanel() {
         </div>
       )}
       {state.view.agents.map((group) => (
-        <div key={group.agent} className="usage-agent">
+        <div key={group.agent} className={agentClassName(group.accounts)}>
           <div className="usage-agent-head">
             <span className="usage-agent-name">{t(AGENT_KEYS[group.agent])}</span>
             {group.accounts.length === 1 && <span className="usage-age">{ageText(group.accounts[0].observedAt, now)}</span>}

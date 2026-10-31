@@ -225,3 +225,14 @@ test('FR-USAGE-005: a damaged settings file does not stop the server; defaults a
     h.done();
   }
 });
+
+test('FR-USAGE-004 AC-4: an account with no recorded window is not listed in settings either', async () => {
+  const h = harness(() => [codex(10), { ...codex(10), accountKey: 'k-empty', windows: {} }]);
+  try {
+    await h.service.initialize();
+    await h.service.refresh();
+    assert.deepEqual((await h.service.getState()).accounts.map((a) => a.accountKey), ['k1']);
+  } finally {
+    h.done();
+  }
+});

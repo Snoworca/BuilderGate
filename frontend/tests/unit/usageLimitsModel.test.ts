@@ -49,3 +49,12 @@ test('FR-USAGE-004 AC-4: nicknames and hidden flags go out per listed account, s
   assert.deepEqual(update.nicknames, { k1: '회사 팀', k2: '' });
   assert.deepEqual(update.hidden, { k1: false, k2: true });
 });
+
+test('FR-USAGE-004 AC-5: the stale colour belongs to the account that is stale, not to its whole agent block', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { agentClassName } = await import('../../src/components/UsageLimits/usageLimitsModel.ts');
+  assert.equal(agentClassName([{ stale: true }]), 'usage-agent usage-stale', 'one account: its age sits in the agent head');
+  assert.equal(agentClassName([{ stale: false }, { stale: true }]), 'usage-agent', 'several: each account row carries its own');
+  const css = readFileSync(new URL('../../src/components/UsageLimits/UsageLimits.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(css, /:has\(/u);
+});

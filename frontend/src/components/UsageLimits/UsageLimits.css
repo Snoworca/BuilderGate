@@ -34,8 +34,7 @@
 .usage-agent-name { color: var(--fg); font-weight: 600; }
 .usage-age { margin-left: auto; color: var(--fg-faint); }
 .usage-stale .usage-bar-fill { opacity: 0.45; }
-.usage-stale .usage-age,
-.usage-agent:has(> .usage-stale) .usage-age { color: var(--warn); }
+.usage-stale .usage-age { color: var(--warn); }
 .usage-account { display: flex; flex-direction: column; gap: 4px; padding-left: 8px; border-left: 2px solid var(--line); }
 .usage-account-name { max-width: 130px; overflow: hidden; color: var(--fg); text-overflow: ellipsis; white-space: nowrap; }
 .usage-account-where { color: var(--fg-faint); }

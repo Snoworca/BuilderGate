@@ -56,10 +56,10 @@ test('FR-USAGE-004 AC-2/AC-5: a passed reset reads 0 and reset; an old reading i
 
 test('FR-USAGE-004 AC-4: the label is the nickname, else masked email and plan, else a short hash; hidden accounts are left out', () => {
   const view = toUsageView([
-    // Different use per account: equal values with equal resets would be one quota (see below).
-    reading({ accountKey: 'k1', email: 'beom@hancomins.com', plan: 'pro', windows: { weekly: { usedPercent: 11, resetsAt: NOW + 1 } } }),
-    reading({ accountKey: 'k2', email: null, plan: null, windows: { weekly: { usedPercent: 22, resetsAt: NOW + 1 } } }),
-    reading({ accountKey: 'k3', windows: { weekly: { usedPercent: 33, resetsAt: NOW + 1 } } }),
+    // Different accounts have their own windows: resets apart would otherwise be one quota (see below).
+    reading({ accountKey: 'k1', email: 'beom@hancomins.com', plan: 'pro', windows: { weekly: { usedPercent: 11, resetsAt: NOW + 100_000 } } }),
+    reading({ accountKey: 'k2', email: null, plan: null, windows: { weekly: { usedPercent: 22, resetsAt: NOW + 200_000 } } }),
+    reading({ accountKey: 'k3', windows: { weekly: { usedPercent: 33, resetsAt: NOW + 300_000 } } }),
   ], { nicknames: { k3: '회사 팀' }, hidden: ['k2'] }, NOW);
   const labels = view.agents[0].accounts.map((a) => a.label);
   assert.deepEqual(labels.sort(), ['Pro · b***@hancomins.com', '회사 팀'].sort());
@@ -123,4 +123,23 @@ test('FR-USAGE-006: a hidden account does not alert, but its value is still reme
   const decision = decideAlerts([r], {}, { ...settings, hidden: ['hide-me'] }, NOW);
   assert.equal(decision.alerts.length, 0);
   assert.equal(Object.keys(decision.lastUsed).length, 1);
+});
+
+test('FR-USAGE-004 AC-1: two keys on one quota merge even when read a moment apart at slightly different use', () => {
+  const merged = mergeReadings([
+    reading({ accountKey: 'k-b', observedAt: NOW - 1000, windows: { weekly: { usedPercent: 51, resetsAt: NOW + 86_400_000 } } }),
+    reading({ accountKey: 'k-a', observedAt: NOW - 9000, windows: { weekly: { usedPercent: 50, resetsAt: NOW + 86_400_000 + 2000 } } }),
+  ]);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].accountKey, 'k-a', 'the smallest key stays');
+  assert.equal(merged[0].windows.weekly?.usedPercent, 51, 'with the newest values');
+  assert.equal(merged[0].observedAt, NOW - 1000);
+});
+
+test('FR-USAGE-004: an unknown-account record whose every window has reset shows nothing', () => {
+  const view = toUsageView([
+    reading({ accountKey: null, observedAt: NOW - 8 * 86_400_000, windows: { weekly: { usedPercent: 100, resetsAt: NOW - 1000 } } }),
+    reading({ accountKey: 'known', observedAt: NOW - 8 * 86_400_000, windows: { weekly: { usedPercent: 100, resetsAt: NOW - 1000 } } }),
+  ], { nicknames: {}, hidden: [] }, NOW);
+  assert.deepEqual(view.agents[0].accounts.map((a) => a.accountKey), ['known'], 'a known account still shows its reset');
 });

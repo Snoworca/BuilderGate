@@ -61,7 +61,8 @@ test('FR-USAGE-001 AC-1/AC-3/AC-4: the newest rollout per account gives its last
       tokenCount('2026-10-31T08:30:00.000Z', { used_percent: 41, window_minutes: 10080, resets_at: 1793776651 }),
       JSON.stringify({ timestamp: '2026-10-31T08:31:00.000Z', type: 'response_item', payload: {} }),
     ], NOW - 3_600_000);
-    h.write('rollout-b.jsonl', [meta('acct-2'), tokenCount('2026-10-31T07:00:00.000Z', { used_percent: 70, window_minutes: 10080, resets_at: 1793776651 })], NOW - 2 * 3_600_000);
+    // A different account: its own weekly window, so a different reset time.
+    h.write('rollout-b.jsonl', [meta('acct-2'), tokenCount('2026-10-31T07:00:00.000Z', { used_percent: 70, window_minutes: 10080, resets_at: 1793900000 })], NOW - 2 * 3_600_000);
     h.write('rollout-old-cli.jsonl', [meta(), tokenCount('2026-10-31T05:00:00.000Z', { used_percent: 3, window_minutes: 10080, resets_at: 1793776651 })], NOW - 4 * 3_600_000);
     h.write('rollout-no-limits.jsonl', [meta('acct-3')], NOW - 60_000);
     const reader = createCodexUsageReader({ now: () => NOW });
