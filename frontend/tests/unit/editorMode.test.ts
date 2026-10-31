@@ -240,3 +240,123 @@ test('resolveEditorMode("a.exe") / ("noext") → none', async () => {
   assert.deepEqual(resolveEditorMode('a.exe'), NONE);
   assert.deepEqual(resolveEditorMode('noext'), NONE);
 });
+
+// ---------------------------------------------------------------------------
+// FR-MDE-013 AC-10 (#215): server templates, languages that have a grammar in
+// @codemirror/legacy-modes or the vendored list, text formats with no grammar,
+// and names with no extension. Test data, copied from the AC.
+// ---------------------------------------------------------------------------
+const AC10_LANGUAGE_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
+  html: ['jsp', 'jspf', 'asp', 'aspx', 'ascx', 'cshtml', 'razor', 'erb', 'ejs', 'hbs', 'handlebars',
+    'mustache', 'njk', 'twig', 'liquid', 'vm', 'astro'],
+  xml: ['jspx', 'tld', 'wsdl', 'resx', 'iml', 'fxml', 'nuspec', 'vcxproj', 'vbproj', 'fsproj'],
+  ruby: ['rb', 'rake', 'gemspec', 'ru'],
+  swift: ['swift'],
+  lua: ['lua'],
+  perl: ['pm'],
+  groovy: ['groovy', 'gradle', 'gvy'],
+  r: ['r'],
+  haskell: ['hs'],
+  erlang: ['erl', 'hrl'],
+  clojure: ['clj', 'cljs', 'cljc', 'edn'],
+  julia: ['jl'],
+  ocaml: ['ml', 'mli'],
+  fsharp: ['fsi', 'fsx'],
+  vb: ['vb'],
+  vbscript: ['vbs'],
+  tcl: ['tcl'],
+  coffeescript: ['coffee'],
+  pascal: ['pas'],
+  fortran: ['f90', 'f95'],
+  protobuf: ['proto'],
+  tex: ['tex', 'sty'],
+  verilog: ['sv', 'svh'],
+  vhdl: ['vhd', 'vhdl'],
+  elm: ['elm'],
+  crystal: ['cr'],
+  haxe: ['hx'],
+  pug: ['pug', 'jade'],
+  gherkin: ['feature'],
+  http: ['http'],
+  jinja2: ['j2', 'jinja', 'jinja2'],
+  nsis: ['nsi', 'nsh'],
+  sparql: ['rq', 'sparql'],
+  turtle: ['ttl'],
+  dockerfile: ['dockerfile'],
+  sas: ['sas'],
+  python: ['bzl', 'bazel'],
+  cpp: ['ipp', 'inl'],
+  csharp: ['csx'],
+  scala: ['sbt'],
+  json: ['geojson', 'jsonld', 'ipynb', 'code-workspace'],
+  properties: ['cnf', 'desktop', 'service', 'socket', 'timer', 'reg', 'inf'],
+  shell: ['fish'],
+};
+
+const AC10_TEXT_EXTENSIONS = ['tf', 'tfvars', 'hcl', 'graphql', 'gql', 'prisma', 'rst', 'adoc', 'asciidoc',
+  'org', 'bib', 'srt', 'vtt', 'sln', 'nix', 'zig', 'ex', 'exs', 'sum', 'tpl', 'tmpl', 'text',
+  // Ambiguous: .v Verilog/Coq, .pl Perl/Prolog, .pp Puppet/Pascal, .fs F#/GLSL,
+  // .ftl FreeMarker/Fluent, .asm GAS/NASM. A wrong grammar is worse than none.
+  'v', 'pl', 'pp', 'fs', 'ftl', 'asm'] as const;
+
+const AC10_FILE_NAMES: Readonly<Record<string, string | null>> = {
+  'go.mod': null,
+  'go.sum': null,
+  'go.work': null,
+  Pipfile: 'toml',
+  Podfile: 'ruby',
+  Brewfile: 'ruby',
+  'BUILD.bazel': 'python',
+  CODEOWNERS: null,
+  '.gitkeep': null,
+  '.clang-format': 'yaml',
+  '.tool-versions': null,
+  '.python-version': null,
+  '.node-version': null,
+};
+
+test('FR-MDE-013 AC-10: jsp 등 서버 템플릿과 문법이 있는 언어는 그 언어의 code 모드', async () => {
+  const resolveEditorMode = await loadEditorMode();
+  for (const [language, exts] of Object.entries(AC10_LANGUAGE_EXTENSIONS)) {
+    for (const ext of exts) {
+      assert.deepEqual(resolveEditorMode(`file.${ext}`), code(language), `file.${ext}`);
+    }
+  }
+});
+
+test('FR-MDE-013 AC-10: 문법이 없는 텍스트 형식은 language=null code 모드', async () => {
+  const resolveEditorMode = await loadEditorMode();
+  for (const ext of AC10_TEXT_EXTENSIONS) {
+    assert.deepEqual(resolveEditorMode(`file.${ext}`), code(null), `file.${ext}`);
+  }
+});
+
+test('FR-MDE-013 AC-10: 확장자 없는 이름(go.mod·Pipfile·BUILD 등)도 이름 표로 연다', async () => {
+  const resolveEditorMode = await loadEditorMode();
+  for (const [name, language] of Object.entries(AC10_FILE_NAMES)) {
+    assert.deepEqual(resolveEditorMode(name), code(language), name);
+  }
+});
+
+test('FR-MDE-013 AC-10: 흔한 이름 build·workspace 와 비밀이 많은 .har 는 열지 않고, 새 이름도 대소문자를 무시한다', async () => {
+  const resolveEditorMode = await loadEditorMode();
+  assert.deepEqual(resolveEditorMode('build'), NONE);
+  assert.deepEqual(resolveEditorMode('WORKSPACE'), NONE);
+  assert.deepEqual(resolveEditorMode('session.har'), NONE);
+  assert.deepEqual(resolveEditorMode('Dockerfile.dev'), NONE);
+  assert.deepEqual(resolveEditorMode('PODFILE'), code('ruby'));
+  assert.deepEqual(resolveEditorMode('go.MOD'), code(null));
+  assert.deepEqual(resolveEditorMode('INDEX.JSP'), code('html'));
+});
+
+test('FR-MDE-013 AC-10: 판정표의 모든 언어 id 에 languages.ts 의 문법 로더가 있다', async () => {
+  // languages.ts pulls an extensionless import chain, so it cannot load under
+  // strip-types; its two tables are read as source. An id with no loader would
+  // open as plain text without any error.
+  const { EDITOR_LANGUAGE_IDS } = await import('../../src/editor/editorMode.ts');
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../../src/editor/languages.ts', import.meta.url), 'utf8');
+  const keys = new Set([...source.matchAll(/^  ([a-z0-9]+): /gm)].map((m) => m[1]));
+  const missing = EDITOR_LANGUAGE_IDS.filter((id) => !keys.has(id));
+  assert.deepEqual(missing, [], `language ids with no loader: ${missing.join(', ')}`);
+});
