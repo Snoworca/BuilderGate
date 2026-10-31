@@ -58,3 +58,20 @@ test('FR-USAGE-004 AC-5: the stale colour belongs to the account that is stale, 
   const css = readFileSync(new URL('../../src/components/UsageLimits/UsageLimits.css', import.meta.url), 'utf8');
   assert.doesNotMatch(css, /:has\(/u);
 });
+
+test('FR-USAGE-007 AC-6: logged-out accounts are hidden unless asked for, and an agent left empty goes too', async () => {
+  const { visibleAgents, hasLoggedOut } = await import('../../src/components/UsageLimits/usageLimitsModel.ts');
+  const account = (accountKey: string, loggedOut: boolean) => ({
+    accountKey, unknownAccount: false, label: accountKey, source: 'windows' as const, observedAt: 0, stale: false, loggedOut, windows: [],
+  });
+  const view = {
+    agents: [
+      { agent: 'claude' as const, accounts: [account('new', false), account('old', true)] },
+      { agent: 'codex' as const, accounts: [account('gone', true)] },
+    ],
+  };
+  assert.equal(hasLoggedOut(view), true);
+  assert.deepEqual(visibleAgents(view, false).map((g) => [g.agent, g.accounts.map((a) => a.accountKey)]), [['claude', ['new']]]);
+  assert.deepEqual(visibleAgents(view, true).map((g) => [g.agent, g.accounts.map((a) => a.accountKey)]), [['claude', ['new', 'old']], ['codex', ['gone']]]);
+  assert.equal(hasLoggedOut({ agents: [{ agent: 'claude', accounts: [account('new', false)] }] }), false);
+});

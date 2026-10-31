@@ -40,6 +40,9 @@
 .usage-account-name { color: var(--fg); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .usage-account-where { flex-shrink: 0; color: var(--fg-faint); white-space: nowrap; }
 .usage-unknown { color: var(--fg-faint); font-style: italic; }
+/* FR-USAGE-007 AC-6: an account this machine is no longer logged in to. */
+.usage-logged-out { opacity: 0.55; }
+.usage-icon-btn.usage-on { color: var(--accent); }
 
 .usage-win { display: grid; grid-template-columns: 36px 1fr; column-gap: 8px; row-gap: 3px; align-items: center; }
 .usage-win-label { grid-row: span 2; color: var(--fg-faint); }

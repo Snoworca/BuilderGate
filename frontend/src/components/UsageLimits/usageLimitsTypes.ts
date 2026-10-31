@@ -21,6 +21,8 @@ export interface UsageAccountView {
   source: UsageSource;
   observedAt: number;
   stale: boolean;
+  /** FR-USAGE-002 AC-5: the folder it was read from is logged in to another account now. */
+  loggedOut: boolean;
   windows: UsageWindowView[];
 }
 

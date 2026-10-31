@@ -4,13 +4,31 @@ import { WindowDialog } from '../dialog';
 import { Icon } from '../common/Icon';
 import { t } from '../../i18n/i18n.ts';
 import { usageLimitsApi } from '../../services/api.ts';
-import { agentClassName, durationParts } from './usageLimitsModel.ts';
+import { agentClassName, durationParts, hasLoggedOut, visibleAgents } from './usageLimitsModel.ts';
 import { AGENT_KEYS, SOURCE_KEYS, WINDOW_KEYS } from './usageLimitsMessages.ts';
 import type { UsageAccountView, UsageState, UsageWindowView } from './usageLimitsTypes.ts';
 import { USAGE_CHANGED_EVENT, UsageLimitsForm } from './UsageLimitsForm.tsx';
 import './UsageLimits.css';
 
 const DEFAULT_POLL_MS = 60_000;
+/** FR-USAGE-007 AC-6: a per-browser convenience; without storage the toggle starts off. */
+const SHOW_LOGGED_OUT_KEY = 'buildergate.usage.showLoggedOut';
+
+function readShowLoggedOut(): boolean {
+  try {
+    return window.localStorage.getItem(SHOW_LOGGED_OUT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeShowLoggedOut(value: boolean): void {
+  try {
+    window.localStorage.setItem(SHOW_LOGGED_OUT_KEY, value ? '1' : '0');
+  } catch {
+    // storage blocked: the toggle still works for this page
+  }
+}
 
 function resetText(window: UsageWindowView, now: number): string {
   if (window.reset) return t('usage.reset.done');
@@ -49,11 +67,11 @@ function AccountRows({ accounts, now }: { accounts: UsageAccountView[]; now: num
   return (
     <>
       {accounts.map((account) => (
-        <div key={account.accountKey ?? `?${account.source}`} className={`usage-account${account.stale ? ' usage-stale' : ''}`}>
+        <div key={account.accountKey ?? `?${account.source}`} className={`usage-account${account.stale ? ' usage-stale' : ''}${account.loggedOut ? ' usage-logged-out' : ''}`}>
           {/* The name has a line of its own so a full address is not cut off. */}
           <div className={`usage-account-name${account.unknownAccount ? ' usage-unknown' : ''}`} title={account.label}>{account.unknownAccount ? t('usage.account.unknown') : account.label}</div>
           <div className="usage-account-head">
-            <span className="usage-account-where">{t(SOURCE_KEYS[account.source])}</span>
+            <span className="usage-account-where">{t(SOURCE_KEYS[account.source])}{account.loggedOut ? ` · ${t('usage.account.loggedOut')}` : ''}</span>
             <span className="usage-age">{ageText(account.observedAt, now)}</span>
           </div>
           {account.windows.map((w) => <WindowBar key={w.kind} window={w} now={now} />)}
@@ -68,6 +86,8 @@ export function UsageLimitsPanel() {
   const [spinning, setSpinning] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [showLoggedOut, setShowLoggedOut] = useState(readShowLoggedOut);
+  const toggleLoggedOut = () => setShowLoggedOut((value) => { writeShowLoggedOut(!value); return !value; });
 
   const load = useCallback(() => {
     usageLimitsApi.get().then((next) => { setState(next); setNow(Date.now()); }).catch(() => { /* keep the last view */ });
@@ -98,13 +118,20 @@ export function UsageLimitsPanel() {
 
   if (!state || !state.settings.showInSidebar) return null;
   const claudeOff = !state.settings.claudeCollection;
-  const hasClaude = state.view.agents.some((agent) => agent.agent === 'claude');
-  if (state.view.agents.length === 0 && !claudeOff) return null;
+  const agents = visibleAgents(state.view, showLoggedOut);
+  const anyLoggedOut = hasLoggedOut(state.view);
+  const hasClaude = agents.some((agent) => agent.agent === 'claude');
+  if (agents.length === 0 && !claudeOff && !anyLoggedOut) return null;
 
   return (
     <div className="usage-panel" data-testid="usage-limits-panel">
       <div className="usage-panel-head">
         <span className="usage-panel-title">{t('usage.panel.title')}</span>
+        {anyLoggedOut && (
+          <button type="button" className={`usage-icon-btn${showLoggedOut ? ' usage-on' : ''}`} aria-pressed={showLoggedOut}
+            title={t('usage.panel.showLoggedOut')} aria-label={t('usage.panel.showLoggedOut')}
+            onClick={toggleLoggedOut}><Icon name="archive" size={15} /></button>
+        )}
         <button type="button" className={`usage-icon-btn${spinning ? ' usage-spin' : ''}`} title={t('usage.panel.refresh')} aria-label={t('usage.panel.refresh')} onClick={refresh}><Icon name="refresh" size={15} /></button>
         <button type="button" className="usage-icon-btn" title={t('usage.panel.settings')} aria-label={t('usage.panel.settings')} onClick={() => setSettingsOpen(true)}><Icon name="settings" size={15} /></button>
       </div>
@@ -114,7 +141,8 @@ export function UsageLimitsPanel() {
           <div className="usage-off">{t('usage.panel.claudeOff')} <button type="button" className="usage-link" onClick={() => setSettingsOpen(true)}>{t('usage.panel.turnOn')}</button></div>
         </div>
       )}
-      {state.view.agents.map((group) => (
+      {agents.length === 0 && !claudeOff && <div className="usage-off">{t('usage.panel.onlyLoggedOut')}</div>}
+      {agents.map((group) => (
         <div key={group.agent} className={agentClassName(group.accounts)}>
           <div className="usage-agent-head">
             <span className="usage-agent-name">{t(AGENT_KEYS[group.agent])}</span>

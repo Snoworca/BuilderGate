@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -223,6 +224,57 @@ test('FR-USAGE-002 AC-4: without git on PATH the relay still finds Git Bash at i
     const env: Record<string, string> = { CLAUDE_CONFIG_DIR: c.dir, PATH: path.dirname(process.execPath), SystemRoot: process.env.SystemRoot ?? 'C:\\Windows' };
     const run = spawnSync(process.execPath, [path.join(c.dir, CLAUDE_RELAY_FILE)], { input: statusInput, encoding: 'utf8', env, timeout: 20_000 });
     assert.equal(run.stdout.trim(), 'HUD:4');
+  } finally {
+    c.done();
+  }
+});
+
+// FR-USAGE-002 AC-5 (#217): the account logged in now is read from the folder's .claude.json.
+const keyOf = (accountUuid: string, organizationUuid: string) =>
+  createHash('sha256').update(`claude\u0000${accountUuid}\u0000${organizationUuid}`).digest('hex').slice(0, 16);
+
+function usageRecord(keys: string[]) {
+  const window = { used_percentage: 10, resets_at: 1793776651 };
+  return JSON.stringify({
+    version: 1,
+    accounts: Object.fromEntries(keys.map((key) => [key, { email: `${key}@x`, plan: 'Max', observedAt: '2026-10-31T08:59:00.000Z', five_hour: null, seven_day: window }])),
+  });
+}
+
+test('FR-USAGE-002 AC-5: records of an account other than the one logged in are marked logged out', async () => {
+  const c = configDir();
+  try {
+    const current = keyOf('acc-uuid-1', 'org-uuid-1');
+    writeFileSync(path.join(c.dir, CLAUDE_USAGE_FILE), usageRecord([current, '0123456789abcdef']));
+    const readings = await readClaudeUsage([{ configDir: c.dir, source: 'windows' }]);
+    assert.equal(readings.find((r) => r.accountKey === current)?.loggedOut, false);
+    assert.equal(readings.find((r) => r.accountKey === '0123456789abcdef')?.loggedOut, true);
+  } finally {
+    c.done();
+  }
+});
+
+test('FR-USAGE-002 AC-5: a default .claude folder reads the login from .claude.json beside it', async () => {
+  const home = mkdtempSync(path.join(os.tmpdir(), 'bg-claude-home-'));
+  try {
+    const dir = path.join(home, '.claude');
+    mkdirSync(dir);
+    writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ oauthAccount: { accountUuid: 'new-acc', organizationUuid: 'new-org' } }));
+    const current = keyOf('new-acc', 'new-org');
+    writeFileSync(path.join(dir, CLAUDE_USAGE_FILE), usageRecord(['fedcba9876543210', current]));
+    const readings = await readClaudeUsage([{ configDir: dir, source: 'windows' }]);
+    assert.deepEqual(readings.map((r) => [r.accountKey, r.loggedOut]).sort(), [[current, false], ['fedcba9876543210', true]].sort());
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('FR-USAGE-002 AC-5: when the login cannot be read nothing is marked logged out', async () => {
+  const c = configDir(false);
+  try {
+    writeFileSync(path.join(c.dir, CLAUDE_USAGE_FILE), usageRecord(['0123456789abcdef', 'fedcba9876543210']));
+    const readings = await readClaudeUsage([{ configDir: c.dir, source: 'windows' }]);
+    assert.deepEqual(readings.map((r) => r.loggedOut), [false, false]);
   } finally {
     c.done();
   }

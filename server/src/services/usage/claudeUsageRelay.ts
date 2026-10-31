@@ -4,6 +4,7 @@
 //
 // The relay is a standalone script Claude Code runs; its source lives here, in one place, and is
 // written into each Claude config folder when collection is turned on.
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { UsageReading, UsageSource, UsageWindowKind, UsageWindowReading } from './usageModel.js';
@@ -129,6 +130,7 @@ export async function readClaudeUsage(dirs: readonly ClaudeConfigRef[]): Promise
   const readings: UsageReading[] = [];
   for (const ref of dirs) {
     const data = await readJsonFile(path.join(ref.configDir, CLAUDE_USAGE_FILE));
+    const current = await loggedInKey(ref.configDir);
     const accounts = asRecord(asRecord(data)?.accounts);
     if (!accounts) continue;
     for (const [key, value] of Object.entries(accounts)) {
@@ -148,10 +150,38 @@ export async function readClaudeUsage(dirs: readonly ClaudeConfigRef[]): Promise
         source: ref.source,
         observedAt,
         windows,
+        loggedOut: current !== null && key !== current,
       });
     }
   }
   return readings;
+}
+
+/**
+ * FR-USAGE-002 AC-5: the key of the account the folder is logged in to now, hashed as the relay
+ * does. Claude Code keeps .claude.json in a custom config folder, or beside the default ~/.claude.
+ */
+async function loggedInKey(configDir: string): Promise<string | null> {
+  const candidates = [path.join(configDir, '.claude.json')];
+  if (path.basename(configDir) === '.claude') candidates.push(path.join(path.dirname(configDir), '.claude.json'));
+  for (const file of candidates) {
+    const text = await fs.readFile(file, 'utf8').catch(() => null);
+    if (text === null) continue;
+    const oauth = asRecord(asRecord(parseJson(text))?.oauthAccount);
+    // The relay's own test, so both sides agree on every odd value.
+    if (!oauth?.accountUuid) return null;
+    return createHash('sha256').update(`claude\u0000${String(oauth.accountUuid)}\u0000${String(oauth.organizationUuid || '')}`).digest('hex').slice(0, 16);
+  }
+  return null;
+}
+
+/** A damaged .claude.json says nothing about the login; it is not an error of the usage read. */
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 export interface InstallOptions {

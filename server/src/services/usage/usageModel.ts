@@ -23,6 +23,8 @@ export interface UsageReading {
   /** Epoch ms of the record. */
   observedAt: number;
   windows: Partial<Record<UsageWindowKind, UsageWindowReading>>;
+  /** FR-USAGE-002 AC-5: the folder it was read from is logged in to another account now. */
+  loggedOut?: boolean;
 }
 
 export interface UsageDisplayPrefs {
@@ -47,6 +49,8 @@ export interface UsageAccountView {
   source: UsageSource;
   observedAt: number;
   stale: boolean;
+  /** FR-USAGE-007 AC-6: shown only when the viewer asks for logged-out accounts. */
+  loggedOut: boolean;
   windows: UsageWindowView[];
 }
 
@@ -87,6 +91,9 @@ export function mergeReadings(readings: readonly UsageReading[]): UsageReading[]
     const current = newest.get(key);
     if (!current || reading.observedAt > current.observedAt) newest.set(key, reading);
   }
+  // An account logged in from any folder is logged in, whichever folder read it last.
+  const loggedIn = new Set(readings.filter((reading) => !reading.loggedOut).map(groupKey));
+  for (const [key, reading] of newest) newest.set(key, { ...reading, loggedOut: !loggedIn.has(key) });
   const kept: UsageReading[] = [];
   const ordered = [...newest.values()].sort((a, b) => (a.accountKey ?? '\uffff').localeCompare(b.accountKey ?? '\uffff'));
   for (const reading of ordered) {
@@ -99,6 +106,8 @@ export function mergeReadings(readings: readonly UsageReading[]): UsageReading[]
 
 function sameQuota(a: UsageReading, b: UsageReading): boolean {
   if (a.agent !== b.agent) return false;
+  // A logged-out account and the one logged in now are two accounts, whatever their resets say.
+  if (a.loggedOut !== b.loggedOut) return false;
   const kinds = new Set([...Object.keys(a.windows), ...Object.keys(b.windows)]) as Set<UsageWindowKind>;
   if (kinds.size === 0) return false;
   for (const kind of kinds) {
@@ -138,6 +147,7 @@ export function toUsageView(readings: readonly UsageReading[], prefs: UsageDispl
         source: reading.source,
         observedAt: reading.observedAt,
         stale: now - reading.observedAt > STALE_AFTER_MS,
+        loggedOut: reading.loggedOut === true,
         windows: WINDOW_ORDER.flatMap((kind) => {
           const window = reading.windows[kind];
           if (!window) return [];
@@ -155,7 +165,7 @@ export function toUsageView(readings: readonly UsageReading[], prefs: UsageDispl
       .filter((account) => account.windows.length > 0)
       // A record with no account whose windows have all reset says nothing any more.
       .filter((account) => !(account.unknownAccount && account.windows.every((window) => window.reset)))
-      .sort((a, b) => Number(a.unknownAccount) - Number(b.unknownAccount) || a.label.localeCompare(b.label));
+      .sort((a, b) => Number(a.loggedOut) - Number(b.loggedOut) || Number(a.unknownAccount) - Number(b.unknownAccount) || a.label.localeCompare(b.label));
     if (accounts.length > 0) agents.push({ agent, accounts });
   }
   return { agents };
@@ -206,6 +216,7 @@ export function decideAlerts(
       next[key] = usedPercent;
       if (!settings.agents.includes(reading.agent) || !settings.windows.includes(kind)) continue;
       if (reading.accountKey && settings.hidden?.includes(reading.accountKey)) continue;
+      if (reading.loggedOut) continue;
       const remainingPercent = 100 - usedPercent;
       if (remainingPercent >= settings.thresholdPercent) continue;
       if (previous === usedPercent) continue;

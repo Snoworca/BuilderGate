@@ -1,6 +1,8 @@
 // FR-USAGE-005..007: the usage settings form and countdown, apart from React so they can be tested.
 import type { UsageAgent, UsageSettingsUpdate, UsageState, UsageWindowKind } from './usageLimitsTypes.ts';
 
+type UsageView = UsageState['view'];
+
 export const REFRESH_SECONDS_MIN = 15;
 export const REFRESH_SECONDS_MAX = 3600;
 
@@ -80,6 +82,18 @@ export function buildSettingsUpdate(form: UsageSettingsForm, listedAccounts: rea
  */
 export function agentClassName(accounts: ReadonlyArray<{ stale: boolean }>): string {
   return accounts.length === 1 && accounts[0].stale ? 'usage-agent usage-stale' : 'usage-agent';
+}
+
+/** FR-USAGE-007 AC-6: whether the toggle for logged-out accounts has anything to show. */
+export function hasLoggedOut(view: UsageView): boolean {
+  return view.agents.some((group) => group.accounts.some((account) => account.loggedOut));
+}
+
+/** FR-USAGE-007 AC-6: logged-out accounts only when asked for; an agent left with none is dropped. */
+export function visibleAgents(view: UsageView, showLoggedOut: boolean): UsageView['agents'] {
+  return view.agents
+    .map((group) => ({ ...group, accounts: group.accounts.filter((account) => showLoggedOut || !account.loggedOut) }))
+    .filter((group) => group.accounts.length > 0);
 }
 
 /** FR-USAGE-007 AC-2: time until a reset, rounded up to the minute. */

@@ -142,3 +142,20 @@ test('FR-USAGE-004: an unknown-account record whose every window has reset shows
   ], { nicknames: {}, hidden: [] }, NOW);
   assert.deepEqual(view.agents[0].accounts.map((a) => a.accountKey), ['known'], 'a known account still shows its reset');
 });
+
+test('FR-USAGE-002 AC-5 / FR-USAGE-007 AC-6: a logged-out account is reported as such, after the logged-in ones', () => {
+  const view = toUsageView([
+    reading({ agent: 'claude', accountKey: 'old', email: 'a@x', loggedOut: true }),
+    reading({ agent: 'claude', accountKey: 'new', email: 'b@x', loggedOut: false }),
+  ], { nicknames: {}, hidden: [] }, NOW);
+  const accounts = view.agents[0].accounts;
+  assert.deepEqual(accounts.map((a) => [a.accountKey, a.loggedOut]), [['new', false], ['old', true]]);
+});
+
+test('FR-USAGE-006 AC-7: a logged-out account does not alert', () => {
+  const settings = { thresholdPercent: 30, agents: ['claude', 'codex'] as const, windows: ['fiveHour', 'weekly'] as const };
+  const { alerts } = decideAlerts([
+    reading({ agent: 'claude', accountKey: 'old', loggedOut: true, windows: { weekly: { usedPercent: 95, resetsAt: NOW + 3_600_000 } } }),
+  ], {}, { ...settings, agents: [...settings.agents], windows: [...settings.windows] }, NOW);
+  assert.equal(alerts.length, 0);
+});
