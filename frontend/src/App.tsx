@@ -113,6 +113,7 @@ import type { WorkspaceTabRuntime } from './types/workspace';
 import type { CommandPreset, ShellInfo, TerminalShortcutState } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import { createTerminalRedrawScheduler, isTabSwitch, redrawTargetTabIds, type TerminalRedrawScheduler } from './utils/terminalRedrawScheduler';
+import { remoteTabActivations } from './components/Terminal/remoteTabActivation';
 import { readBrowserAutoRedrawSettings } from './utils/autoRedrawSettings';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
@@ -900,6 +901,9 @@ function AppContent() {
     if (workspaceSwitched && settings.onWorkspaceSwitch) {
       redrawSchedulerRef.current?.redrawAfter(settings.delayMs, () => redrawTargetsFor(null));
     } else if (tabSwitched && settings.onTabSwitch) {
+      // REL-BGSTAB-058 AC-9: a tab another screen switched to is redrawn by that screen.
+      const shownSessionId = wmRef.current.activeWorkspaceTabs.find((tab) => tab.id === autoRedrawTabId)?.sessionId;
+      if (shownSessionId && remoteTabActivations.isRemote(shownSessionId)) return;
       redrawSchedulerRef.current?.redrawAfter(settings.delayMs, () => redrawTargetsFor(null), 'if-resized-elsewhere');
     }
   }, [autoRedrawWorkspaceId, autoRedrawTabId, autoRedrawTabIds, renderedViewMode, redrawTargetsFor]);
