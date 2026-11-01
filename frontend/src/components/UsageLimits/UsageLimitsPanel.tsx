@@ -4,31 +4,13 @@ import { WindowDialog } from '../dialog';
 import { Icon } from '../common/Icon';
 import { t } from '../../i18n/i18n.ts';
 import { usageLimitsApi } from '../../services/api.ts';
-import { agentClassName, durationParts, hasLoggedOut, visibleAgents } from './usageLimitsModel.ts';
+import { activeAgents, agentClassName, durationParts, loggedOutAgents } from './usageLimitsModel.ts';
 import { AGENT_KEYS, SOURCE_KEYS, WINDOW_KEYS } from './usageLimitsMessages.ts';
 import type { UsageAccountView, UsageState, UsageWindowView } from './usageLimitsTypes.ts';
 import { USAGE_CHANGED_EVENT, UsageLimitsForm } from './UsageLimitsForm.tsx';
 import './UsageLimits.css';
 
 const DEFAULT_POLL_MS = 60_000;
-/** FR-USAGE-007 AC-6: a per-browser convenience; without storage the toggle starts off. */
-const SHOW_LOGGED_OUT_KEY = 'buildergate.usage.showLoggedOut';
-
-function readShowLoggedOut(): boolean {
-  try {
-    return window.localStorage.getItem(SHOW_LOGGED_OUT_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function writeShowLoggedOut(value: boolean): void {
-  try {
-    window.localStorage.setItem(SHOW_LOGGED_OUT_KEY, value ? '1' : '0');
-  } catch {
-    // storage blocked: the toggle still works for this page
-  }
-}
 
 function resetText(window: UsageWindowView, now: number): string {
   if (window.reset) return t('usage.reset.done');
@@ -59,19 +41,19 @@ function WindowBar({ window, now }: { window: UsageWindowView; now: number }) {
   );
 }
 
-function AccountRows({ accounts, now }: { accounts: UsageAccountView[]; now: number }) {
-  if (accounts.length === 1) {
+function AccountRows({ accounts, now, alwaysNamed = false }: { accounts: UsageAccountView[]; now: number; alwaysNamed?: boolean }) {
+  if (accounts.length === 1 && !alwaysNamed) {
     const [only] = accounts;
     return <>{only.windows.map((w) => <WindowBar key={w.kind} window={w} now={now} />)}</>;
   }
   return (
     <>
       {accounts.map((account) => (
-        <div key={account.accountKey ?? `?${account.source}`} className={`usage-account${account.stale ? ' usage-stale' : ''}${account.loggedOut ? ' usage-logged-out' : ''}`}>
+        <div key={account.accountKey ?? `?${account.source}`} className={`usage-account${account.stale ? ' usage-stale' : ''}`}>
           {/* The name has a line of its own so a full address is not cut off. */}
           <div className={`usage-account-name${account.unknownAccount ? ' usage-unknown' : ''}`} title={account.label}>{account.unknownAccount ? t('usage.account.unknown') : account.label}</div>
           <div className="usage-account-head">
-            <span className="usage-account-where">{t(SOURCE_KEYS[account.source])}{account.loggedOut ? ` · ${t('usage.account.loggedOut')}` : ''}</span>
+            <span className="usage-account-where">{t(SOURCE_KEYS[account.source])}</span>
             <span className="usage-age">{ageText(account.observedAt, now)}</span>
           </div>
           {account.windows.map((w) => <WindowBar key={w.kind} window={w} now={now} />)}
@@ -86,8 +68,7 @@ export function UsageLimitsPanel() {
   const [spinning, setSpinning] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [showLoggedOut, setShowLoggedOut] = useState(readShowLoggedOut);
-  const toggleLoggedOut = () => setShowLoggedOut((value) => { writeShowLoggedOut(!value); return !value; });
+  const [loggedOutOpen, setLoggedOutOpen] = useState(false);
 
   const load = useCallback(() => {
     usageLimitsApi.get().then((next) => { setState(next); setNow(Date.now()); }).catch(() => { /* keep the last view */ });
@@ -118,8 +99,9 @@ export function UsageLimitsPanel() {
 
   if (!state || !state.settings.showInSidebar) return null;
   const claudeOff = !state.settings.claudeCollection;
-  const agents = visibleAgents(state.view, showLoggedOut);
-  const anyLoggedOut = hasLoggedOut(state.view);
+  const agents = activeAgents(state.view);
+  const loggedOut = loggedOutAgents(state.view);
+  const anyLoggedOut = loggedOut.length > 0;
   const hasClaude = agents.some((agent) => agent.agent === 'claude');
   if (agents.length === 0 && !claudeOff && !anyLoggedOut) return null;
 
@@ -128,9 +110,8 @@ export function UsageLimitsPanel() {
       <div className="usage-panel-head">
         <span className="usage-panel-title">{t('usage.panel.title')}</span>
         {anyLoggedOut && (
-          <button type="button" className={`usage-icon-btn${showLoggedOut ? ' usage-on' : ''}`} aria-pressed={showLoggedOut}
-            title={t('usage.panel.showLoggedOut')} aria-label={t('usage.panel.showLoggedOut')}
-            onClick={toggleLoggedOut}><Icon name="archive" size={15} /></button>
+          <button type="button" className="usage-icon-btn" title={t('usage.panel.showLoggedOut')} aria-label={t('usage.panel.showLoggedOut')}
+            onClick={() => { load(); setLoggedOutOpen(true); }}><Icon name="archive" size={15} /></button>
         )}
         <button type="button" className={`usage-icon-btn${spinning ? ' usage-spin' : ''}`} title={t('usage.panel.refresh')} aria-label={t('usage.panel.refresh')} onClick={refresh}><Icon name="refresh" size={15} /></button>
         <button type="button" className="usage-icon-btn" title={t('usage.panel.settings')} aria-label={t('usage.panel.settings')} onClick={() => setSettingsOpen(true)}><Icon name="settings" size={15} /></button>
@@ -151,6 +132,22 @@ export function UsageLimitsPanel() {
           <AccountRows accounts={group.accounts} now={now} />
         </div>
       ))}
+      {/* FR-USAGE-007 AC-6: read once when it opens; these records no longer change. */}
+      {loggedOutOpen && (
+        <WindowDialog dialogId="usage-limits-logged-out" title={t('usage.loggedOut.title')} mode="modal"
+          defaultRect={{ x: 180, y: 80, width: 420, height: 460 }} minSize={{ width: 300, height: 220 }} onClose={() => setLoggedOutOpen(false)}>
+          <div className="usage-panel usage-logged-out-dialog">
+            <div className="usage-off">{t('usage.loggedOut.note')}</div>
+            {loggedOut.length === 0 && <div className="usage-off">{t('usage.loggedOut.none')}</div>}
+            {loggedOut.map((group) => (
+              <div key={group.agent} className="usage-agent">
+                <div className="usage-agent-head"><span className="usage-agent-name">{t(AGENT_KEYS[group.agent])}</span></div>
+                <AccountRows accounts={group.accounts} now={now} alwaysNamed />
+              </div>
+            ))}
+          </div>
+        </WindowDialog>
+      )}
       {settingsOpen && (
         <WindowDialog dialogId="usage-limits-settings" title={t('usage.dialog.title')} mode="modal"
           defaultRect={{ x: 160, y: 60, width: 600, height: 680 }} minSize={{ width: 380, height: 420 }} onClose={() => setSettingsOpen(false)}>

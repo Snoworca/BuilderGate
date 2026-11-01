@@ -59,8 +59,8 @@ test('FR-USAGE-004 AC-5: the stale colour belongs to the account that is stale, 
   assert.doesNotMatch(css, /:has\(/u);
 });
 
-test('FR-USAGE-007 AC-6: logged-out accounts are hidden unless asked for, and an agent left empty goes too', async () => {
-  const { visibleAgents, hasLoggedOut } = await import('../../src/components/UsageLimits/usageLimitsModel.ts');
+test('FR-USAGE-007 AC-6: the panel shows logged-in accounts and the dialog the logged-out ones; an agent left empty goes', async () => {
+  const { activeAgents, loggedOutAgents } = await import('../../src/components/UsageLimits/usageLimitsModel.ts');
   const account = (accountKey: string, loggedOut: boolean) => ({
     accountKey, unknownAccount: false, label: accountKey, source: 'windows' as const, observedAt: 0, stale: false, loggedOut, windows: [],
   });
@@ -70,8 +70,8 @@ test('FR-USAGE-007 AC-6: logged-out accounts are hidden unless asked for, and an
       { agent: 'codex' as const, accounts: [account('gone', true)] },
     ],
   };
-  assert.equal(hasLoggedOut(view), true);
-  assert.deepEqual(visibleAgents(view, false).map((g) => [g.agent, g.accounts.map((a) => a.accountKey)]), [['claude', ['new']]]);
-  assert.deepEqual(visibleAgents(view, true).map((g) => [g.agent, g.accounts.map((a) => a.accountKey)]), [['claude', ['new', 'old']], ['codex', ['gone']]]);
-  assert.equal(hasLoggedOut({ agents: [{ agent: 'claude', accounts: [account('new', false)] }] }), false);
+  const keys = (groups: ReturnType<typeof activeAgents>) => groups.map((g) => [g.agent, g.accounts.map((a) => a.accountKey)]);
+  assert.deepEqual(keys(activeAgents(view)), [['claude', ['new']]]);
+  assert.deepEqual(keys(loggedOutAgents(view)), [['claude', ['old']], ['codex', ['gone']]]);
+  assert.deepEqual(loggedOutAgents({ agents: [{ agent: 'claude', accounts: [account('new', false)] }] }), []);
 });
