@@ -236,6 +236,9 @@ export interface FileManagerConfig {
   blockedExtensions: string[];
   blockedPaths: string[];
   cwdCacheTtlMs: number;
+  /** git command time limits in ms (PERF-GIT-001 AC-11). Absent means 10 s and 20 s. */
+  gitQuickTimeoutMs?: number;
+  gitTimeoutMs?: number;
   /** Raw image read limit in bytes (IR-MDE-003). Absent means 20 MiB. */
   maxImageFileSize?: number;
   /** Upload size limit in bytes (FR-FEX-023 AC-4). Absent means 2 GiB. */

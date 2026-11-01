@@ -17,6 +17,7 @@
  */
 
 import path from 'node:path';
+import { GIT_QUICK_TIMEOUT_MS_DEFAULT, GIT_TIMEOUT_MS_DEFAULT } from '../../schemas/config.schema.js';
 import { createWorkerRunGitFile, type WorkerRunGitFile } from './gitWorkerRunner.js';
 import { createWslGitHelper, type WslGitHelper } from './gitWslHelper.js';
 
@@ -152,7 +153,16 @@ export interface GitRunnerOptions {
   maxPerRepo?: number;
   /** The resident WSL helper (PERF-GIT-001 AC-9); null to always start one wsl.exe per command. */
   wslHelper?: WslGitHelper | null;
+  /** PERF-GIT-001 AC-11: read for every command, so a settings save applies to the next one. */
+  timeouts?: () => GitTimeouts;
 }
+
+export interface GitTimeouts {
+  quickMs: number;
+  ms: number;
+}
+
+const DEFAULT_TIMEOUTS: GitTimeouts = { quickMs: GIT_QUICK_TIMEOUT_MS_DEFAULT, ms: GIT_TIMEOUT_MS_DEFAULT };
 
 let sharedWslHelper: WslGitHelper | null = null;
 function defaultWslHelper(): WslGitHelper | null {
@@ -171,6 +181,7 @@ export function createGitRunner(options: GitRunnerOptions = {}): RunGit {
   const wslHelper = options.wslHelper === undefined ? defaultWslHelper() : options.wslHelper;
   const maxGlobal = options.maxGlobal ?? 4;
   const maxPerRepo = options.maxPerRepo ?? 2;
+  const timeouts = options.timeouts ?? (() => DEFAULT_TIMEOUTS);
   let active = 0;
   const perRepo = new Map<string, number>();
   const waiting: Array<{ repoKey: string; start: () => void }> = [];
@@ -197,11 +208,13 @@ export function createGitRunner(options: GitRunnerOptions = {}): RunGit {
   const execute = async (target: GitTarget, args: readonly string[], opts: RunGitOptions): Promise<string | Buffer> => {
     await acquire(opts.repoKey);
     const started = Date.now();
+    const limits = timeouts();
+    const timeout = opts.quick ? limits.quickMs : limits.ms;
     try {
       if (target.kind === 'wsl' && wslHelper?.available(target.distro)) {
         try {
           const { stdout } = await wslHelper.run(target.distro, ['-C', target.cwd, ...COMMON_GIT_OPTIONS, ...args], {
-            timeout: opts.quick ? 5000 : 10000,
+            timeout,
             maxBuffer: opts.maxBuffer ?? 32 * 1024 * 1024,
             encoding: opts.raw ? 'buffer' : 'utf8',
           });
@@ -215,7 +228,7 @@ export function createGitRunner(options: GitRunnerOptions = {}): RunGit {
       const { stdout } = await run(cmd.file, cmd.args, {
         cwd: cmd.cwd,
         env: cmd.env,
-        timeout: opts.quick ? 5000 : 10000,
+        timeout,
         maxBuffer: opts.maxBuffer ?? 32 * 1024 * 1024,
         windowsHide: true,
         encoding: opts.raw ? 'buffer' : 'utf8',

@@ -658,6 +658,13 @@ export function SettingsPage({ visible, onBack }: Props) {
               <SettingField htmlFor="settings-files-cwd-cache-ttl" label={t('settings.sessionFiles.cwdCacheTtl')} scope={scope(snapshot, 'fileManager.cwdCacheTtlMs')} help={t('settings.sessionFiles.cwdCacheTtlHelp')}>
                 <NumberInput id="settings-files-cwd-cache-ttl" unit="ms" value={draft.fileManager.cwdCacheTtlMs} onChange={(e) => updateDraft((next) => { next.fileManager.cwdCacheTtlMs = Number(e.target.value || draft.fileManager.cwdCacheTtlMs); })} />
               </SettingField>
+              {/* PERF-GIT-001 AC-11: git command time limits, applied to the next command. */}
+              <SettingField htmlFor="settings-files-git-quick-timeout" label={t('settings.sessionFiles.gitQuickTimeout')} scope={scope(snapshot, 'fileManager.gitQuickTimeoutMs')} help={t('settings.sessionFiles.gitQuickTimeoutHelp')}>
+                <NumberInput id="settings-files-git-quick-timeout" unit="ms" value={draft.fileManager.gitQuickTimeoutMs} onChange={(e) => updateDraft((next) => { next.fileManager.gitQuickTimeoutMs = Number(e.target.value || draft.fileManager.gitQuickTimeoutMs); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-files-git-timeout" label={t('settings.sessionFiles.gitTimeout')} scope={scope(snapshot, 'fileManager.gitTimeoutMs')} help={t('settings.sessionFiles.gitTimeoutHelp')}>
+                <NumberInput id="settings-files-git-timeout" unit="ms" value={draft.fileManager.gitTimeoutMs} onChange={(e) => updateDraft((next) => { next.fileManager.gitTimeoutMs = Number(e.target.value || draft.fileManager.gitTimeoutMs); })} />
+              </SettingField>
             </Card>
 
             <Card title={t('settings.sessionSave.title')} icon="save">

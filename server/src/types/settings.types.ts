@@ -35,6 +35,8 @@ export type EditableSettingsKey =
   | 'fileManager.blockedExtensions'
   | 'fileManager.blockedPaths'
   | 'fileManager.cwdCacheTtlMs'
+  | 'fileManager.gitQuickTimeoutMs'
+  | 'fileManager.gitTimeoutMs'
   | 'resourceLimits.headless.pendingOutputMaxBytes'
   | 'resourceLimits.headless.pendingOutputMaxChunks'
   | 'resourceLimits.headless.writeLagWarnMs'
@@ -136,6 +138,8 @@ export interface EditableFileManagerSettings {
   blockedExtensions: string[];
   blockedPaths: string[];
   cwdCacheTtlMs: number;
+  gitQuickTimeoutMs: number;
+  gitTimeoutMs: number;
 }
 
 export interface EditableSettingsValues {

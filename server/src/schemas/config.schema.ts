@@ -301,12 +301,20 @@ export const authSchema = z.object({
 // File Manager Schema (Phase 4)
 // ============================================================================
 
+/** PERF-GIT-001 AC-11: git command time limits. Quick is status, rev-parse and the like. */
+export const GIT_QUICK_TIMEOUT_MS_DEFAULT = 10_000;
+export const GIT_TIMEOUT_MS_DEFAULT = 20_000;
+export const GIT_TIMEOUT_MS_MIN = 1000;
+export const GIT_TIMEOUT_MS_MAX = 300_000;
+
 export const fileManagerSchema = z.object({
   maxFileSize: z.number().min(1024).max(104857600).default(1048576),
   maxDirectoryEntries: z.number().min(100).max(100000).default(10000),
   blockedExtensions: z.array(z.string()).default(['.exe', '.dll', '.so', '.bin']),
   blockedPaths: z.array(z.string()).default(['.ssh', '.gnupg', '.aws']),
   cwdCacheTtlMs: z.number().min(100).max(60000).default(1000),
+  gitQuickTimeoutMs: z.number().int().min(GIT_TIMEOUT_MS_MIN).max(GIT_TIMEOUT_MS_MAX).default(GIT_QUICK_TIMEOUT_MS_DEFAULT),
+  gitTimeoutMs: z.number().int().min(GIT_TIMEOUT_MS_MIN).max(GIT_TIMEOUT_MS_MAX).default(GIT_TIMEOUT_MS_DEFAULT),
   // IR-MDE-003: raw image reads have their own limit; maxFileSize stays the text limit.
   maxImageFileSize: z.number().min(1024).max(104857600).default(20971520),
   // FR-FEX-023 AC-4: one upload's size limit (1 MiB..100 GiB, default 2 GiB). The upload streams to disk.

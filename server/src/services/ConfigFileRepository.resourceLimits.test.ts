@@ -178,3 +178,33 @@ test('SEC-BGSTAB-001 a nested resourceLimits leaf survives being written into le
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 });
+
+// PERF-GIT-001 AC-11 (#218): an older config file has no git timeout lines. Saving any setting
+// must add them inside the existing fileManager section, not refuse the save and not add a second
+// fileManager block (JSON5 keeps the last duplicate, which would drop the other file settings).
+// The full render of this fixture fails on its missing twoFactor block, which is older than this
+// change; the monolithic runner's TOTP persistence test covers the full render with git timeouts.
+{
+  const changedKeys = ['fileManager.gitQuickTimeoutMs', 'fileManager.gitTimeoutMs'] as const;
+  test('PERF-GIT-001 AC-11 git timeouts are added to an older config file', async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-git-timeouts-'));
+    const configPath = path.join(tempDir, 'config.json5');
+    const legacy = createLegacyConfigContent();
+    assert.doesNotMatch(legacy, /gitQuickTimeoutMs|gitTimeoutMs/);
+    await fs.writeFile(configPath, legacy, 'utf-8');
+    try {
+      const loaded = loadConfigFromPathStrict(configPath, 'linux');
+      const values = new RuntimeConfigStore(loaded, 'linux').mergeEditablePatch({ fileManager: { gitQuickTimeoutMs: 30_000, gitTimeoutMs: 60_000 } });
+      const result = new ConfigFileRepository(configPath, 'linux').persistEditableValues(values, {}, {
+        dryRun: true, changedKeys: [...changedKeys],
+      });
+      const reparsed = JSON5.parse(result.renderedContent);
+      assert.equal(reparsed.fileManager.gitQuickTimeoutMs, 30_000);
+      assert.equal(reparsed.fileManager.gitTimeoutMs, 60_000);
+      assert.equal(reparsed.fileManager.cwdCacheTtlMs, 1000, 'the other file settings stay');
+      assert.equal(result.renderedContent.match(/^\s*fileManager:\s*\{/gm)?.length, 1, 'one fileManager block');
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+}

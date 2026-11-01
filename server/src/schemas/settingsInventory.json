@@ -178,6 +178,32 @@
       ]
     },
     {
+      "path": "fileManager.gitQuickTimeoutMs",
+      "classification": "user-visible",
+      "reason": "PERF-GIT-001 AC-11: git command time limit offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES; read by the git runner at every command, so a save applies at once.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "allowedPowerShellBackends",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
+      "path": "fileManager.gitTimeoutMs",
+      "classification": "user-visible",
+      "reason": "PERF-GIT-001 AC-11: git command time limit offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES; read by the git runner at every command, so a save applies at once.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "allowedPowerShellBackends",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
       "path": "fileManager.maxDirectoryEntries",
       "classification": "user-visible",
       "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",

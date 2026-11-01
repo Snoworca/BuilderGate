@@ -356,7 +356,7 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
 });
 
 // @req OPS-BGSTAB-011 AC-1
-test('OPS-BGSTAB-011 the configuration schema still has exactly 94 leaves', () => {
+test('OPS-BGSTAB-011 the configuration schema still has exactly 96 leaves', () => {
   // The pin the inventory is sized against. It is asserted separately from the
   // coverage test so that a change in the schema's shape is distinguishable
   // from a change in the inventory.
@@ -393,5 +393,9 @@ test('OPS-BGSTAB-011 the configuration schema still has exactly 94 leaves', () =
   //
   // 92 -> 94 on 2026-10-19 (FR-FOP-007 AC-4): fileManager.maxExtractBytes and
   // fileManager.maxExtractEntries, the extraction limits, classified safety-only.
-  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 94);
+  //
+  // 94 -> 96 on 2026-11-01 (PERF-GIT-001 AC-11): fileManager.gitQuickTimeoutMs and
+  // fileManager.gitTimeoutMs, the git command time limits, editable in Settings and classified
+  // user-visible.
+  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 96);
 });

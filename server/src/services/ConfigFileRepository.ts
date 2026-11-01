@@ -12,6 +12,8 @@ import {
   resourceLimitsSchema,
   sessionSchema,
   stabilityModesSchema,
+  GIT_QUICK_TIMEOUT_MS_DEFAULT,
+  GIT_TIMEOUT_MS_DEFAULT,
 } from '../schemas/config.schema.js';
 import { getConfigPath } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -210,6 +212,8 @@ function applyEditableValues(
   if (shouldApply('fileManager.blockedExtensions')) setPath(rawConfig, ['fileManager', 'blockedExtensions'], values.fileManager.blockedExtensions);
   if (shouldApply('fileManager.blockedPaths')) setPath(rawConfig, ['fileManager', 'blockedPaths'], values.fileManager.blockedPaths);
   if (shouldApply('fileManager.cwdCacheTtlMs')) setPath(rawConfig, ['fileManager', 'cwdCacheTtlMs'], values.fileManager.cwdCacheTtlMs);
+  if (shouldApply('fileManager.gitQuickTimeoutMs')) setPath(rawConfig, ['fileManager', 'gitQuickTimeoutMs'], values.fileManager.gitQuickTimeoutMs);
+  if (shouldApply('fileManager.gitTimeoutMs')) setPath(rawConfig, ['fileManager', 'gitTimeoutMs'], values.fileManager.gitTimeoutMs);
   if (shouldApply('resourceLimits.headless.pendingOutputMaxBytes')) setPath(rawConfig, ['resourceLimits', 'headless', 'pendingOutputMaxBytes'], resourceLimits.headless.pendingOutputMaxBytes);
   if (shouldApply('resourceLimits.headless.pendingOutputMaxChunks')) setPath(rawConfig, ['resourceLimits', 'headless', 'pendingOutputMaxChunks'], resourceLimits.headless.pendingOutputMaxChunks);
   if (shouldApply('resourceLimits.headless.writeLagWarnMs')) setPath(rawConfig, ['resourceLimits', 'headless', 'writeLagWarnMs'], resourceLimits.headless.writeLagWarnMs);
@@ -305,6 +309,8 @@ function renderPatchedConfig(
   if (shouldRender('fileManager.blockedExtensions')) replacements.set('fileManager.blockedExtensions', renderJson5Value(config.fileManager?.blockedExtensions ?? []));
   if (shouldRender('fileManager.blockedPaths')) replacements.set('fileManager.blockedPaths', renderJson5Value(config.fileManager?.blockedPaths ?? []));
   if (shouldRender('fileManager.cwdCacheTtlMs')) replacements.set('fileManager.cwdCacheTtlMs', renderJson5Value(config.fileManager?.cwdCacheTtlMs ?? 1000));
+  if (shouldRender('fileManager.gitQuickTimeoutMs')) replacements.set('fileManager.gitQuickTimeoutMs', renderJson5Value(config.fileManager?.gitQuickTimeoutMs ?? GIT_QUICK_TIMEOUT_MS_DEFAULT));
+  if (shouldRender('fileManager.gitTimeoutMs')) replacements.set('fileManager.gitTimeoutMs', renderJson5Value(config.fileManager?.gitTimeoutMs ?? GIT_TIMEOUT_MS_DEFAULT));
   if (shouldRender('resourceLimits.headless.pendingOutputMaxBytes')) replacements.set('resourceLimits.headless.pendingOutputMaxBytes', renderJson5Value(resourceLimits.headless.pendingOutputMaxBytes));
   if (shouldRender('resourceLimits.headless.pendingOutputMaxChunks')) replacements.set('resourceLimits.headless.pendingOutputMaxChunks', renderJson5Value(resourceLimits.headless.pendingOutputMaxChunks));
   if (shouldRender('resourceLimits.headless.writeLagWarnMs')) replacements.set('resourceLimits.headless.writeLagWarnMs', renderJson5Value(resourceLimits.headless.writeLagWarnMs));
@@ -413,6 +419,21 @@ function renderPatchedConfig(
           parentPath: 'auth',
           key: 'refreshGraceSeconds',
           value: renderJson5Value(config.auth?.refreshGraceSeconds ?? 180),
+        }] as const]
+      : []),
+    // PERF-GIT-001 AC-11: an older file has no git timeout lines; they go into its fileManager block.
+    ...(replacements.has('fileManager.gitQuickTimeoutMs')
+      ? [['fileManager.gitQuickTimeoutMs', {
+          parentPath: 'fileManager',
+          key: 'gitQuickTimeoutMs',
+          value: renderJson5Value(config.fileManager?.gitQuickTimeoutMs ?? GIT_QUICK_TIMEOUT_MS_DEFAULT),
+        }] as const]
+      : []),
+    ...(replacements.has('fileManager.gitTimeoutMs')
+      ? [['fileManager.gitTimeoutMs', {
+          parentPath: 'fileManager',
+          key: 'gitTimeoutMs',
+          value: renderJson5Value(config.fileManager?.gitTimeoutMs ?? GIT_TIMEOUT_MS_DEFAULT),
         }] as const]
       : []),
     ...(replacements.has('auth.jwtSecret')
@@ -566,6 +587,19 @@ function renderPatchedConfig(
   if (replacements.has('session.snapshotRetention') && !replaced.has('session.snapshotRetention')
     && insertRootSection(renderedLines, 'session', [`snapshotRetention: ${renderJson5Value(sessionSave.snapshotRetention)},`])) {
     replaced.add('session.snapshotRetention');
+  }
+
+  // A file with no fileManager block at all gets one; a block that exists was filled above, so this
+  // never makes a second one (JSON5 would keep only the last and drop the other file settings).
+  const gitTimeoutLines: Array<[path: string, line: string]> = [];
+  if (replacements.has('fileManager.gitQuickTimeoutMs') && !replaced.has('fileManager.gitQuickTimeoutMs')) {
+    gitTimeoutLines.push(['fileManager.gitQuickTimeoutMs', `gitQuickTimeoutMs: ${renderJson5Value(config.fileManager?.gitQuickTimeoutMs ?? GIT_QUICK_TIMEOUT_MS_DEFAULT)},`]);
+  }
+  if (replacements.has('fileManager.gitTimeoutMs') && !replaced.has('fileManager.gitTimeoutMs')) {
+    gitTimeoutLines.push(['fileManager.gitTimeoutMs', `gitTimeoutMs: ${renderJson5Value(config.fileManager?.gitTimeoutMs ?? GIT_TIMEOUT_MS_DEFAULT)},`]);
+  }
+  if (gitTimeoutLines.length > 0 && insertRootSection(renderedLines, 'fileManager', gitTimeoutLines.map(([, line]) => line))) {
+    for (const [path] of gitTimeoutLines) replaced.add(path);
   }
 
   const stillMissingReplacements = [...replacements.keys()].filter((path) => !replaced.has(path));

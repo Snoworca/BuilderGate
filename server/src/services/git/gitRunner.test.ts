@@ -175,13 +175,27 @@ test('PERF-GIT-001: a failure is classified and the slot is released', async () 
 });
 
 // @req PERF-GIT-001
-test('PERF-GIT-001: timeouts default to 5 s for quick queries and 10 s otherwise', async () => {
+test('PERF-GIT-001 AC-11: timeouts default to 10 s for quick queries and 20 s otherwise', async () => {
   const seen: number[] = [];
   const runGit = createGitRunner({ run: async (_f, _a, o) => { seen.push(o.timeout); return { stdout: '' }; } });
   const t = { kind: 'native' as const, cwd: 'C:\\r' };
   await runGit(t, ['status'], { repoKey: 'r', quick: true });
   await runGit(t, ['log'], { repoKey: 'r' });
-  assert.deepEqual(seen, [5000, 10000]);
+  assert.deepEqual(seen, [10_000, 20_000]);
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-11: the timeouts are read from the settings for every command, so a save applies at once', async () => {
+  const seen: number[] = [];
+  let current = { quickMs: 3000, ms: 7000 };
+  const runGit = createGitRunner({ run: async (_f, _a, o) => { seen.push(o.timeout); return { stdout: '' }; }, timeouts: () => current });
+  const t = { kind: 'native' as const, cwd: 'C:\\r' };
+  await runGit(t, ['status'], { repoKey: 'r', quick: true });
+  await runGit(t, ['log'], { repoKey: 'r' });
+  current = { quickMs: 45_000, ms: 90_000 };
+  await runGit(t, ['status'], { repoKey: 'r', quick: true });
+  await runGit(t, ['log'], { repoKey: 'r' });
+  assert.deepEqual(seen, [3000, 7000, 45_000, 90_000]);
 });
 
 // @req FR-GIT-001

@@ -335,3 +335,18 @@ test('IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config r
   // realtime 을 통째로 뺀 설정으로 재적재하면 기본값으로 돌아와야 한다.
   assert.equal(store.getPublicRuntimeConfig('queue').terminalWireFormat, getDefaultTerminalWireFormat());
 });
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-11: git timeouts are editable, default to 10 s and 20 s, and apply at once', () => {
+  const store = new RuntimeConfigStore(createConfigFixture(), 'win32');
+  const snapshot = store.getSnapshot();
+  assert.equal(snapshot.values.fileManager.gitQuickTimeoutMs, 10_000);
+  assert.equal(snapshot.values.fileManager.gitTimeoutMs, 20_000);
+  for (const key of ['fileManager.gitQuickTimeoutMs', 'fileManager.gitTimeoutMs'] as const) {
+    assert.equal(store.isEditable(key), true, key);
+    assert.equal(snapshot.capabilities[key].applyScope, 'immediate', key);
+  }
+  const merged = store.mergeEditablePatch({ fileManager: { gitQuickTimeoutMs: 30_000, gitTimeoutMs: 60_000 } });
+  assert.equal(merged.fileManager.gitQuickTimeoutMs, 30_000);
+  assert.equal(merged.fileManager.gitTimeoutMs, 60_000);
+});

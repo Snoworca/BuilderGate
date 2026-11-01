@@ -22,6 +22,7 @@ import { createFileRoutes } from './routes/fileRoutes.js';
 import { createGitRoutes } from './routes/gitRoutes.js';
 import { GitService } from './services/git/GitService.js';
 import { createRepoWatcher } from './services/git/gitRepoWatcher.js';
+import { createGitRunner } from './services/git/gitRunner.js';
 import { createDownloadRoutes, createDownloadTokenRoutes } from './routes/downloadRoutes.js';
 import { DownloadTokenStore } from './services/DownloadTokenStore.js';
 import { createUploadRoutes } from './routes/uploadRoutes.js';
@@ -1252,6 +1253,13 @@ function setupRoutes(): void {
     sessions: sessionManager,
     listSessionIds: () => sessionManager.getAllSessions().map((s) => s.id),
     watchRepo: createRepoWatcher(),
+    // PERF-GIT-001 AC-11: the time limits come from the settings at each command.
+    runGit: createGitRunner({
+      timeouts: () => {
+        const { gitQuickTimeoutMs, gitTimeoutMs } = runtimeConfigStore.getEditableValues().fileManager;
+        return { quickMs: gitQuickTimeoutMs, ms: gitTimeoutMs };
+      },
+    }),
   });
   app.use('/api/sessions', authMiddleware, createGitRoutes(gitService));
   // FR-FEX-021: the token route checks the path behind the JWT; the download link carries only

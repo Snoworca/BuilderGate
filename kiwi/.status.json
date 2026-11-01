@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-01T03:21:49.148Z",
+  "generatedAt": "2026-11-01T07:59:53.190Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "54bae7e6cfc0f852866cbcedceb8a4de5cba8f55cb38c2ed423ca4fa448173af",
+    "value": "f843121c79d9fc8b9128d26e893bbd87e40352f48e37dcfa660c67340d068d1b",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -74,9 +74,9 @@
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
-        "sha256": "76d894743eab345010566fdcbfe7578157d673403dc7f804ca5db7429b4ed59f",
-        "size": 42161,
-        "mtimeMs": 1793162564205.0059
+        "sha256": "d8638d2992a44f146cf0d27b5535174632232a38b806bb7020c14fec1ba1ddb4",
+        "size": 43252,
+        "mtimeMs": 1793519970956.7395
       },
       {
         "path": "docs/spec/48.loop-scheduler.srs.md",

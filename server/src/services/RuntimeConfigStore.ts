@@ -23,6 +23,8 @@ import {
   sessionSchema,
   stabilityModesSchema,
   twoFactorSchema,
+  GIT_TIMEOUT_MS_MAX,
+  GIT_TIMEOUT_MS_MIN,
 } from '../schemas/config.schema.js';
 import { config as globalConfig } from '../utils/config.js';
 import {
@@ -99,6 +101,8 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'fileManager.blockedExtensions': { applyScope: 'immediate', writeOnly: false },
   'fileManager.blockedPaths': { applyScope: 'immediate', writeOnly: false },
   'fileManager.cwdCacheTtlMs': { applyScope: 'immediate', writeOnly: false },
+  'fileManager.gitQuickTimeoutMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(GIT_TIMEOUT_MS_MIN, GIT_TIMEOUT_MS_MAX) },
+  'fileManager.gitTimeoutMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(GIT_TIMEOUT_MS_MIN, GIT_TIMEOUT_MS_MAX) },
   'resourceLimits.headless.pendingOutputMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.headless.pendingOutputMaxChunks': { applyScope: 'new_sessions', writeOnly: false, constraints: count(1, 65536) },
   'resourceLimits.headless.writeLagWarnMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1, 60000) },
@@ -1367,6 +1371,12 @@ export class RuntimeConfigStore {
     if (patch.fileManager?.cwdCacheTtlMs !== undefined) {
       next.fileManager.cwdCacheTtlMs = patch.fileManager.cwdCacheTtlMs;
     }
+    if (patch.fileManager?.gitQuickTimeoutMs !== undefined) {
+      next.fileManager.gitQuickTimeoutMs = patch.fileManager.gitQuickTimeoutMs;
+    }
+    if (patch.fileManager?.gitTimeoutMs !== undefined) {
+      next.fileManager.gitTimeoutMs = patch.fileManager.gitTimeoutMs;
+    }
 
     if (patch.resourceLimits !== undefined) {
       next.resourceLimits = mergeResourceLimits(next.resourceLimits, patch.resourceLimits);
@@ -1460,6 +1470,8 @@ function buildEditableValues(source: Config, platform: NodeJS.Platform): Editabl
       blockedExtensions: source.fileManager?.blockedExtensions ?? fileManagerDefaults.blockedExtensions,
       blockedPaths: source.fileManager?.blockedPaths ?? fileManagerDefaults.blockedPaths,
       cwdCacheTtlMs: source.fileManager?.cwdCacheTtlMs ?? fileManagerDefaults.cwdCacheTtlMs,
+      gitQuickTimeoutMs: source.fileManager?.gitQuickTimeoutMs ?? fileManagerDefaults.gitQuickTimeoutMs,
+      gitTimeoutMs: source.fileManager?.gitTimeoutMs ?? fileManagerDefaults.gitTimeoutMs,
     },
     resourceLimits,
     stabilityModes,

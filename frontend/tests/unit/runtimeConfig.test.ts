@@ -89,6 +89,8 @@ const settingsSnapshotCapabilities = {
   'fileManager.blockedExtensions': defaultCapability,
   'fileManager.blockedPaths': defaultCapability,
   'fileManager.cwdCacheTtlMs': defaultCapability,
+  'fileManager.gitQuickTimeoutMs': defaultCapability,
+  'fileManager.gitTimeoutMs': defaultCapability,
   'resourceLimits.headless.pendingOutputMaxBytes': defaultCapability,
   'resourceLimits.headless.pendingOutputMaxChunks': defaultCapability,
   'resourceLimits.headless.writeLagWarnMs': defaultCapability,
@@ -164,6 +166,8 @@ const settingsSnapshotWithWriteHiddenPolicy = {
       blockedExtensions: [],
       blockedPaths: [],
       cwdCacheTtlMs: 30_000,
+      gitQuickTimeoutMs: 10_000,
+      gitTimeoutMs: 20_000,
     },
     resourceLimits: {
       headless: {

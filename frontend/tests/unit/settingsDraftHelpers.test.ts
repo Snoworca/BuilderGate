@@ -216,6 +216,8 @@ function createEditableValues(): EditableSettingsValues {
       blockedExtensions: [],
       blockedPaths: [],
       cwdCacheTtlMs: 30_000,
+      gitQuickTimeoutMs: 10_000,
+      gitTimeoutMs: 20_000,
     },
     resourceLimits: {
       headless: {
@@ -306,6 +308,8 @@ const ALL_KEYS: EditableSettingsKey[] = [
   'fileManager.blockedExtensions',
   'fileManager.blockedPaths',
   'fileManager.cwdCacheTtlMs',
+  'fileManager.gitQuickTimeoutMs',
+  'fileManager.gitTimeoutMs',
   'resourceLimits.headless.pendingOutputMaxBytes',
   'resourceLimits.headless.pendingOutputMaxChunks',
   'resourceLimits.headless.writeLagWarnMs',

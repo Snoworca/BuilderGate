@@ -146,6 +146,8 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
     blockedExtensions: [".exe", ".dll", ".so", ".bin"],
     blockedPaths: [".ssh", ".gnupg", ".aws"],
     cwdCacheTtlMs: 1000,
+    gitQuickTimeoutMs: 10000,
+    gitTimeoutMs: 20000,
   },
 
   workspace: {

@@ -22,7 +22,7 @@ import {
 } from '../utils/ptyPlatformPolicy.js';
 import { validatePasswordPolicy } from '../utils/passwordPolicy.js';
 import type { WsRouter } from '../ws/WsRouter.js';
-import { sessionSchema } from '../schemas/config.schema.js';
+import { GIT_TIMEOUT_MS_MAX, GIT_TIMEOUT_MS_MIN, sessionSchema } from '../schemas/config.schema.js';
 
 const originSchema = z.string().refine((value) => {
   try {
@@ -140,6 +140,8 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     blockedExtensions: z.array(z.string().min(1)).optional(),
     blockedPaths: z.array(z.string().min(1)).optional(),
     cwdCacheTtlMs: z.number().int().min(100).max(60000).optional(),
+    gitQuickTimeoutMs: z.number().int().min(GIT_TIMEOUT_MS_MIN).max(GIT_TIMEOUT_MS_MAX).optional(),
+    gitTimeoutMs: z.number().int().min(GIT_TIMEOUT_MS_MIN).max(GIT_TIMEOUT_MS_MAX).optional(),
   }).strict().optional(),
   resourceLimits: resourceLimitsPatchSchema.optional(),
   stabilityModes: stabilityModesPatchSchema.optional(),
@@ -421,6 +423,8 @@ function extractPatchKeys(patch: SettingsPatchRequest): EditableSettingsKey[] {
   if (patch.fileManager?.blockedExtensions !== undefined) changed.add('fileManager.blockedExtensions');
   if (patch.fileManager?.blockedPaths !== undefined) changed.add('fileManager.blockedPaths');
   if (patch.fileManager?.cwdCacheTtlMs !== undefined) changed.add('fileManager.cwdCacheTtlMs');
+  if (patch.fileManager?.gitQuickTimeoutMs !== undefined) changed.add('fileManager.gitQuickTimeoutMs');
+  if (patch.fileManager?.gitTimeoutMs !== undefined) changed.add('fileManager.gitTimeoutMs');
   addChangedNestedKeys(changed, 'resourceLimits.headless', patch.resourceLimits?.headless);
   addChangedNestedKeys(changed, 'resourceLimits.ws', patch.resourceLimits?.ws);
   addChangedNestedKeys(changed, 'resourceLimits.clientWs', patch.resourceLimits?.clientWs);
