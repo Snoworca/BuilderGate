@@ -13,6 +13,7 @@ import { useMosaicLayout } from '../../hooks/useMosaicLayout';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useFocusHistory } from '../../hooks/useFocusHistory';
 import { buildTerminalContextMenuItems } from '../../utils/contextMenuBuilder';
+import { isTouchMenuScreen } from '../../utils/terminalTextExport';
 import {
   applyFocusMode,
   applyMultiFocusApprox,
@@ -95,6 +96,8 @@ interface MosaicContainerProps {
   onOpenFileExplorer?: (tabId: string) => void;
   /** The terminal menu's "redraw screen". @req REL-BGSTAB-050 */
   onRedrawTerminal?: (tabId: string) => void;
+  /** The terminal menu's "select text" on a touch screen. @req FR-ARCH-017 */
+  onSelectTerminalText?: (tabId: string) => void;
 }
 
 function buildMissingTerminalClipboardResult(): TerminalClipboardActionResult {
@@ -128,6 +131,7 @@ export function MosaicContainer({
   getTerminalPathsAt,
   onOpenTerminalPath,
   onRedrawTerminal,
+  onSelectTerminalText,
   isTerminalMouseTracking,
   copyTerminalSelection,
   pasteTerminalClipboard,
@@ -764,6 +768,8 @@ export function MosaicContainer({
           }
           : undefined,
         onRedrawScreen: onRedrawTerminal ? () => onRedrawTerminal(tabId) : undefined,
+        // FR-ARCH-017 AC-1: a mouse can select on the terminal itself.
+        onSelectText: isTouchMenuScreen() && onSelectTerminalText ? () => onSelectTerminalText(tabId) : undefined,
         registeredPresetMenu: {
           presets: registeredPresetSnapshot,
           onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),
@@ -786,6 +792,7 @@ export function MosaicContainer({
       onOpenTerminalPath,
       menuScreen,
       onRedrawTerminal,
+      onSelectTerminalText,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,
     ],
