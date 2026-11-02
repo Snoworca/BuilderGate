@@ -996,7 +996,7 @@
   "sessionSave.all.noteInvalid.one": "{count} terminal has an invalid id — fix it or choose shell only.",
   "sessionSave.all.noteInvalid.other": "{count} terminals have an invalid id — fix them or choose shell only.",
   "sessionSave.all.noteOk": "Unchecked terminals come back as a shell in their folder.",
-  "sessionSave.all.saveAll": "Save all ({count})",
+  "sessionSave.all.saveAll": "Save {count} selected",
   "sessionSave.all.doneTitle.one": "{count} terminal saved",
   "sessionSave.all.doneTitle.other": "{count} terminals saved",
   "sessionSave.all.doneBody": "After a restart they come back as below. Every start restores the newer of the newest manual save and the auto save.",
