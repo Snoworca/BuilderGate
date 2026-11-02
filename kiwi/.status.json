@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-01T23:58:38.272Z",
+  "generatedAt": "2026-11-02T00:08:54.953Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "dfcc1d92f345f9ee0ed6a844231bb61364058cc8697f4cafb66c8a31d22ca8f9",
+    "value": "5a657b28683d3dbff3c76b40c1065bbe2b29665d17c984aeb539cebc881241e3",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -14,9 +14,9 @@
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "819502d22c8894f8e62be6854faf9d6202b841261b1ec4dd06056129561c8caa",
-        "size": 76940,
-        "mtimeMs": 1793577310525.6382
+        "sha256": "993c1ba67b506236619f9ce366ab0acc552676bf776d37ca759fe51bad706fd8",
+        "size": 81331,
+        "mtimeMs": 1793578125346.9824
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
@@ -100,7 +100,7 @@
   },
   "idCounters": {
     "functional": {
-      "ARCH": 15,
+      "ARCH": 16,
       "AITUI": 21,
       "BGSTAB": 37,
       "MCP": 14,
