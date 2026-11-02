@@ -83,6 +83,8 @@ import { useWindowState } from './hooks/useWindowState';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
 import { AgentAliasDialog } from './components/AgentAlias/AgentAliasDialog';
+import { TerminalTextDialog } from './components/Terminal/TerminalTextDialog';
+import { isTouchMenuScreen } from './utils/terminalTextExport';
 import { LoopDialog } from './components/Loop/LoopDialog';
 import { McpControlDialog } from './components/McpControlManager';
 import {
@@ -196,6 +198,8 @@ function AppContent() {
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
   const [showAgentCommandDialog, setShowAgentCommandDialog] = useState(false);
+  // FR-ARCH-017: the text the touch text dialog shows, copied when it opened.
+  const [terminalTextDialog, setTerminalTextDialog] = useState<string | null>(null);
   const [showMcpControlDialog, setShowMcpControlDialog] = useState(false);
   // FR-LOOP-006: Tools › Loop, and how many loops are on for the menu.
   const [showLoopDialog, setShowLoopDialog] = useState(false);
@@ -401,6 +405,10 @@ function AppContent() {
     redrawSchedulerRef.current?.redraw(redrawTargetsFor(tabId));
   }, [redrawTargetsFor]);
   useEffect(() => () => redrawSchedulerRef.current?.cancel(), []);
+  // FR-ARCH-017 AC-5: read once; the dialog keeps this copy and never reads the terminal again.
+  const openTerminalText = useCallback((tabId: string) => {
+    setTerminalTextDialog(terminalRefsMap.current.get(tabId)?.current?.getText() ?? '');
+  }, []);
   // FR-ARCH-013: the file paths near a menu press and on screen, read when the menu is built.
   const getTerminalPathsAt = useCallback((tabId: string, x: number, y: number): TerminalPathsAtPoint => (
     terminalRefsMap.current.get(tabId)?.current?.getPathsAt(x, y) ?? { near: null, screen: [] }
@@ -817,6 +825,8 @@ function AppContent() {
         onOpen: (target) => openTerminalPathFromMenu(targetTab.id, target),
       },
       onRedrawScreen: () => redrawTerminal(targetTab.id),
+      // FR-ARCH-017 AC-1: a mouse can select on the terminal itself.
+      onSelectText: isTouchMenuScreen() ? () => openTerminalText(targetTab.id) : undefined,
       registeredPresetMenu: {
         presets: registeredPresetSnapshot,
         onSelectPreset: (preset) => handleRegisteredPresetPaste(tabContextMenu.targetId!, preset),
@@ -827,6 +837,7 @@ function AppContent() {
     tabMenuScreen,
     openTerminalPathFromMenu,
     redrawTerminal,
+    openTerminalText,
     wm.activeWorkspaceTabs,
     availableShells,
     handleAddTab,
@@ -1128,6 +1139,7 @@ function AppContent() {
                       availableShells={availableShells}
                       hasTerminalSelection={hasTerminalSelection}
                       onRedrawTerminal={redrawTerminal}
+                      onSelectTerminalText={openTerminalText}
                       isTerminalMouseTracking={isTerminalMouseTracking}
                       copyTerminalSelection={copyTerminalSelection}
                       pasteTerminalClipboard={pasteTerminalClipboard}
@@ -1393,6 +1405,7 @@ function AppContent() {
       )}
 
       {showAgentCommandDialog && <AgentAliasDialog onClose={() => setShowAgentCommandDialog(false)} />}
+      {terminalTextDialog !== null && <TerminalTextDialog text={terminalTextDialog} onClose={() => setTerminalTextDialog(null)} />}
 
       {showLoopDialog && (
         <LoopDialog onClose={() => setShowLoopDialog(false)} defaultCwd={activeTab?.cwd} onEnabledCountChange={setLoopEnabledCount} />
