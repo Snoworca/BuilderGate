@@ -86,6 +86,7 @@
     "./tests/unit/macSafariHangulInput.test.ts",
     "./tests/unit/dictationInput.test.ts",
     "./tests/unit/windowsHangulBackspace.test.ts",
+    "./tests/unit/sessionSaveButtonLabel.test.ts",
     "./tests/unit/mobileKeyEncoder.test.ts",
     "./tests/unit/mobileModifierLatch.test.ts",
     "./tests/unit/mobileKeySend.test.ts",

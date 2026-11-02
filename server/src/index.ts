@@ -48,6 +48,7 @@ import { AgentAliasService } from './services/AgentAliasService.js';
 import { AppError } from './utils/errors.js';
 import { createSessionSnapshotRoutes } from './routes/sessionSnapshotRoutes.js';
 import { SessionSnapshotService } from './services/SessionSnapshotService.js';
+import { createRestoreTabOpener } from './services/sessionRestoreTabOpener.js';
 import { listProcesses } from './services/agentSession/processList.js';
 import { EditorWaitMonitor } from './services/editorWait/editorWait.js';
 import { agentRootsForCwd } from './services/agentSession/agentRoots.js';
@@ -1462,15 +1463,12 @@ async function startServer(): Promise<void> {
       getRuntime: (sessionId) => sessionManager.getAgentRuntimeInfo(sessionId),
       scheduleResume: (tabId, command, args) => workspaceService.scheduleAgentResume(tabId, command, args),
       // FR-AITUI-018 AC-6: a busy or closed tab is restored into a new tab in its saved workspace and folder.
-      addTab: async (workspaceId, name, cwd, fallbackWorkspaceId) => {
-        const workspaces = workspaceService.getState().workspaces;
-        const target = [workspaceId, fallbackWorkspaceId]
-          .find((id) => id && workspaces.some((workspace) => workspace.id === id))
-          ?? [...workspaces].sort((a, b) => a.sortOrder - b.sortOrder)[0]?.id;
-        if (!target) return null;
-        const tab = await workspaceService.addTab(target, undefined, name, cwd ?? undefined);
-        return tab.id;
-      },
+      // FR-AITUI-022: and announced to open browsers, which otherwise showed it only after a reload.
+      addTab: createRestoreTabOpener({
+        listWorkspaces: () => workspaceService.getState().workspaces,
+        addTab: (workspaceId, name, cwd) => workspaceService.addTab(workspaceId, undefined, name, cwd),
+        broadcast: (event, data) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll(event, data),
+      }),
       // FR-AITUI-019 AC-1: read on every manual save, so a changed retention applies at the next save.
       retention: () => sessionSaveSettings.snapshotRetention,
       listProcesses,

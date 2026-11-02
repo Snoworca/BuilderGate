@@ -973,7 +973,7 @@
   "sessionSave.all.noteReview.other": "확인이 필요한 터미널 {count}개 — 추정 id 는 그대로 이어하고, id 가 없는 에이전트는 셸만 복구합니다.",
   "sessionSave.all.noteInvalid.other": "id 형식이 틀린 터미널 {count}개 — 고치거나 셸만으로 바꾸세요.",
   "sessionSave.all.noteOk": "체크를 해제한 터미널은 재시작 때 셸과 디렉터리만 복구합니다.",
-  "sessionSave.all.saveAll": "모두 저장 ({count})",
+  "sessionSave.all.saveAll": "선택한 {count}개 저장",
   "sessionSave.all.doneTitle.other": "터미널 {count}개 저장됨",
   "sessionSave.all.doneBody": "재시작하면 아래처럼 돌아옵니다. 재시작할 때마다 가장 최근 직접 저장본과 자동 저장본 중 더 최근 것을 복구합니다.",
   "sessionSave.editor.how": "이어할 명령",
