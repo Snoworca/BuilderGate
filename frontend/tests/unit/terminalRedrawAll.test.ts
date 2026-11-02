@@ -207,5 +207,6 @@ test('REL-BGSTAB-058 AC-4, AC-5: App asks the conditional redraw for a tab switc
   const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
   assert.match(app, /run: \(tabId, nudge\) => terminalRefsMap\.current\.get\(tabId\)\?\.current\?\.requestGridRepair\?\.\('manual', nudge\)/u);
   assert.match(app, /workspaceSwitched && settings\.onWorkspaceSwitch\) \{\s*redrawSchedulerRef\.current\?\.redrawAfter\(settings\.delayMs, \(\) => redrawTargetsFor\(null\)\);/u);
-  assert.match(app, /tabSwitched && settings\.onTabSwitch\) \{\s*redrawSchedulerRef\.current\?\.redrawAfter\(settings\.delayMs, \(\) => redrawTargetsFor\(null\), 'if-resized-elsewhere'\);/u);
+  // REL-BGSTAB-058 AC-9: a switch another screen made returns before the redraw (remoteTabActivation.test.ts).
+  assert.match(app, /tabSwitched && settings\.onTabSwitch\) \{[^}]*?redrawSchedulerRef\.current\?\.redrawAfter\(settings\.delayMs, \(\) => redrawTargetsFor\(null\), 'if-resized-elsewhere'\);/u);
 });

@@ -13,6 +13,7 @@ import {
 } from './mosaicLayoutStorage';
 import { resolveActiveWorkspaceAfterRemoval } from './workspaceActiveSelection';
 import { isWorkspaceAlreadyDeletedError } from '../components/Workspace/workspaceDeleteFlow';
+import { remoteTabActivations } from '../components/Terminal/remoteTabActivation';
 import {
   applyMoveTabResultToTabs,
   applyTabReorderResultToTabs,
@@ -332,6 +333,12 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         const { id, changes } = data as { id: string; changes: Partial<Workspace> };
         // PERF-BGSTAB-024: a selection still being saved here is not undone by an older broadcast.
         const unsaved = pendingSelectionsRef.current.get(id);
+        // REL-BGSTAB-058 AC-9: the tab another screen chose is shown here too; that showing is
+        // not this screen being used, so its terminal does not take the PTY size back.
+        if (changes.activeTabId && unsaved?.activeTabId === undefined) {
+          const shown = tabsRef.current.find(t => t.id === changes.activeTabId);
+          if (shown) remoteTabActivations.mark(shown.sessionId);
+        }
         setWorkspaces(prev => prev.map(w => w.id === id ? { ...w, ...changes, ...unsaved } : w));
       },
 
@@ -670,6 +677,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   }, []);
 
   const setActiveTab = useCallback(async (workspaceId: string, tabId: string | null) => {
+    const chosen = tabId ? tabsRef.current.find(t => t.id === tabId) : undefined;
+    if (chosen) remoteTabActivations.clear(chosen.sessionId);
     setWorkspaces(prev => prev.map(w =>
       w.id === workspaceId ? { ...w, activeTabId: tabId } : w
     ));

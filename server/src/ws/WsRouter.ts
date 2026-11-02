@@ -3829,18 +3829,26 @@ export class WsRouter {
       this.sendTerminalCheckpointRejection(ws, message, 'ack', 'invalid-message');
       return;
     }
-    const wireIdentity = parsedWireIdentity
+    let wireIdentity = parsedWireIdentity
       ?? meta?.retainedTerminalMutationLeases?.get(message.sessionId);
-    if (meta?.retainedTerminalViews?.has(message.sessionId) && !wireIdentity) {
-      this.sendTerminalCheckpointRejection(ws, message, 'ack', 'invalid-message');
-      return;
+    const registeredViewGeneration = meta?.retainedTerminalViews?.get(message.sessionId);
+    if (meta && registeredViewGeneration !== undefined && !wireIdentity) {
+      // REL-BGSTAB-011 AC-6: a view refused a lease at registration because another client
+      // held it sends its size without one. Resizing is using this screen, so it takes the
+      // lease as typing does (measured 2026-10-31: a phone back from another tab, the desktop idle).
+      const adopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, message.sessionId, registeredViewGeneration);
+      if (!adopted.ok) {
+        this.sendTerminalCheckpointRejection(ws, message, 'ack', 'invalid-message');
+        return;
+      }
+      wireIdentity = adopted.lease;
+      this.sendAdoptedMutationLeaseCapability(ws, meta, message.sessionId, registeredViewGeneration, adopted.lease);
     }
     const identity = this.toRetainedTerminalMutationIdentity(meta, wireIdentity);
     if (this.sessionManager.resize(message.sessionId, message.cols, message.rows, identity) || !wireIdentity) return;
     // REL-BGSTAB-011 AC-6: resizing is the user using this screen, as typing is. A lease of
     // the view registered now that another view's typing superseded takes the lease back, so
     // the screen the user came back to gets its size (measured 2026-10-28, phone then desktop).
-    const registeredViewGeneration = meta?.retainedTerminalViews?.get(message.sessionId);
     if (meta && registeredViewGeneration !== undefined && wireIdentity.viewGeneration === registeredViewGeneration) {
       const readopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, message.sessionId, registeredViewGeneration);
       if (readopted.ok) {

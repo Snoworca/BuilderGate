@@ -24,7 +24,7 @@
     },
     "sourceHashes": {
       "frontend/src/components/Settings/settingsDraftHelpers.ts": "9e32d2e12fdcc6bb9f33dd7e645451f677fb336514d73358cc2a5eb9f0155865",
-      "frontend/src/components/Terminal/TerminalContainer.tsx": "234e407bc3d34db3fdf96c32f65d3004284f1f26db0d5d78655e8f70db078dab",
+      "frontend/src/components/Terminal/TerminalContainer.tsx": "22d0fca77931ac05ab2528cef555e85adc24f2a0d7ba3fffe58c14bb2dc2d918",
       "frontend/src/components/Terminal/TerminalView.tsx": "498011eee1c1b2d795d344b85c5bdba071e4bc122cc9793f688f932394cf76ac",
       "frontend/src/contexts/WebSocketContext.tsx": "a13d2eff8b2ee397b879613d891b284dae042f1c4f09f5dae07ac3529265f564",
       "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
@@ -61,12 +61,12 @@
       "server/src/utils/configStrictLoader.ts": "a48552fc4963b921f32a73c75a010f5b6636bc39832c2e0e46ede371524fb2a2",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
       "server/src/utils/headlessTerminal.ts": "189fdbbe1ce3727e7b98c93ec33f90ce40478b56ad741e4e372ce69db1b12ec6",
-      "server/src/ws/WsRouter.ts": "f3486582d44740602e76122977498a762b59107b33fc3866ac562776316c8ad9",
+      "server/src/ws/WsRouter.ts": "d409fbd7e03894091b81e284699b01f1ab3813e831159bb23c1d074086886ac0",
       "server/src/ws/wsSendPolicy.ts": "130df0b6b9b8a10aaf3731d96e5c6dffd25acbd8a122b8c46fde23a9e6741b62",
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "1951ebfc4b7d5ff0917d115d8c2c04c71340d145c77a19ae10ddab04cf84ca70",
       "tools/wave3/terminal-resource-policy-differential.ts": "8b361e3593526d0e0ab8215af60d71ea3c0ca30bab4c3351ac8883c54c9736d2"
     },
-    "sourceSetSha256": "8ffc582309138d486d0bb58da91e815e0c7b10d587b31f1fcff4c0138cd7b5a5",
+    "sourceSetSha256": "606c4f85d62111634c87960ba08e3ac26be2b354b5cde6fa4f5e052cef4e9126",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "32d9704551e0955a2186b1742c90ea0a28d79e4a8ca4eb5d013d98b9349dcebc",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

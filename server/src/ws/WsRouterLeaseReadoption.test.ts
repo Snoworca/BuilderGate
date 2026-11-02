@@ -35,7 +35,7 @@ class FakeWebSocket {
 const SESSION = 'session-handed-off';
 const VIEW = 4;
 
-function setup() {
+function setup(options: { leaseRefusedAtRegistration?: boolean } = {}) {
   let currentGeneration = 'lease-1';
   const writes: string[] = [];
   const resizes: Array<[number, number]> = [];
@@ -44,9 +44,11 @@ function setup() {
     (identity as { leaseGeneration?: string } | undefined)?.leaseGeneration === currentGeneration;
   const manager = {
     registerRetainedTerminalClientView: () => ({ ok: true, reason: 'registered' }),
-    establishRetainedTerminalMutationLease: (sessionId: string, clientId: string, viewGeneration: number) => ({
-      ok: true, sessionId, clientId, authorityEpoch: 'epoch-1', viewGeneration, leaseGeneration: 'lease-1',
-    }),
+    establishRetainedTerminalMutationLease: (sessionId: string, clientId: string, viewGeneration: number) => (
+      options.leaseRefusedAtRegistration
+        ? { ok: false, reason: 'driver-owned-by-other-client' }
+        : { ok: true, sessionId, clientId, authorityEpoch: 'epoch-1', viewGeneration, leaseGeneration: 'lease-1' }
+    ),
     adoptRetainedTerminalMutationLease: (sessionId: string, clientId: string, viewGeneration: number) => {
       adoptions.push(viewGeneration);
       currentGeneration = 'lease-3';
@@ -142,6 +144,27 @@ test('REL-BGSTAB-011 AC-6: a lease of an older view is still refused, and takes 
     assert.deepEqual(adoptions, [], 'an old view does not take the lease from the screen in use');
     assert.equal(socket.frames.filter(frame => frame.type === 'input:rejected').length, 1);
     assert.equal(socket.frames.filter(frame => frame.type === 'terminal-checkpoint:rejected').length, 1);
+  } finally {
+    router.destroy();
+  }
+});
+
+// @req REL-BGSTAB-011
+// Measured 2026-10-31 on https://localhost:2222 with a desktop page and an iPhone-sized page on
+// one session: the phone switched tabs and back, its view registered again, and the lease was
+// refused (`driver-owned-by-other-client`) because the idle desktop held it. The phone then sent
+// no lease with its size, and every resize was refused as `invalid-message`, so a program drawn
+// for the desktop width stayed wrapped on the phone until a keystroke took the lease.
+test('REL-BGSTAB-011 AC-6: a resize from a registered view that was refused a lease takes the lease and applies', () => {
+  const { router, socket, send, resizes, adoptions } = setup({ leaseRefusedAtRegistration: true });
+  try {
+    send({ type: 'resize', sessionId: SESSION, cols: 44, rows: 30 });
+    assert.deepEqual(resizes, [[44, 30]], 'the PTY takes the size of the screen in use');
+    assert.deepEqual(adoptions, [VIEW]);
+    assert.equal(socket.frames.some(frame => frame.type === 'terminal-checkpoint:rejected'), false);
+    assert.deepEqual(grantedLeases(socket.frames), [
+      { sessionId: SESSION, authorityEpoch: 'epoch-1', viewGeneration: VIEW, leaseGeneration: 'lease-3' },
+    ], 'the browser is told its new lease');
   } finally {
     router.destroy();
   }
