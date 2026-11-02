@@ -25,7 +25,7 @@
     "sourceHashes": {
       "frontend/src/components/Settings/settingsDraftHelpers.ts": "9e32d2e12fdcc6bb9f33dd7e645451f677fb336514d73358cc2a5eb9f0155865",
       "frontend/src/components/Terminal/TerminalContainer.tsx": "66a1552acd8f4288d2f294e77643683aa5487727cb05694d1820d4d488040104",
-      "frontend/src/components/Terminal/TerminalView.tsx": "d2347d31730571c4e37c9bd46341e654b091e7530c4133880e5bcf225b14b4c5",
+      "frontend/src/components/Terminal/TerminalView.tsx": "d5e88c80abda6c741289eec1d124bea4fd19a38b4befa1ffb58027f249331754",
       "frontend/src/contexts/WebSocketContext.tsx": "a13d2eff8b2ee397b879613d891b284dae042f1c4f09f5dae07ac3529265f564",
       "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
       "frontend/src/services/tokenStorage.ts": "18d79e2cb784ae23e986931bfecf081bd79057a41628915d4b0498556f596687",
@@ -66,7 +66,7 @@
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "1951ebfc4b7d5ff0917d115d8c2c04c71340d145c77a19ae10ddab04cf84ca70",
       "tools/wave3/terminal-resource-policy-differential.ts": "8b361e3593526d0e0ab8215af60d71ea3c0ca30bab4c3351ac8883c54c9736d2"
     },
-    "sourceSetSha256": "839fa54a8a8b5afe4ec43950e134ab0beee45b30ef21e4bef5abedb2b4e835d0",
+    "sourceSetSha256": "ad5909cf2b878b81d3295b2fcf52aeb0fec33dc5e055ef18e4fa11aa06657013",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "32d9704551e0955a2186b1742c90ea0a28d79e4a8ca4eb5d013d98b9349dcebc",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

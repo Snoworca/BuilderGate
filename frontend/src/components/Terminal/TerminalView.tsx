@@ -4694,6 +4694,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const onCompositionStart = (event: CompositionEvent) => {
         const compositionSeq = imeTransactionRef.current?.beginComposition();
         isComposingRef.current = true;
+        // @req FR-BGSTAB-038
+        iosHangulInput.handleComposition(true);
         recordHelperTape('helper_compositionstart', event, { compositionSeq });
       };
       const onCompositionUpdate = (event: CompositionEvent) => {
@@ -4705,6 +4707,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           Array.from(event.data ?? '').length,
         );
         recordHelperTape('helper_compositionend', event, { compositionSeq });
+        // @req FR-BGSTAB-038
+        iosHangulInput.handleComposition(false);
       };
       if (helperTextarea) {
         helperTextarea.addEventListener('keydown', onHelperKeyDown);
