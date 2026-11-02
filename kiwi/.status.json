@@ -1,100 +1,100 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-02T00:08:54.953Z",
+  "generatedAt": "2026-11-02T01:42:59.035Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "5a657b28683d3dbff3c76b40c1065bbe2b29665d17c984aeb539cebc881241e3",
+    "value": "f7304ff6cba0d6e288e176dece981a17a2234ed820704c4993a848db24bea05a",
     "files": [
       {
         "path": "docs/spec/00.index.md",
         "sha256": "35f1e33c6c4cb4463ef55e71fb4817dfb6d0625482d6704699ea4abe1bd35971",
         "size": 16255,
-        "mtimeMs": 1793577466515.7842
+        "mtimeMs": 1793583775536.172
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "993c1ba67b506236619f9ce366ab0acc552676bf776d37ca759fe51bad706fd8",
-        "size": 81331,
-        "mtimeMs": 1793578125346.9824
+        "sha256": "111cc8ca7cefb001d68a0892d863b518c579bb0a92b4c17b66fb4fd490bc5eee",
+        "size": 81483,
+        "mtimeMs": 1793583777832.1206
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "54ffe13bdd79ec21bb6ebfe7dc9e9df0d8b6d5d652817b50be10aa976449d512",
         "size": 110513,
-        "mtimeMs": 1793577466516.7832
+        "mtimeMs": 1793583775538.172
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "655db48700f9f483e225acb0d936cb3bc802543e93dc0db8b22ef12797541173",
         "size": 1577178,
-        "mtimeMs": 1793577466745.9033
+        "mtimeMs": 1793583775544.1697
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "b818506546af9c267e9999c46f54a89c28336d64da677c30e9269ff31237ad41",
         "size": 149366,
-        "mtimeMs": 1793577466522.7837
+        "mtimeMs": 1793583775545.1716
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "8520628891d35d0bdab487d709de05bcb306db0417a4192bdd8139b68b3695c0",
         "size": 331858,
-        "mtimeMs": 1793577466523.7827
+        "mtimeMs": 1793583775547.3374
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "88a6a51969c5873e6d5f226452416d261e59a8299891fb827478baa8bc4bd358",
         "size": 160689,
-        "mtimeMs": 1793233323363.9717
+        "mtimeMs": 1793583775548.3418
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
         "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
         "size": 72202,
-        "mtimeMs": 1793233323396.1858
+        "mtimeMs": 1793583775548.3418
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "5ee46f279c8c8fa45d5949db028c21e955bf2011f9710607cfb935ae6094ce1e",
         "size": 50695,
-        "mtimeMs": 1793233323430.411
+        "mtimeMs": 1793583775549.921
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
-        "mtimeMs": 1793577460848.859
+        "mtimeMs": 1793583775549.921
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "33a2647d017c5cf673909db525863a853d174c8a0ce11f7b0c8d82dd1c2cb64a",
         "size": 88237,
-        "mtimeMs": 1793236106399.7983
+        "mtimeMs": 1793583775550.927
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "d8638d2992a44f146cf0d27b5535174632232a38b806bb7020c14fec1ba1ddb4",
         "size": 43252,
-        "mtimeMs": 1793577466523.7827
+        "mtimeMs": 1793583775550.927
       },
       {
         "path": "docs/spec/48.loop-scheduler.srs.md",
         "sha256": "a2a74683e6bb36560c750631b8e481503addd62f25a5ba0ed69011d5ceb38a72",
         "size": 15597,
-        "mtimeMs": 1793577466524.783
+        "mtimeMs": 1793583775551.928
       },
       {
         "path": "docs/spec/49.usage-limits.srs.md",
         "sha256": "add95af744ea588404485cf10cadaa85008f8f0932216c5854187598f49469a8",
         "size": 20170,
-        "mtimeMs": 1793577466524.783
+        "mtimeMs": 1793583775552.925
       },
       {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
-        "mtimeMs": 1793577460849.859
+        "mtimeMs": 1793583775552.925
       }
     ]
   },
