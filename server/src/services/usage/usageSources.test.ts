@@ -37,3 +37,65 @@ test('FR-USAGE-003: a folder whose node cannot be found is refused, not wrapped'
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// FR-USAGE-008 (#229): reading \\wsl.localhost of a stopped distribution starts it, and each start
+// launches WSLg, whose window takes the focus from the app the user is typing in. Measured
+// 2026-11-02: the server refresh and the browser poll did this twice a minute with no WSL tab open.
+const wslHome = '\\\\wsl.localhost\\Ubuntu\\home\\dev';
+const localRoots = { claudeHome: 'C:\\Users\\dev\\.claude', codexHome: 'C:\\Users\\dev\\.codex', opencodeData: 'x', hermesHome: 'y' };
+
+async function locationsWith(running: string[], platform: NodeJS.Platform = 'win32') {
+  const { createUsageLocations } = await import('./usageSources.js');
+  const { wslAgentRoots } = await import('../agentSession/agentRoots.js');
+  const calls: string[] = [];
+  const locations = createUsageLocations({
+    platform,
+    local: localRoots,
+    wsl: {
+      runningDistros: async () => { calls.push('running'); return running; },
+      homeRoots: async () => { calls.push('home'); return wslAgentRoots(wslHome, {}); },
+    },
+  });
+  return { where: await locations(), calls };
+}
+
+test('FR-USAGE-008 AC-1: a stopped distribution is neither read nor asked for its home', async () => {
+  const { where, calls } = await locationsWith([]);
+  assert.deepEqual(calls, ['running'], 'only the list of running distributions, which starts none');
+  assert.deepEqual(where.codex.map((ref) => ref.source), ['windows']);
+  assert.deepEqual(where.claude.map((ref) => ref.source), ['windows']);
+});
+
+test('FR-USAGE-008 AC-2: a running distribution is read as before', async () => {
+  const { where } = await locationsWith(['Ubuntu']);
+  assert.deepEqual(where.codex, [{ codexHome: localRoots.codexHome, source: 'windows' }, { codexHome: `${wslHome}\\.codex`, source: 'wsl' }]);
+  assert.deepEqual(where.claude, [{ configDir: localRoots.claudeHome, source: 'windows' }, { configDir: `${wslHome}\\.claude`, source: 'wsl' }]);
+});
+
+test('FR-USAGE-008 AC-1: another running distribution does not make the stopped home readable', async () => {
+  const { where } = await locationsWith(['Debian']);
+  assert.deepEqual(where.claude.map((ref) => ref.source), ['windows']);
+});
+
+test('FR-USAGE-008: off Windows there is no WSL to ask', async () => {
+  const { where, calls } = await locationsWith(['Ubuntu'], 'linux');
+  assert.deepEqual(calls, []);
+  assert.deepEqual(where.claude.map((ref) => ref.source), ['local']);
+});
+
+test('FR-USAGE-008 AC-1: wsl.exe -l --running -q is read in UTF-16 or UTF-8', async () => {
+  const { parseRunningDistros } = await import('./usageSources.js');
+  assert.deepEqual(parseRunningDistros(Buffer.from('Ubuntu\r\nDebian\r\n', 'utf16le')), ['Ubuntu', 'Debian']);
+  assert.deepEqual(parseRunningDistros(Buffer.from('\uFEFFUbuntu\r\n', 'utf16le')), ['Ubuntu']);
+  assert.deepEqual(parseRunningDistros(Buffer.from('Ubuntu\n', 'utf8')), ['Ubuntu']);
+  assert.deepEqual(parseRunningDistros(Buffer.alloc(0)), []);
+});
+
+test('FR-USAGE-008 AC-3: while WSL is skipped its last readings stay; once read, the new ones replace them', async () => {
+  const { holdWslReadings } = await import('./usageSources.js');
+  const reading = (source: 'windows' | 'wsl', observedAt: number) => ({ agent: 'claude' as const, accountKey: source, email: null, plan: null, source, observedAt, windows: {} });
+  const held = [reading('wsl', 1)];
+  assert.deepEqual(holdWslReadings(held, [reading('windows', 2)], false), [reading('windows', 2), reading('wsl', 1)]);
+  assert.deepEqual(holdWslReadings(held, [reading('windows', 2), reading('wsl', 3)], true), [reading('windows', 2), reading('wsl', 3)]);
+  assert.deepEqual(holdWslReadings(held, [reading('windows', 2)], true), [reading('windows', 2)], 'a read WSL with no records has none');
+});
