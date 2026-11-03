@@ -60,6 +60,13 @@ export interface BuildTerminalMenuOptions {
    * @req REL-BGSTAB-050
    */
   onRedrawScreen?: () => void;
+  /**
+   * Opens the terminal text as plain text for copying. Offered on a touch screen,
+   * where the terminal canvas has no selection handles. Optional for the same
+   * reason as onOpenFileExplorer.
+   * @req FR-ARCH-017
+   */
+  onSelectText?: () => void;
 }
 
 export interface TerminalMenuPathOptions {
@@ -90,6 +97,7 @@ export function buildTerminalContextMenuItems(
     onOpenFileExplorer,
     openPath,
     onRedrawScreen,
+    onSelectText,
   } = options;
 
   const newSessionItem: ContextMenuItem =
@@ -192,6 +200,16 @@ export function buildTerminalContextMenuItems(
         void onPaste();
       },
     },
+    // FR-ARCH-017 AC-1: next to copy and paste, where a phone user looks for copy.
+    ...(onSelectText
+      ? [
+          {
+            label: t('contextMenu.selectText'),
+            icon: 'document',
+            onClick: onSelectText,
+          } satisfies ContextMenuItem,
+        ]
+      : []),
     // REL-BGSTAB-050 AC-2: the manual repair, which phones cannot reach by middle click.
     ...(onRedrawScreen
       ? [

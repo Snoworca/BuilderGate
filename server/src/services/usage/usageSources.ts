@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { agentRootsForCwd, defaultAgentRoots } from '../agentSession/agentRoots.js';
+import type { AgentRoots } from '../agentSession/agentSessionResolver.js';
 import { CLAUDE_RELAY_STATE_FILE, installClaudeRelay, readClaudeUsage, relayStatus, uninstallClaudeRelay, type ClaudeConfigRef } from './claudeUsageRelay.js';
 import { createCodexUsageReader, type CodexHomeRef } from './codexUsageReader.js';
 import type { ClaudeCollectionDirStatus } from './UsageLimitsService.js';
@@ -23,26 +24,61 @@ export function nodeCommandFrom(command: string | null | undefined): string {
   return /(^|[\\/])node(\.exe)?$/iu.test(bare) ? first : 'node';
 }
 
-interface Locations {
+export interface Locations {
   codex: CodexHomeRef[];
   claude: ClaudeConfigRef[];
 }
 
-async function defaultLocations(): Promise<Locations> {
-  const local = defaultAgentRoots();
-  const localSource: UsageSource = process.platform === 'win32' ? 'windows' : 'local';
-  const out: Locations = {
-    codex: [{ codexHome: local.codexHome, source: localSource }],
-    claude: [{ configDir: local.claudeHome, source: localSource }],
-  };
-  if (process.platform === 'win32') {
-    const wsl = await agentRootsForCwd('/').catch(() => null);
-    if (wsl && wsl.codexHome !== local.codexHome) {
-      out.codex.push({ codexHome: wsl.codexHome, source: 'wsl' });
-      out.claude.push({ configDir: wsl.claudeHome, source: 'wsl' });
+/** `wsl.exe -l --running -q` prints UTF-16 unless WSL_UTF8 is set. */
+export function parseRunningDistros(output: Buffer): string[] {
+  const text = output.includes(0) ? output.toString('utf16le') : output.toString('utf8');
+  return text.replace(/^﻿/u, '').split(/\r?\n/u).map((name) => name.trim()).filter(Boolean);
+}
+
+export interface WslUsageProbe {
+  /** The distributions running now; listing them starts none. */
+  runningDistros(): Promise<string[]>;
+  /** The WSL user's homes; this asks a distribution, so it is called only while one runs. */
+  homeRoots(): Promise<AgentRoots | null>;
+}
+
+const defaultWslProbe: WslUsageProbe = {
+  runningDistros: () => new Promise((resolve) => {
+    execFile('wsl.exe', ['-l', '--running', '-q'], { encoding: 'buffer', timeout: 8000, windowsHide: true }, (error, stdout) => {
+      resolve(error ? [] : parseRunningDistros(stdout));
+    });
+  }),
+  homeRoots: () => agentRootsForCwd('/'),
+};
+
+/**
+ * FR-USAGE-008: reading \\wsl.localhost of a stopped distribution starts it, and each start
+ * launches WSLg, whose window takes the focus from the app in use. A stopped one is skipped.
+ */
+export function createUsageLocations(deps: { platform: NodeJS.Platform; local: AgentRoots; wsl: WslUsageProbe }): () => Promise<Locations> {
+  const { platform, local, wsl } = deps;
+  return async () => {
+    const localSource: UsageSource = platform === 'win32' ? 'windows' : 'local';
+    const out: Locations = {
+      codex: [{ codexHome: local.codexHome, source: localSource }],
+      claude: [{ configDir: local.claudeHome, source: localSource }],
+    };
+    if (platform !== 'win32') return out;
+    const running = await wsl.runningDistros().catch(() => [] as string[]);
+    if (running.length === 0) return out;
+    const roots = await wsl.homeRoots().catch(() => null);
+    const distro = /^\\\\[^\\]+\\([^\\]+)/u.exec(roots?.wslRoot ?? '')?.[1]?.toLowerCase();
+    if (roots && distro && running.some((name) => name.toLowerCase() === distro) && roots.codexHome !== local.codexHome) {
+      out.codex.push({ codexHome: roots.codexHome, source: 'wsl' });
+      out.claude.push({ configDir: roots.claudeHome, source: 'wsl' });
     }
-  }
-  return out;
+    return out;
+  };
+}
+
+/** FR-USAGE-008 AC-3: while WSL is not read, its last readings stand in for it. */
+export function holdWslReadings(held: readonly UsageReading[], fresh: UsageReading[], wslRead: boolean): UsageReading[] {
+  return wslRead ? fresh : [...fresh, ...held];
 }
 
 const exists = (dir: string) => fs.stat(dir).then((stat) => stat.isDirectory(), () => false);
@@ -90,8 +126,9 @@ export interface UsageSourcesDeps {
 
 export function createUsageSources(deps: UsageSourcesDeps = {}) {
   const codex = createCodexUsageReader();
-  const locations = deps.locations ?? defaultLocations;
+  const locations = deps.locations ?? createUsageLocations({ platform: process.platform, local: defaultAgentRoots(), wsl: defaultWslProbe });
   const nodeExists = deps.nodeExists ?? defaultNodeExists;
+  let heldWsl: UsageReading[] = [];
   return {
     async readReadings(): Promise<UsageReading[]> {
       const where = await locations();
@@ -99,7 +136,10 @@ export function createUsageSources(deps: UsageSourcesDeps = {}) {
         codex.read(where.codex).catch(() => []),
         readClaudeUsage(where.claude).catch(() => []),
       ]);
-      return [...claudeReadings, ...codexReadings];
+      const fresh = [...claudeReadings, ...codexReadings];
+      const wslRead = where.claude.some((ref) => ref.source === 'wsl');
+      if (wslRead) heldWsl = fresh.filter((reading) => reading.source === 'wsl');
+      return holdWslReadings(heldWsl, fresh, wslRead);
     },
     async setClaudeCollection(on: boolean): Promise<ClaudeCollectionDirStatus[]> {
       const results: ClaudeCollectionDirStatus[] = [];

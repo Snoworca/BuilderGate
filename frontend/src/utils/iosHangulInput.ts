@@ -58,6 +58,8 @@ export interface IosHangulInput {
    * not see it (an insertText that replaced a selection, as dictation does).
    */
   interceptInput: (composing: boolean, inputType: string) => boolean;
+  /** compositionstart (true) and compositionend (false) on the helper textarea. */
+  handleComposition: (active: boolean) => void;
 }
 
 const DEL = '\x7f';
@@ -109,6 +111,10 @@ export function createIosHangulInput(options: IosHangulInputOptions): IosHangulI
   let beforeChange: string | null = null;
   // FR-BGSTAB-037: the textarea had a selection when the change began.
   let beforeSelected = false;
+  // FR-BGSTAB-038: between compositionstart and compositionend. Chrome on Windows removes the
+  // last jamo of a composition with a deleteContentBackward whose isComposing is false, before
+  // compositionend; that change belongs to the composition, which the PTY has not received.
+  let compositionActive = false;
   const schedule = options.schedule ?? ((callback: () => void) => { setTimeout(callback, 0); });
 
   const send = (data: string) => {
@@ -162,7 +168,7 @@ export function createIosHangulInput(options: IosHangulInputOptions): IosHangulI
     // Dictation selects all it has inserted and inserts its new result over it. xterm would
     // send the whole result again; the change is sent instead and xterm never sees the event.
     interceptInput(composing, inputType) {
-      if (keystroke !== null || composing || inputType !== 'insertText' || !beforeSelected) return false;
+      if (keystroke !== null || composing || compositionActive || inputType !== 'insertText' || !beforeSelected) return false;
       const before = beforeChange;
       beforeChange = null;
       beforeSelected = false;
@@ -176,7 +182,8 @@ export function createIosHangulInput(options: IosHangulInputOptions): IosHangulI
       beforeChange = null;
       if (keystroke === null) {
         // @req FR-BGSTAB-036
-        if (composing || before === null) return;
+        // @req FR-BGSTAB-038
+        if (composing || compositionActive || before === null) return;
         if (inputType === 'insertText' && !keyHeld) return;
         if (keySentByXterm || xtermComparing) return;
         const change = lineChange(before, textareaValue());
@@ -194,6 +201,10 @@ export function createIosHangulInput(options: IosHangulInputOptions): IosHangulI
       keystroke.changed = true;
       textareaHoldsHangul = value.length > 0;
       if (change) send(change);
+    },
+    // @req FR-BGSTAB-038
+    handleComposition(active) {
+      compositionActive = active;
     },
     noteSentInput(data) {
       if (!sending && keyHeld) keySentByXterm = true;

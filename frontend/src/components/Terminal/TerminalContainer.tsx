@@ -19,6 +19,7 @@ import {
   type TerminalGeometry,
   type TerminalSurface,
 } from './terminalRedrawNudge';
+import { remoteTabActivations } from './remoteTabActivation';
 import { createResizeSendLedger } from './terminalResizeSendLedger';
 import type { TerminalShortcutState } from '../../types';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
@@ -1386,9 +1387,14 @@ export const TerminalContainer = memo(
       const wasVisible = previousVisibleForResizeRef.current;
       previousVisibleForResizeRef.current = isVisible;
       if (!isVisible || wasVisible) return;
+      // REL-BGSTAB-058 AC-9: shown because another screen switched tabs; that screen asserts its size.
+      if (remoteTabActivations.isRemote(sessionId)) {
+        recordTerminalDebugEvent(sessionId, 'reveal_resend_skipped_remote_activation', {});
+        return;
+      }
       const geometry = resizeSendLedgerRef.current.forgetAndResend(lastResizeRef.current);
       if (geometry) sendResizeIfNeeded(geometry.cols, geometry.rows, 'reveal-resend');
-    }, [isVisible, sendResizeIfNeeded]);
+    }, [isVisible, sendResizeIfNeeded, sessionId]);
 
     const shouldSuppressScreenRepairRequest = useCallback((
       reason: GridRepairReason,
@@ -2368,6 +2374,8 @@ export const TerminalContainer = memo(
       getApplicationCursorKeysMode: () => terminalRef.current?.getApplicationCursorKeysMode() ?? false,
       // @req FR-ARCH-013
       getPathsAt: (clientX, clientY) => terminalRef.current?.getPathsAt(clientX, clientY) ?? { near: null, screen: [] },
+      // @req FR-ARCH-017
+      getText: () => terminalRef.current?.getText() ?? '',
       clearSelection: () => terminalRef.current?.clearSelection(),
       copySelection: (source) => terminalRef.current?.copySelection(source) ?? Promise.resolve({
         ok: false,
@@ -3800,6 +3808,11 @@ export const TerminalContainer = memo(
       if (!shouldRepairOnSurfaceChange(nextSurface, wasSurface, shownInTabBefore, resizedElsewhereRef.current)) {
         return;
       }
+      // REL-BGSTAB-058 AC-9: a reveal another screen's tab switch caused does not nudge the PTY.
+      if (remoteTabActivations.isRemote(sessionId)) {
+        recordTerminalDebugEvent(sessionId, 'reveal_repair_skipped_remote_activation', {});
+        return;
+      }
 
       if (visibleRepairTimerRef.current) {
         clearTimeout(visibleRepairTimerRef.current);
@@ -3808,7 +3821,7 @@ export const TerminalContainer = memo(
         visibleRepairTimerRef.current = null;
         runGridLayoutRepair('workspace');
       }, 250);
-    }, [isGridSurface, isVisible, runGridLayoutRepair]);
+    }, [isGridSurface, isVisible, runGridLayoutRepair, sessionId]);
 
     // REL-BGSTAB-058 AC-8: a terminal that stayed visible while another screen resized the
     // PTY never becomes visible again, so the user coming back to this page is its return:

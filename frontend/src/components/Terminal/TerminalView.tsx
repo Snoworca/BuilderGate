@@ -201,6 +201,7 @@ import { accumulatePanRows, mobilePanSpeed, panWheelSteps, routeMobilePan } from
 import { readBrowserMobileScrollSpeed } from '../../utils/mobileScrollSettings.ts';
 import { applyLatchToTypedData, takeLatchedPaste } from '../../utils/mobileModifierLatch.ts';
 import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoint } from '../../utils/terminalPathLinks.ts';
+import { readTerminalBufferText } from '../../utils/terminalTextExport.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -339,6 +340,9 @@ export interface TerminalHandle {
   /** The file path near a client point and the paths on screen, for the terminal menu (FR-ARCH-013). */
   // @req FR-ARCH-013
   getPathsAt: (clientX: number, clientY: number) => TerminalPathsAtPoint;
+  /** The active buffer as plain text, for the touch text dialog (FR-ARCH-017). */
+  // @req FR-ARCH-017
+  getText: () => string;
   clearSelection: () => void;
   copySelection: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
   pasteClipboard: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
@@ -3387,6 +3391,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       getPathsAt: (clientX, clientY) => (
         xtermRef.current ? readTerminalPathsAt(xtermRef.current, clientX, clientY) : { near: null, screen: [] }
       ),
+      // @req FR-ARCH-017
+      getText: () => (
+        xtermRef.current ? readTerminalBufferText(xtermRef.current.buffer.active) : ''
+      ),
       clearSelection: () => {
         xtermRef.current?.clearSelection();
         savedRightClickSelRef.current = '';
@@ -4686,6 +4694,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const onCompositionStart = (event: CompositionEvent) => {
         const compositionSeq = imeTransactionRef.current?.beginComposition();
         isComposingRef.current = true;
+        // @req FR-BGSTAB-038
+        iosHangulInput.handleComposition(true);
         recordHelperTape('helper_compositionstart', event, { compositionSeq });
       };
       const onCompositionUpdate = (event: CompositionEvent) => {
@@ -4697,6 +4707,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           Array.from(event.data ?? '').length,
         );
         recordHelperTape('helper_compositionend', event, { compositionSeq });
+        // @req FR-BGSTAB-038
+        iosHangulInput.handleComposition(false);
       };
       if (helperTextarea) {
         helperTextarea.addEventListener('keydown', onHelperKeyDown);
