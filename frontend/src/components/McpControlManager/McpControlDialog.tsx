@@ -38,6 +38,7 @@ import {
 } from './mcpControlDialogModel';
 import { t, tn } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
+import { PeerLinksPanel } from './PeerLinksPanel';
 import './McpControlDialog.css';
 
 export interface McpControlDialogProps {
@@ -45,7 +46,7 @@ export interface McpControlDialogProps {
   onClose: () => void;
 }
 
-type McpControlTab = 'security' | 'agents' | 'webhooks' | 'sessions' | 'status';
+type McpControlTab = 'security' | 'agents' | 'webhooks' | 'sessions' | 'peers' | 'status';
 type FixedAccessKeyOperation = 'generate' | 'regenerate';
 
 interface AgentDraft {
@@ -75,6 +76,7 @@ const TAB_DEFINITIONS: Array<{ id: McpControlTab; labelKey: MessageKey }> = [
   { id: 'agents', labelKey: 'mcp.tab.agents' },
   { id: 'webhooks', labelKey: 'mcp.tab.webhooks' },
   { id: 'sessions', labelKey: 'mcp.tab.sessions' },
+  { id: 'peers', labelKey: 'mcp.tab.peers' },
   { id: 'status', labelKey: 'mcp.tab.status' },
 ];
 
@@ -798,6 +800,16 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
             onCloseSession: handleCloseSession,
             onDismissClaimCode: () => setSessionClaimCode(null),
           })}
+        </section>
+
+        <section
+          id="mcp-control-panel-peers"
+          role="tabpanel"
+          aria-labelledby="mcp-control-tab-peers"
+          hidden={activeTab !== 'peers'}
+          className="mcp-control-panel"
+        >
+          <PeerLinksPanel active={open && activeTab === 'peers'} />
         </section>
 
         <section

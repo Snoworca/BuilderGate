@@ -12,6 +12,17 @@ import {
 } from './McpSecurityContract.js';
 import { MCP_KEYS_MAX, parseMcpKeys, type ParsedMcpKey } from './terminalKeys.js';
 import {
+  MCP_PEER_TOOL_DESCRIPTIONS,
+  MCP_PEER_TOOL_NAMES,
+  MCP_PEER_TOOL_SCHEMAS,
+  PEER_RELAY_REFUSED,
+  callMcpPeerTool,
+  isMcpPeerTool,
+  isPeerRelay,
+  splitPeerTarget,
+  type McpPeerLinks,
+} from './McpPeerTools.js';
+import {
   MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
   MCP_MANAGEMENT_TOOL_NAMES,
   MCP_MANAGEMENT_TOOL_SCHEMAS,
@@ -56,6 +67,8 @@ type McpToolServiceDeps = {
   workspaceControl?: McpWorkspaceControl;
   // FR-LOOP-007
   loopControl?: McpLoopControl;
+  // FR-MCP-019: the MCP peer link (#233).
+  peerLinks?: McpPeerLinks;
   sleep?: (ms: number) => Promise<void>;
   // FR-MCP-010: user-registered agent launch commands (AgentAliasService), read on every request.
   getAgentAliases?: () => { claude?: readonly string[]; codex?: readonly string[] } | undefined;
@@ -180,6 +193,7 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   'buildergate.session.update_status',
   ...MCP_MANAGEMENT_TOOL_NAMES,
   ...MCP_LOOP_TOOL_NAMES,
+  ...MCP_PEER_TOOL_NAMES,
 ] as const;
 
 const SECRET_FIELD_NAMES = new Set([
@@ -312,6 +326,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
   },
   ...MCP_MANAGEMENT_TOOL_SCHEMAS,
   ...MCP_LOOP_TOOL_SCHEMAS,
+  ...MCP_PEER_TOOL_SCHEMAS,
 };
 
 /**
@@ -793,6 +808,9 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
       if (isMcpLoopTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpLoopTool(deps.loopControl, name, actor, args));
       }
+      if (isMcpPeerTool(name)) {
+        return withAudit(deps, state, name, actor, context, {}, await callMcpPeerTool(deps.peerLinks, name, actor, args));
+      }
       return {
         ok: false,
         code: 'UNKNOWN_TOOL',
@@ -1056,6 +1074,33 @@ async function handleMessageSend(
   if (scopeError) {
     return scopeError;
   }
+  // FR-MCP-019 AC-1: "peer/target" goes to the remote's queue; the tag names the sender here.
+  const remote = splitPeerTarget(deps.peerLinks, asString(args.target));
+  if (remote) {
+    if (isPeerRelay(actor)) return { ...PEER_RELAY_REFUSED };
+    const resolved = prompt ? await resolveSender(deps, actor, args) : {};
+    if ('error' in resolved) return resolved.error;
+    const sender = resolved.sender;
+    const result = await deps.peerLinks!.sendMessage({
+      peer: remote.peer,
+      args: {
+        target: remote.target,
+        ...(prompt ? { prompt } : {}),
+        ...(sender ? {
+          peerSender: {
+            alias: asString(sender.alias) ?? asString(sender.sessionKey),
+            sessionKey: asString(sender.sessionKey),
+            ...(getCurrentSessionId(sender) ? { sessionId: getCurrentSessionId(sender) } : {}),
+          },
+        } : {}),
+        ...(keys.length > 0 ? { keys: keys.map((key) => key.name) } : {}),
+        ...(args.deliveryMode !== undefined ? { deliveryMode: deliveryMode } : {}),
+      },
+      scopes: Array.isArray(actor.scopes) ? actor.scopes.map(String) : [],
+      hasKeys: keys.length > 0,
+    });
+    return withAudit(deps, state, 'buildergate.message.send', actor, context, { targetBinding: { peer: remote.peer, target: remote.target } }, result);
+  }
   const targetResult = await resolveMessageTarget(deps, actor, args);
   if (targetResult.ok === false) {
     return targetResult;
@@ -1228,9 +1273,12 @@ async function deliverMcpMessage(
 // is defused so that only the server can produce one. A tag that names no session (an external
 // client that gave none) is left out: it would tell the receiver nothing it can answer.
 function senderTag(session: StringRecord): string {
-  const sessionKey = asString(session.sessionKey) ?? '';
-  const alias = (asString(session.alias) ?? sessionKey).replace(/[[\]]/g, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() || sessionKey;
-  const sessionId = getCurrentSessionId(session);
+  // FR-MCP-019 AC-1: a peer names its sender, so every field is cleaned, not only the alias.
+  const clean = (value: string) => value.replace(/[[\]]/g, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const sessionKey = clean(asString(session.sessionKey) ?? '');
+  const alias = clean(asString(session.alias) ?? sessionKey) || sessionKey;
+  const rawSessionId = getCurrentSessionId(session);
+  const sessionId = rawSessionId === undefined ? undefined : clean(rawSessionId);
   return `[from: ${alias} · sessionKey ${sessionKey}${sessionId ? ` · sessionId ${sessionId}` : ''}]`;
 }
 
@@ -1251,11 +1299,29 @@ async function withSenderTag(
   prompt: string,
   args: StringRecord,
 ): Promise<{ prompt: string } | { error: StringRecord }> {
+  // FR-MCP-019 AC-1: a message from a peer is tagged here, by the receiving server, from the
+  // sender the peer named; the peer's name goes in front so the reply target is "<peer>/<alias>".
+  const peerSender = isPeerRelay(actor) ? asRecord(args.peerSender) : {};
+  if (asString(peerSender.sessionKey)) {
+    const alias = asString(peerSender.alias) ?? asString(peerSender.sessionKey)!;
+    return { prompt: senderTagged(prompt, senderTag({ ...peerSender, alias: `${asString(actor.peer) ?? 'peer'}/${alias}` })) };
+  }
+  const resolved = await resolveSender(deps, actor, args);
+  if ('error' in resolved) return resolved;
+  return { prompt: senderTagged(prompt, resolved.sender ? senderTag(resolved.sender) : undefined) };
+}
+
+/** The session a message.send names as its sender: the caller's own, else the one it names (checked live). */
+async function resolveSender(
+  deps: McpToolServiceDeps,
+  actor: StringRecord,
+  args: StringRecord,
+): Promise<{ sender?: StringRecord } | { error: StringRecord }> {
   const fromKey = asString(args.fromSessionKey);
   const fromId = asString(args.fromSessionId);
   const named = fromKey !== undefined || fromId !== undefined;
   const include = args.includeSender === true || (args.includeSender !== false && named);
-  if (!include) return { prompt: senderTagged(prompt, undefined) };
+  if (!include) return {};
   const actorKey = asString(actor.sessionKey);
   let sender: StringRecord | undefined;
   if (actorKey) {
@@ -1269,7 +1335,7 @@ async function withSenderTag(
       return { error: { ...validationError({ [field]: 'not found' }), message: `${field} is not a live session` } };
     }
   }
-  return { prompt: senderTagged(prompt, sender ? senderTag(sender) : undefined) };
+  return { sender };
 }
 
 async function resolveMessageTarget(
@@ -2278,6 +2344,8 @@ function sanitizeSession(session: StringRecord): StringRecord {
 function sanitizeActor(actor: StringRecord): StringRecord {
   return sanitizeRecord({
     type: actor.type ?? 'mcp',
+    // FR-MCP-019: the link a request arrived over (peer actors only).
+    ...(typeof actor.peer === 'string' ? { peer: actor.peer } : {}),
     sessionKey: actor.sessionKey,
     leaderSessionKey: actor.leaderSessionKey,
     scopes: Array.isArray(actor.scopes) ? actor.scopes.map(String) : [],
@@ -2451,6 +2519,7 @@ function toolDescription(name: string): string {
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
     ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
     ...MCP_LOOP_TOOL_DESCRIPTIONS,
+    ...MCP_PEER_TOOL_DESCRIPTIONS,
   };
   return descriptions[name] ?? name;
 }

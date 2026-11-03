@@ -126,9 +126,13 @@ import {
 } from './services/McpToolService.js';
 import { createWorkspaceServiceMcpControl } from './services/McpWorkspaceControl.js';
 import {
+  classifyMcpBearerCredential,
   closeMcpNodeHttpListener,
   createMcpNodeHttpListener,
 } from './services/McpNodeHttpListener.js';
+import { createPeerLinkManager, type PeerLinkManager } from './services/peer/peerLinkManager.js';
+import { createPeerLinkControl, createPeerLinkFileStore, type PeerLinkControl } from './services/peer/peerLinkStore.js';
+import { createPeerUpgradeHandler, dialPeerWebSocket, peerUpgradeAllowed } from './services/peer/peerWsTransport.js';
 import {
   buildMcpGatewayDeliveryResponse,
 } from './services/McpGatewayDeliveryResult.js';
@@ -229,6 +233,9 @@ let usageLimitsService: UsageLimitsService;
 let sessionSaveSettings: SessionSaveSettings = sessionSaveSettingsOf(config);
 let mcpListenerControllerInstance: StringRecord | null = null;
 let mcpControlService: StringRecord | null = null;
+// FR-MCP-016..FR-MCP-020 (#233): the MCP peer link.
+let peerLinkControl: PeerLinkControl | null = null;
+let peerLinkManagerRef: PeerLinkManager | null = null;
 let webhookInvocationService: StringRecord | null = null;
 let mcpControlConfigStore: StringRecord | null = null;
 let mcpToolServiceForStatus: StringRecord | null = null;
@@ -957,7 +964,31 @@ function setupRoutes(): void {
         webhookService: webhookInvocationService,
         configStore: mcpControlConfigStore,
       }));
+      // FR-MCP-016: a changed IP list or transport applies to links already open, too.
+      if (result.ok !== false) peerLinkManagerRef?.dropInbound();
       sendMcpControlRouteResult(res, result);
+    } catch (error) {
+      sendMcpControlRouteError(res, error);
+    }
+  });
+
+  // FR-MCP-020: the peer link settings and link state (Tools > MCP settings > Remote links).
+  app.get('/api/mcp-control/peers', authMiddleware, (_req, res) => {
+    if (!peerLinkControl) {
+      res.status(503).json({ ok: false, code: 'MCP_PEER_UNAVAILABLE' });
+      return;
+    }
+    res.json(peerLinkControl.get());
+  });
+
+  app.put('/api/mcp-control/peers', authMiddleware, async (req, res) => {
+    if (!peerLinkControl) {
+      res.status(503).json({ ok: false, code: 'MCP_PEER_UNAVAILABLE' });
+      return;
+    }
+    try {
+      const result = await peerLinkControl.update(asRecord(req.body));
+      res.status(result.ok === false ? 400 : 200).json(result);
     } catch (error) {
       sendMcpControlRouteError(res, error);
     }
@@ -968,6 +999,8 @@ function setupRoutes(): void {
       const result = asRecord(await callMcpControlRoute(mcpControlService, 'rotateFixedAccessKey', {
         auth: { type: 'browser-jwt' },
       }));
+      // FR-MCP-016: links opened with the old key must authenticate again.
+      if (result.ok !== false) peerLinkManagerRef?.dropInbound();
       sendMcpControlRouteResult(res, result);
     } catch (error) {
       sendMcpControlRouteError(res, error);
@@ -1623,6 +1656,43 @@ async function startServer(): Promise<void> {
     let fixedAccessKeyHash = asString(initialMcpControlConfig.fixedAccessKeyHash);
     let mcpAgentLifecycleService: Record<string, unknown>;
     let mcpHandlerForListener: McpHttpHandler | null = null;
+    // FR-MCP-016..FR-MCP-019: the peer link. Requests that arrive over it run as MCP tool calls of
+    // this server; the key a dialer presents is checked like any MCP request (IP list, fixed key).
+    const peerLinkStore = createPeerLinkFileStore({ crypto: cryptoService, hostName: os.hostname() });
+    const initialPeerLinkSettings = await peerLinkStore.load();
+    let peerToolService: StringRecord | null = null;
+    const peerLinkManager: PeerLinkManager = createPeerLinkManager({
+      dial: dialPeerWebSocket,
+      authenticate: async (key, request) => {
+        const record = asRecord(request);
+        const evaluateRequest = mcpListenerController.evaluateRequest as (input: unknown) => unknown;
+        const result = asRecord(await evaluateRequest({
+          method: 'GET',
+          path: '/mcp/peer',
+          headers: asRecord(record.headers),
+          credential: classifyMcpBearerCredential(key),
+          remoteAddress: asString(record.remoteAddress) ?? '',
+        }));
+        const actor = asRecord(result.actor);
+        if (result.ok === false || actor.type !== 'mcp-fixed-access-key') {
+          return { ok: false, code: 'PEER_AUTH_FAILED' };
+        }
+        return { ok: true, scopes: stringArray(actor.scopes) };
+      },
+      callTool: async (tool, args, actor) => {
+        const callTool = peerToolService?.callTool as ((request: unknown) => Promise<unknown>) | undefined;
+        if (!callTool) return { ok: false, code: 'MCP_PEER_UNAVAILABLE' };
+        return asRecord(await callTool({ name: tool, arguments: args, actor }));
+      },
+      audit: (event) => console.info('[MCP Peer]', JSON.stringify(event)),
+    }, initialPeerLinkSettings);
+    peerLinkManagerRef = peerLinkManager;
+    peerLinkControl = createPeerLinkControl({
+      store: peerLinkStore,
+      initial: initialPeerLinkSettings,
+      apply: (settings) => peerLinkManager.applySettings(settings),
+      status: () => peerLinkManager.list(),
+    });
     const mcpListenerController = createMcpListenerController({
       current: {
         bindMode: asString(initialMcpControlConfig.bindMode) ?? 'loopback',
@@ -1644,7 +1714,14 @@ async function startServer(): Promise<void> {
           };
         }
         return await mcpHandlerForListener.handleRequest(request);
-      }, { sslConfig: config.ssl || { certPath: '', keyPath: '', caPath: '' } }),
+      }, {
+        sslConfig: config.ssl || { certPath: '', keyPath: '', caPath: '' },
+        onUpgrade: createPeerUpgradeHandler({
+          manager: peerLinkManager,
+          // FR-MCP-016 AC-5: a plain-HTTP listener takes links from loopback only.
+          isAllowed: (req) => peerUpgradeAllowed(asString(asRecord(candidate).transportSecurity) ?? 'none', req.socket.remoteAddress ?? ''),
+        }),
+      }),
       closeListener: (handle) => closeMcpNodeHttpListener(handle),
       isCredentialRevoked: agentTokenStore.isRevoked,
       resolveSession: (sessionKey) => workspaceService.getMcpSessionByKey(sessionKey),
@@ -1714,6 +1791,7 @@ async function startServer(): Promise<void> {
       searchSessions: (actorSessionKey, query, includeSelf) => workspaceService.searchMcpSessions(actorSessionKey, query, includeSelf),
       setSessionAlias: (targetSessionKey, alias, actorSessionKey) => workspaceService.setMcpSessionAlias(targetSessionKey, alias, actorSessionKey),
       deliverMessage: createMcpGatewayDelivery(),
+      peerLinks: peerLinkManager,
       agentLifecycle: mcpAgentLifecycleService,
       // FR-LOOP-007: buildergate.loop.* go through the same loop service as the window and REST.
       loopControl: loopService,
@@ -1947,6 +2025,8 @@ async function startServer(): Promise<void> {
     }) as McpHttpHandler;
     mcpHandlerForListener = mcpHttpHandler;
     await (mcpListenerController.start as (request: unknown) => Promise<unknown>)({ enabled: mcpControlSecurityConfig.enabled !== false });
+    peerToolService = mcpToolService as StringRecord;
+    peerLinkManager.start();
     mcpListenerControllerInstance = mcpListenerController;
     app.set('mcpListenerController', mcpListenerController);
     app.set('mcpClaimCodes', mcpClaimCodes);
@@ -2198,6 +2278,7 @@ function setupGracefulShutdown(): void {
       return;
     }
     shutdownInProgress = true;
+    peerLinkManagerRef?.stop();
     console.log(`[Shutdown] ${signal} received, saving session CWDs...`);
     try {
       const result = await performServerGracefulShutdown(signal);

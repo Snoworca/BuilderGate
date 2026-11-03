@@ -279,6 +279,7 @@
     "tests/unit/editorTabBarLabel.test.ts",
     "tests/unit/imeTransaction.test.ts",
     "tests/unit/mcpControlDialog.test.ts",
+    "tests/unit/peerLinksModel.test.ts",
     "tests/unit/messageBoxContract.test.ts",
     "tests/unit/mosaicEqualLayout.test.ts",
     "tests/unit/mosaicLayoutStorage.test.ts",

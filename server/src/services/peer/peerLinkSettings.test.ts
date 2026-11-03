@@ -1,0 +1,77 @@
+// FR-MCP-017 AC-2, FR-MCP-020 AC-1/AC-3 (#233): peer link settings, their defaults and validation.
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import {
+  DEFAULT_PEER_LINK_SETTINGS,
+  effectivePeerTimeoutMs,
+  validatePeerLinkSettings,
+} from './peerLinkSettings.js';
+
+const link = { name: 'azure', url: 'wss://20.1.2.3:3333/mcp/peer', accessKey: 'k', enabled: true };
+
+test('FR-MCP-020 AC-1: defaults are 15 s heartbeat, 60 s queue, 5 s key queue, 256 messages, paste and list inbound', () => {
+  assert.equal(DEFAULT_PEER_LINK_SETTINGS.heartbeatMs, 15_000);
+  assert.equal(DEFAULT_PEER_LINK_SETTINGS.timeoutMs, null);
+  assert.equal(DEFAULT_PEER_LINK_SETTINGS.queueTtlMs, 60_000);
+  assert.equal(DEFAULT_PEER_LINK_SETTINGS.keyQueueTtlMs, 5_000);
+  assert.equal(DEFAULT_PEER_LINK_SETTINGS.maxQueuedMessages, 256);
+  assert.equal(DEFAULT_PEER_LINK_SETTINGS.maxQueuedBytes, 1024 * 1024);
+  assert.deepEqual(DEFAULT_PEER_LINK_SETTINGS.inboundScopes, ['mcp:sessions.list', 'mcp:message.paste']);
+  assert.deepEqual(DEFAULT_PEER_LINK_SETTINGS.links, []);
+});
+
+test('FR-MCP-017 AC-2: the timeout defaults to 2.5 times the heartbeat and can be set', () => {
+  assert.equal(effectivePeerTimeoutMs({ heartbeatMs: 15_000, timeoutMs: null }), 37_500);
+  assert.equal(effectivePeerTimeoutMs({ heartbeatMs: 4_000, timeoutMs: null }), 10_000);
+  assert.equal(effectivePeerTimeoutMs({ heartbeatMs: 15_000, timeoutMs: 90_000 }), 90_000);
+});
+
+test('FR-MCP-020 AC-3: a valid patch is accepted and missing fields keep the current values', () => {
+  const result = validatePeerLinkSettings({ nodeName: 'corp', links: [link] }, DEFAULT_PEER_LINK_SETTINGS);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  if (!result.ok) return;
+  assert.equal(result.settings.nodeName, 'corp');
+  assert.equal(result.settings.heartbeatMs, 15_000);
+  assert.equal(result.settings.links[0]!.accessKey, 'k');
+  assert.equal(result.settings.links[0]!.tlsFingerprintSha256, undefined);
+});
+
+test('FR-MCP-020 AC-2: an empty access key keeps the stored key of the same link', () => {
+  const current = { ...DEFAULT_PEER_LINK_SETTINGS, links: [{ ...link, accessKey: 'stored' }] };
+  const result = validatePeerLinkSettings({ links: [{ ...link, accessKey: '' }] }, current);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  if (result.ok) assert.equal(result.settings.links[0]!.accessKey, 'stored');
+});
+
+test('FR-MCP-020 AC-3: bad values are refused field by field', () => {
+  const cases: Array<[Record<string, unknown>, string]> = [
+    [{ nodeName: 'bad name!' }, 'nodeName'],
+    [{ heartbeatMs: 500 }, 'heartbeatMs'],
+    [{ heartbeatMs: 301_000 }, 'heartbeatMs'],
+    [{ heartbeatMs: 10_000, timeoutMs: 10_000 }, 'timeoutMs'],
+    [{ queueTtlMs: 0 }, 'queueTtlMs'],
+    [{ keyQueueTtlMs: -1 }, 'keyQueueTtlMs'],
+    [{ maxQueuedMessages: 0 }, 'maxQueuedMessages'],
+    [{ inboundScopes: ['mcp:everything'] }, 'inboundScopes'],
+    [{ links: [{ ...link, url: 'https://x/mcp/peer' }] }, 'links.0.url'],
+    [{ links: [{ ...link, name: 'a/b' }] }, 'links.0.name'],
+    [{ links: [link, { ...link }] }, 'links.1.name'],
+    [{ links: [{ ...link, tlsFingerprintSha256: 'zz' }] }, 'links.0.tlsFingerprintSha256'],
+    [{ links: [{ ...link, accessKey: '' }] }, 'links.0.accessKey'],
+  ];
+  for (const [patch, field] of cases) {
+    const result = validatePeerLinkSettings(patch, DEFAULT_PEER_LINK_SETTINGS);
+    assert.equal(result.ok, false, `${field}: ${JSON.stringify(patch)}`);
+    if (!result.ok) assert.ok(field in result.fieldErrors, `${field} not in ${JSON.stringify(result.fieldErrors)}`);
+  }
+});
+
+test('FR-MCP-020 AC-3: a fingerprint is accepted with or without colons, in either case, and kept as lower-case hex', () => {
+  const hex = 'AB'.repeat(32);
+  const colons = hex.match(/../g)!.join(':');
+  for (const value of [hex, colons, hex.toLowerCase()]) {
+    const result = validatePeerLinkSettings({ links: [{ ...link, tlsFingerprintSha256: value }] }, DEFAULT_PEER_LINK_SETTINGS);
+    assert.equal(result.ok, true, value);
+    if (result.ok) assert.equal(result.settings.links[0]!.tlsFingerprintSha256, 'ab'.repeat(32));
+  }
+});

@@ -366,3 +366,79 @@ textarea.mcp-control-textarea {
 .mcp-control-warning > svg { flex: none; margin-top: 2px; color: var(--warn); }
 .mcp-control-warning strong { display: block; margin-bottom: 2px; }
 .mcp-control-warning p { margin: 0; color: var(--fg-muted, var(--fg)); }
+
+/* FR-MCP-020 (#233): Remote links tab. */
+.mcp-peers-intro {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.mcp-peers-heading {
+  margin: var(--sp-2) 0 0;
+  color: var(--fg-strong);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.mcp-peers-status-row {
+  display: contents;
+}
+
+.mcp-peers-status dt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.mcp-peers-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--fg-muted);
+  border-radius: var(--r-pill);
+}
+
+.mcp-peers-dot.is-connected {
+  background: var(--ok);
+}
+
+.mcp-peers-dot.is-connecting {
+  background: var(--warn);
+}
+
+.mcp-peers-error {
+  color: var(--danger-text);
+}
+
+.mcp-peers-link {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mcp-peers-link-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(220px, 2fr);
+  gap: var(--sp-3);
+}
+
+.mcp-peers-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.mcp-peers-add {
+  justify-content: flex-start;
+}
+
+@media (max-width: 640px) {
+  .mcp-peers-link-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mcp-peers-field-errors {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-4);
+}

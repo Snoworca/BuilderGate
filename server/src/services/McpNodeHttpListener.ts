@@ -1,5 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from 'http';
 import https from 'https';
+import type { Duplex } from 'stream';
 import type { SSLConfig } from '../types/config.types.js';
 import { SSLService } from './SSLService.js';
 import {
@@ -16,12 +17,18 @@ export type McpNodeListenerHandle = {
   listenerStatus: 'listening';
   activeConnectionCount: number;
   transportSecurity?: string;
+  /** Sockets handed to onUpgrade (peer links); server.close() does not end them, so close does. */
+  upgradedSockets?: Set<Duplex>;
 };
 
 export async function createMcpNodeHttpListener(
   configRecord: StringRecord,
   dispatch: (request: unknown) => unknown | Promise<unknown>,
-  options: { sslConfig?: SSLConfig } = {},
+  options: {
+    sslConfig?: SSLConfig;
+    /** FR-MCP-016: WebSocket upgrades (the peer link). Answers true when it took the request. */
+    onUpgrade?: (request: IncomingMessage, socket: Duplex, head: Buffer) => boolean;
+  } = {},
 ): Promise<McpNodeListenerHandle> {
   const bindHost = typeof configRecord.bindHost === 'string' ? configRecord.bindHost : '127.0.0.1';
   const port = Number(configRecord.port ?? 3333);
@@ -32,6 +39,7 @@ export async function createMcpNodeHttpListener(
   const server = configRecord.transportSecurity === 'direct_tls'
     ? https.createServer(sslService.getTLSOptions(await sslService.loadCertificates()), requestHandler)
     : http.createServer(requestHandler);
+  const upgradedSockets = new Set<Duplex>();
   const handle: McpNodeListenerHandle = {
     server,
     bindHost,
@@ -39,7 +47,16 @@ export async function createMcpNodeHttpListener(
     listenerStatus: 'listening',
     activeConnectionCount: 0,
     transportSecurity: typeof configRecord.transportSecurity === 'string' ? configRecord.transportSecurity : 'none',
+    upgradedSockets,
   };
+  server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+    if (!options.onUpgrade?.(request, socket, head)) {
+      socket.destroy();
+      return;
+    }
+    upgradedSockets.add(socket);
+    socket.once('close', () => upgradedSockets.delete(socket));
+  });
   server.on('connection', (socket) => {
     handle.activeConnectionCount += 1;
     socket.on('close', () => {
@@ -66,13 +83,18 @@ export async function createMcpNodeHttpListener(
 }
 
 export async function closeMcpNodeHttpListener(handle: unknown): Promise<void> {
-  const server = (handle as Partial<McpNodeListenerHandle> | null)?.server;
+  const record = handle as Partial<McpNodeListenerHandle> | null;
+  const server = record?.server;
   if (!server) {
     return;
   }
-  await new Promise<void>((resolve) => {
+  const closed = new Promise<void>((resolve) => {
     server.close(() => resolve());
   });
+  // FR-MCP-016: a peer link keeps its socket alive with heartbeats, so close() would wait forever.
+  // Turning MCP off or rebinding ends the links too; a remote must reconnect and authenticate again.
+  for (const socket of record.upgradedSockets ?? []) socket.destroy();
+  await closed;
 }
 
 async function handleMcpNodeRequest(

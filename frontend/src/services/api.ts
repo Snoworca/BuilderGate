@@ -3,6 +3,7 @@
  * Phase 7: Frontend Security - Auth API added
  */
 import type { LoopInput, LoopRun, LoopView } from '../components/Loop/loopTypes.ts';
+import type { PeerLinksRejection, PeerLinksResponse } from '../components/McpControlManager/peerLinksModel.ts';
 import type { UsageSendResult, UsageSettingsUpdate, UsageState } from '../components/UsageLimits/usageLimitsTypes.ts';
 import { loopRejectionMessage } from '../components/Loop/loopMessages.ts';
 
@@ -671,6 +672,25 @@ export const settingsApi = {
 };
 
 export const mcpControlApi = {
+  // FR-MCP-020 (#233): remote links (the MCP peer link).
+  getPeers: async (): Promise<PeerLinksResponse> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/peers`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  putPeers: async (patch: Record<string, unknown>): Promise<PeerLinksResponse | PeerLinksRejection> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/peers`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(patch),
+    });
+    // FR-MCP-020 AC-3: a refusal carries fieldErrors, which the tab shows by field.
+    if (res.status === 400) return res.json();
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
   getConfig: async (): Promise<McpControlConfig> => {
     const res = await authFetch(`${API_BASE}/mcp-control/config`, {
       headers: getAuthHeaders(),

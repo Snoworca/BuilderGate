@@ -55,6 +55,8 @@ server/data/agent-command-profiles.json
 server/data/agent-command-profiles.json.bak
 server/data/mcp-control-config.json
 server/data/mcp-control-config.json.bak
+server/data/mcp-peer-links.json
+server/data/mcp-peer-links.json.bak
 server/data/command-presets.json
 server/data/command-presets.json.bak
 server/data/recovery-options.json
@@ -111,3 +113,6 @@ docs/srs/*/
 # Transient per-target pkg config written at ROOT during exe builds
 # (pkg resolves --config globs against the config file's own directory).
 .pkg-config-*.json
+
+# Research notes stay local from 2026-11-04 (user instruction)
+docs/research/
