@@ -193,6 +193,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   getMouseTrackingActive: 'reads mouse mode; no input',
   getPathsAt: 'reads file paths shown at a screen point; takes two numbers, no input', // FR-ARCH-012/013 (5f6f17d4)
   getScreenRepairReadiness: 'reads readiness; no input',
+  getText: 'reads the active buffer as plain text for the touch text dialog; no input', // FR-ARCH-017
   getSelection: 'reads selection text; no input',
   hasSelection: 'reads selection presence; no input',
   invalidateClipboardContext: 'bumps the clipboard view generation; no input',
