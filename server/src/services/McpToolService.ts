@@ -10,6 +10,7 @@ import {
   validateMcpSecurityConfig,
   verifyMcpCapabilityToken,
 } from './McpSecurityContract.js';
+import { MCP_KEYS_MAX, parseMcpKeys, type ParsedMcpKey } from './terminalKeys.js';
 import {
   MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
   MCP_MANAGEMENT_TOOL_NAMES,
@@ -239,8 +240,19 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
       includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key> · sessionId <id>] tag before the text. Use true when talking to another agent, false (default) for a shell command.' },
       fromSessionKey: { type: 'string', description: 'Your own session, when this MCP connection is not tied to one (a fixed access key). The server checks that it is a live session and writes its real ids in the tag; it turns the tag on unless includeSender is false.' },
       fromSessionId: { type: 'string', description: 'Like fromSessionKey, by session id.' },
+      // FR-MCP-015
+      keys: {
+        type: 'array',
+        maxItems: MCP_KEYS_MAX,
+        items: { type: 'string' },
+        description: 'Keys to press after the prompt, or alone without one, in order. A key is a name, optionally '
+          + 'with modifiers joined by +: up, down, left, right, home, end, pageup, pagedown, insert, delete, f1-f12, '
+          + 'esc, tab, enter, backspace, space, newline (a line break inside an input, Ctrl+J), or one character; '
+          + 'modifiers shift, alt, ctrl. Examples: ["down","down","enter"], ["shift+tab"], ["ctrl+c"], ["esc"]. '
+          + 'A modifier that the terminal cannot carry (shift+enter: use newline) is refused and nothing is sent. '
+          + 'enter and newline need the submit scope.',
+      },
     },
-    required: ['prompt'],
     additionalProperties: false,
   },
   'buildergate.session.set_alias': {
@@ -1025,12 +1037,22 @@ async function handleMessageSend(
   args: StringRecord,
   context: StringRecord,
 ): Promise<StringRecord> {
-  const prompt = asString(args.prompt)?.trim();
-  if (!prompt) {
+  const prompt = asString(args.prompt)?.trim() ?? '';
+  // FR-MCP-015 AC-1/AC-4: keys after the prompt or alone; a refused key sends nothing.
+  let keys: ParsedMcpKey[] = [];
+  if (args.keys !== undefined) {
+    const parsed = parseMcpKeys(args.keys);
+    if (!parsed.ok) {
+      return validationError(parsed.errors);
+    }
+    keys = parsed.keys;
+  }
+  if (!prompt && keys.length === 0) {
     return validationError({ prompt: 'required' });
   }
   const deliveryMode = resolveDeliveryMode(args);
-  const scopeError = validateMessageScopes(actor, deliveryMode);
+  // FR-MCP-015 AC-5: a key that writes CR or LF needs the submit scope, like a submit.
+  const scopeError = validateMessageScopes(actor, keys.some((key) => key.submits) ? 'submit' : deliveryMode);
   if (scopeError) {
     return scopeError;
   }
@@ -1038,7 +1060,7 @@ async function handleMessageSend(
   if (targetResult.ok === false) {
     return targetResult;
   }
-  const sender = await withSenderTag(deps, actor, prompt, args);
+  const sender = prompt ? await withSenderTag(deps, actor, prompt, args) : { prompt: '' };
   if ('error' in sender) return sender.error;
   return deliverMcpMessage(deps, state, {
     actor,
@@ -1047,6 +1069,7 @@ async function handleMessageSend(
     deliverySource: 'mcp-message-send',
     deliveryMode,
     prompt: sender.prompt,
+    keys,
     targetSessionKey: asString(targetResult.sessionKey) ?? '',
     target: asRecord(targetResult.target),
   });
@@ -1117,6 +1140,8 @@ async function deliverMcpMessage(
     deliverySource: string;
     deliveryMode: 'paste' | 'submit';
     prompt: string;
+    /** FR-MCP-015: pressed after the prompt; encoded at delivery, where the cursor mode is known. */
+    keys?: ParsedMcpKey[];
     targetSessionKey: string;
     target: StringRecord;
   },
@@ -1148,6 +1173,7 @@ async function deliverMcpMessage(
       source: input.deliverySource,
       prompt: input.prompt,
       deliveryMode: input.deliveryMode,
+      keys: input.keys ?? [],
       target: sanitizeSession(input.target),
       actor: sanitizeActor(input.actor),
       context: input.context,
@@ -2416,7 +2442,7 @@ function toolDescription(name: string): string {
     'buildergate.session.claim': 'Bind a one-time claim code to a session.',
     'buildergate.session.list': 'List live MCP-visible sessions.',
     'buildergate.session.search': 'Search live sessions by alias or key.',
-    'buildergate.message.send': 'Send a paste or submit request to a session.',
+    'buildergate.message.send': 'Send a paste or submit request to a session, and press keys (arrows, esc, tab, shift+tab, ctrl+c, ...) with keys.',
     'buildergate.session.set_alias': 'Set a user alias for a session.',
     'buildergate.session.open_agent': 'Launch a follower agent session from an agent profile.',
     'buildergate.session.close': 'Close another session. Requires confirmation fields.',

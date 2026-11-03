@@ -164,9 +164,13 @@ import {
   DEFAULT_SUBMIT_ENTER_DELAY,
   isValidSubmitEnterBaseMs,
   isValidSubmitEnterPerKbMs,
+  isAccepted,
+  MCP_KEY_GAP_MS,
+  sendKeysInOrder,
   submitWithSeparateEnter,
   type SubmitEnterDelay,
 } from './services/submitDelivery.js';
+import { encodeTerminalKey, type ParsedMcpKey } from './services/terminalKeys.js';
 import {
   createMcpFixedAccessKey,
   getFixedMcpAccessKeyScopes,
@@ -534,14 +538,26 @@ function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringR
         promptPreviewMaxChars: 24,
       },
     };
+    const submit = (request: StringRecord) => (delivery.source === 'mcp-reply-to-leader'
+      ? gateway.submitInput({ ...request, source: 'mcp-reply-to-leader' })
+      : submitMcpMessageInput(gateway, request));
+    const keys = Array.isArray(delivery.keys) ? delivery.keys as ParsedMcpKey[] : [];
     // FR-MCP-002 AC-7: a submit writes the prompt, then Enter on its own.
-    const result = await submitWithSeparateEnter(
-      (request) => (delivery.source === 'mcp-reply-to-leader'
-        ? gateway.submitInput({ ...request, source: 'mcp-reply-to-leader' })
-        : submitMcpMessageInput(gateway, request)),
-      gatewayRequest,
-      { delay: currentSubmitEnterDelay() },
-    );
+    let result: StringRecord = { accepted: true };
+    if (prompt !== '') {
+      result = await submitWithSeparateEnter(submit, gatewayRequest, { delay: currentSubmitEnterDelay() });
+    }
+    // FR-MCP-015 AC-1/AC-3/AC-6: then the keys, one by one, in the cursor mode the program set.
+    if (keys.length > 0 && isAccepted(result)) {
+      if (prompt !== '') await new Promise((resolve) => setTimeout(resolve, MCP_KEY_GAP_MS));
+      const sessionId = asString(asRecord(asRecord(targetBinding).binding).currentSessionId) ?? '';
+      const applicationCursor = sessionManager.getApplicationCursorKeysMode(sessionId);
+      result = await sendKeysInOrder(
+        submit,
+        prompt !== '' ? (({ auditContext: _audit, ...rest }) => rest)(gatewayRequest) : gatewayRequest,
+        keys.map((key) => ({ name: key.name, bytes: encodeTerminalKey(key.key, key.mods, applicationCursor), submits: key.submits })),
+      );
+    }
     return buildMcpGatewayDeliveryResponse(result);
   };
 }

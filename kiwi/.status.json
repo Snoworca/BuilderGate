@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-03T05:18:55.251Z",
+  "generatedAt": "2026-11-03T07:48:30.013Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "135acb0401d54c671febaad97384720f32fe05253aca6cccb5c6dcd16b020adf",
+    "value": "a3e368fbaf44444a8810e12f441b4309855a8ed22c1f3c1d61962e7611e55f02",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -14,27 +14,27 @@
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "ec86b7d67cf2ac89de8595211060585d44f59d0812e4b7549d4eb7cb675af764",
-        "size": 87253,
-        "mtimeMs": 1793683111473.9915
+        "sha256": "0caf0c8ea576e473b99124510260cf05b227ad3de7c023b45206e4b1289529f0",
+        "size": 86123,
+        "mtimeMs": 1793683456292.7126
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "5212cf2b385c74fe81644cf7b0becdbda034e7a03913c51834213d09ac523aee",
-        "size": 118083,
-        "mtimeMs": 1793683111476.505
+        "sha256": "fe212618243820d7a5202c88f34b02a10b7ec93cf22361791d9142a6e825d513",
+        "size": 116328,
+        "mtimeMs": 1793683456321.0454
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "3ef049f3d82a681e593def6959143faeadcaef04a5e7ff005eafe17dd4bc97d8",
-        "size": 1592651,
-        "mtimeMs": 1793683111483.4072
+        "sha256": "44836ed2dba6d58387cb19d57cf6cf2f251e93f5bf24f64f871a86fcaa5da041",
+        "size": 1581143,
+        "mtimeMs": 1793683456497.093
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "31bc6378ac252d69575710b30ac40e6f2766131a41d0fbaa889329a564f0673e",
-        "size": 152404,
-        "mtimeMs": 1793683055956.261
+        "sha256": "f81da80f0df3290e50cf6823821cb27a0a6f0345adb77d3c3428e362f7f3d578",
+        "size": 157005,
+        "mtimeMs": 1793691658965.803
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
@@ -86,9 +86,9 @@
       },
       {
         "path": "docs/spec/49.usage-limits.srs.md",
-        "sha256": "7b51480442278214528c79ea4a95eac0da85d31c84c91f8dce193e8256157a9f",
-        "size": 23071,
-        "mtimeMs": 1793683111484.933
+        "sha256": "c3e080017b4fa9de9c064f633048752f7ec13ca4c76a962fcb0fe932d779b6f6",
+        "size": 22586,
+        "mtimeMs": 1793683456512.131
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -103,7 +103,7 @@
       "ARCH": 17,
       "AITUI": 23,
       "BGSTAB": 38,
-      "MCP": 14,
+      "MCP": 15,
       "MDE": 33,
       "FEX": 33,
       "FOP": 8,

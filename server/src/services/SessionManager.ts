@@ -4896,6 +4896,11 @@ export class SessionManager {
     return this.sessions.has(id);
   }
 
+  /** FR-MCP-015 AC-3: whether the program in the session asked for application cursor keys (DECCKM). */
+  getApplicationCursorKeysMode(id: string): boolean {
+    return this.sessions.get(id)?.headless?.terminal.modes.applicationCursorKeysMode === true;
+  }
+
   deleteMultipleSessions(ids: string[], reason: SessionCleanupReason = 'direct-session-delete'): void {
     for (const id of ids) {
       this.deleteSession(id, reason);

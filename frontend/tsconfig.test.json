@@ -88,6 +88,7 @@
     "./tests/unit/windowsHangulBackspace.test.ts",
     "./tests/unit/sessionSaveButtonLabel.test.ts",
     "./tests/unit/mobileKeyEncoder.test.ts",
+    "./tests/unit/terminalKeyEncoderParity.test.ts",
     "./tests/unit/mobileModifierLatch.test.ts",
     "./tests/unit/mobileKeySend.test.ts",
     "./tests/unit/mobileKeyBar.test.ts",

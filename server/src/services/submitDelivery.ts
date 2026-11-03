@@ -41,7 +41,7 @@ export function isSubmitDelivery(request: Rec): boolean {
   return delivery.submit === true || delivery.mode === 'submit';
 }
 
-function isAccepted(result: Rec): boolean {
+export function isAccepted(result: Rec): boolean {
   return result.accepted !== false && result.ok !== false && result.status !== 'failed';
 }
 
@@ -77,4 +77,48 @@ export async function submitWithSeparateEnter(
 
 function asRecord(value: unknown): Rec {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Rec : {};
+}
+
+/** FR-MCP-015 AC-6: the pause between keys, and the longer one after esc. */
+export const MCP_KEY_GAP_MS = 30;
+/** Esc followed at once by another byte reads as Alt+that key (crossterm, Ink). */
+export const MCP_KEY_ESC_GAP_MS = 100;
+
+export interface EncodedMcpKey {
+  name: string;
+  bytes: string;
+  /** Its bytes hold CR or LF; it goes as a submit so the gateway's Enter policy applies. */
+  submits: boolean;
+}
+
+/**
+ * FR-MCP-015 AC-5/AC-6: writes each key on its own, pausing between keys and longer after esc.
+ * Only the first write carries auditContext, so one delivery is audited once. The first refused
+ * key is returned and the rest are not sent.
+ */
+export async function sendKeysInOrder(
+  submit: (request: Rec) => unknown,
+  request: Rec,
+  keys: readonly EncodedMcpKey[],
+  options: { sleep?: (ms: number) => Promise<void> } = {},
+): Promise<Rec> {
+  const sleep = options.sleep ?? defaultSleep;
+  const { auditContext, ...rest } = request;
+  let last: Rec = { accepted: true };
+  for (const [index, key] of keys.entries()) {
+    const write = {
+      ...rest,
+      ...(index === 0 && auditContext !== undefined ? { auditContext } : {}),
+      data: key.bytes,
+      delivery: { mode: 'keys', submit: key.submits },
+    };
+    last = asRecord(await submit(write));
+    if (!isAccepted(last)) {
+      return { ...last, keysSent: index };
+    }
+    if (index < keys.length - 1) {
+      await sleep(key.bytes === '\u001b' ? MCP_KEY_ESC_GAP_MS : MCP_KEY_GAP_MS);
+    }
+  }
+  return { ...last, keysSent: keys.length };
 }
