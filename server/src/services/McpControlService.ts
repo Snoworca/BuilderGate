@@ -128,10 +128,13 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
       controlConfig.lastRebindResult = mutationResult;
       controlConfig.lastError = mutationResult.lastError ?? null;
       const active = asRecord(mutationResult.active);
-      if (asString(active.bindHost)) {
+      // SEC-MCP-001 AC-10: a stopped listener still holds its previous bind; the saved host and
+      // port stay what this save set.
+      const listening = asString(active.listenerStatus) !== 'stopped';
+      if (listening && asString(active.bindHost)) {
         controlConfig.host = asString(active.bindHost);
       }
-      if (active.port !== undefined) {
+      if (listening && active.port !== undefined) {
         controlConfig.port = Number(active.port);
       }
       if (asString(active.listenerStatus)) {

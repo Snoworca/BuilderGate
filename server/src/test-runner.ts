@@ -269,7 +269,7 @@ async function main(): Promise<void> {
     { name: 'internal shutdown route flushes and returns structured shutdown result', run: testInternalShutdownRouteSuccess },
     { name: 'internal shutdown route returns 500 when graceful shutdown fails', run: testInternalShutdownRouteFailure },
     { name: 'MCP security contract SEC-MCP-001 AC-1: defaults bind loopback and reject non-loopback dispatch', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-1'] },
-    { name: 'MCP security contract SEC-MCP-001 AC-2: whitelist requires TLS or trusted TLS proxy', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-2'] },
+    { name: 'MCP security contract SEC-MCP-001 AC-2: whitelist mode accepts plain HTTP', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-2'] },
     { name: 'MCP security contract SEC-MCP-001 AC-3: forwarded IP is trusted only from HTTPS trusted proxies', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-3'] },
     { name: 'MCP security contract SEC-MCP-001 AC-4: denials expose stable code and audit id without secrets', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-4'] },
     { name: 'MCP security contract SEC-MCP-001 AC-5: listener rebind swaps MCP listener without app restart', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-5'] },
@@ -354,7 +354,7 @@ async function main(): Promise<void> {
     { name: 'MCP transport/tool OBS-MCP-001 AC-6: coverage manifest names required verification lanes', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-6'] },
     { name: 'MCP transport/tool OBS-MCP-001 AC-7: skipped validation is explicit', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-7'] },
     { name: 'MCP transport/tool SEC-MCP-001 AC-1: default listener is loopback only', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-1'] },
-    { name: 'MCP transport/tool SEC-MCP-001 AC-2: whitelist mode requires TLS', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-2'] },
+    { name: 'MCP transport/tool SEC-MCP-001 AC-2: whitelist mode over plain HTTP validates', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-2'] },
     { name: 'MCP transport/tool SEC-MCP-001 AC-3: forwarded IP trust requires HTTPS trusted proxy', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-3'] },
     { name: 'MCP transport/tool SEC-MCP-001 AC-4: denied requests include redacted error and audit id', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-4'] },
     { name: 'MCP transport/tool SEC-MCP-001 AC-5: successful rebind swaps only MCP listener', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-5'] },
@@ -7931,9 +7931,9 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
       candidate: { bindMode: 'whitelist', bindHost: '0.0.0.0', externalWhitelist: ['203.0.113.7'], transportSecurity: 'none' },
     }), 'MCP listener config validation result');
 
-    assert.equal(result.ok, false);
-    assert.equal(result.code, 'MCP_TRANSPORT_TLS_REQUIRED');
-    assert.equal(asRecord(result.activeListener, 'active listener').bindHost, '127.0.0.1');
+    // #231: external access over plain HTTP is allowed (SEC-MCP-001 AC-2 as changed 2026-11-03).
+    assert.equal(result.ok, true);
+    assert.equal(asRecord(result.candidate, 'candidate listener').bindHost, '0.0.0.0');
   },
   'MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-3': async () => {
     const contract = await loadMcpTransportToolContract();
@@ -9968,9 +9968,9 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         port: 4444,
         transportSecurity: 'none',
         externalWhitelist: ['203.0.113.7/32'],
-      }), 'invalid mcp control config save result');
-      assert.equal(rejectedSave.ok, false);
-      assert.equal(rejectedSave.code, 'MCP_TRANSPORT_TLS_REQUIRED');
+      }), 'http mcp control config save result');
+      // #231: external access over plain HTTP saves (SEC-MCP-001 AC-2 as changed 2026-11-03).
+      assert.equal(rejectedSave.ok, true, JSON.stringify(rejectedSave));
 
       const wideOpenRejectedSave = asRecord(await callObjectMethod(store, 'saveConfig', {
         bindMode: 'whitelist',
@@ -11895,9 +11895,9 @@ async function testMcpSecuritySecMcp001Ac2(): Promise<void> {
     transportSecurity: 'none',
   }, { activeConfig }), 'MCP config validation result');
 
-  assert.equal(result.ok, false);
-  assert.equal(result.code, 'MCP_TRANSPORT_TLS_REQUIRED');
-  assert.deepEqual(result.activeConfig, activeConfig);
+  // #231: external access over plain HTTP is a valid configuration (SEC-MCP-001 AC-2 as changed
+  // 2026-11-03); the HTTPS listener is still used only for direct TLS.
+  assert.equal(result.ok, true, JSON.stringify(result));
 
   const nonLoopbackHost = asRecord(await callMcpSecurityContract('validateMcpSecurityConfig', {
     enabled: false,

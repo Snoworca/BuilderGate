@@ -30,7 +30,10 @@ import {
   validateMcpAgentDraft,
   validateMcpWebhookDraft,
   validateMcpSecurityDraft,
+  mcpSecurityWarnings,
+  withMcpBindMode,
   type McpSecurityDraft,
+  type McpSecurityWarning,
   formatMcpEndpointUrl,
 } from './mcpControlDialogModel';
 import { t, tn } from '../../i18n/i18n.ts';
@@ -139,6 +142,8 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
   const [fixedAccessKey, setFixedAccessKey] = useState<McpFixedAccessKeyRotation | null>(null);
   const [fixedAccessKeyOperation, setFixedAccessKeyOperation] = useState<FixedAccessKeyOperation>('generate');
   const [fixedAccessKeyRotationConfirmOpen, setFixedAccessKeyRotationConfirmOpen] = useState(false);
+  // SEC-MCP-001 AC-8: a save that opens MCP without protection is confirmed once.
+  const [riskConfirmOpen, setRiskConfirmOpen] = useState(false);
   const [fixedAccessKeyRotationError, setFixedAccessKeyRotationError] = useState<string | null>(null);
   const [sessionClaimCode, setSessionClaimCode] = useState<McpSessionClaimCode | null>(null);
   const [sessionQuery, setSessionQuery] = useState('');
@@ -259,18 +264,17 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     key: K,
     value: McpSecurityDraft[K],
   ) => {
-    setSecurityDraft(current => current ? { ...current, [key]: value } : current);
+    setSecurityDraft(current => {
+      if (!current) return current;
+      // SEC-MCP-001 AC-9: the host follows the bind mode.
+      if (key === 'bindMode') return withMcpBindMode(current, String(value));
+      return { ...current, [key]: value };
+    });
   }, []);
 
-  const handleSaveSecurity = useCallback(async () => {
+  const saveSecurityDraft = useCallback(async () => {
     if (!securityDraft) return;
-    const validationError = validateMcpSecurityDraft(securityDraft);
-    if (validationError) {
-      setError(validationError);
-      setStatusMessage(null);
-      return;
-    }
-
+    setRiskConfirmOpen(false);
     setSaving(true);
     setError(null);
     setStatusMessage(null);
@@ -285,6 +289,21 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       setSaving(false);
     }
   }, [securityDraft]);
+
+  const handleSaveSecurity = useCallback(() => {
+    if (!securityDraft) return;
+    const validationError = validateMcpSecurityDraft(securityDraft);
+    if (validationError) {
+      setError(validationError);
+      setStatusMessage(null);
+      return;
+    }
+    if (mcpSecurityWarnings(securityDraft).length > 0) {
+      setRiskConfirmOpen(true);
+      return;
+    }
+    void saveSecurityDraft();
+  }, [securityDraft, saveSecurityDraft]);
 
   const handleRequestFixedAccessKeyRotation = useCallback(() => {
     fixedAccessKeyEpochRef.current += 1;
@@ -792,6 +811,19 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
         </section>
       </div>
       </WindowDialog>
+      {riskConfirmOpen && (
+        <MessageBox
+          dialogId="mcp-security-risk-confirm"
+          title={t('mcp.warning.confirm.title')}
+          message={t('mcp.warning.confirm.body')}
+          okLabel={t('mcp.warning.confirm.save')}
+          cancelLabel={t('common.cancel')}
+          okVariant="danger"
+          busy={saving}
+          onOk={() => void saveSecurityDraft()}
+          onCancel={() => setRiskConfirmOpen(false)}
+        />
+      )}
       {fixedAccessKeyRotationConfirmOpen && (
         <MessageBox
           dialogId="mcp-fixed-access-key-rotate-confirm"
@@ -813,6 +845,25 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
         />
       )}
     </>
+  );
+}
+
+const SECURITY_WARNING_TEXT: Record<McpSecurityWarning, { title: MessageKey; body: MessageKey }> = {
+  httpExternal: { title: 'mcp.warning.httpExternal.title', body: 'mcp.warning.httpExternal.body' },
+  anyAddress: { title: 'mcp.warning.anyAddress.title', body: 'mcp.warning.anyAddress.body' },
+};
+
+/** SEC-MCP-001 AC-8: stays under its field while the risky value is there. */
+function SecurityWarning({ kind }: { kind: McpSecurityWarning }) {
+  const text = SECURITY_WARNING_TEXT[kind];
+  return (
+    <div className="mcp-control-warning" role="note" data-testid={`mcp-warning-${kind}`}>
+      <Icon name="alert" size={14} />
+      <div>
+        <strong>{t(text.title)}</strong>
+        <p>{t(text.body)}</p>
+      </div>
+    </div>
   );
 }
 
@@ -843,6 +894,7 @@ function renderSecurityPanel({
   if (!draft) {
     return <div className="mcp-control-empty">{t('mcp.security.loadFailed')}</div>;
   }
+  const warnings = mcpSecurityWarnings(draft);
 
   return (
     <div className="mcp-control-section">
@@ -897,6 +949,7 @@ function renderSecurityPanel({
             <option value="direct_tls">{t(MCP_TRANSPORT_SECURITY_LABELS.direct_tls)}</option>
             <option value="trusted_tls_proxy">{t(MCP_TRANSPORT_SECURITY_LABELS.trusted_tls_proxy)}</option>
           </Select>
+          {warnings.includes('httpExternal') && <SecurityWarning kind="httpExternal" />}
         </Field>
 
         <Field label={t('mcp.security.rateWindow')} htmlFor="mcp-security-rate-window" className="mcp-control-field">
@@ -962,7 +1015,7 @@ function renderSecurityPanel({
         <Field
           label={t('mcp.security.externalWhitelist')}
           htmlFor="mcp-security-external-whitelist"
-          help={t('mcp.security.listHelp')}
+          help={t('mcp.security.externalWhitelistHelp')}
           className="mcp-control-field"
         >
           <textarea
@@ -973,6 +1026,7 @@ function renderSecurityPanel({
             rows={5}
             spellCheck={false}
           />
+          {warnings.includes('anyAddress') && <SecurityWarning kind="anyAddress" />}
         </Field>
 
         <Field label={t('mcp.security.trustedProxies')} htmlFor="mcp-security-trusted-proxies" className="mcp-control-field">

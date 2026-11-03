@@ -119,6 +119,8 @@ const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);
 const ALLOWED_AGENT_STATUS = new Set(['unknown', 'starting', 'ready', 'busy', 'waiting_input', 'completed', 'failed']);
 const ALLOWED_BINDING_LIFECYCLE = new Set(['live', 'closing', 'closed', 'retired', 'failed', 'closing-failed']);
 const ALLOWED_BIND_MODES = new Set(['loopback', 'whitelist']);
+/** SEC-MCP-001 AC-7: the one external-whitelist entry that allows every address. */
+export const MCP_ANY_ADDRESS = '*';
 const ALLOWED_TRANSPORT_SECURITY = new Set(['none', 'direct_tls', 'trusted_tls_proxy']);
 
 // @req SEC-MCP-001
@@ -150,7 +152,7 @@ export function validateMcpSecurityConfig(
   if (!isValidOriginList(candidate.allowedOrigins ?? [])) {
     return validationDenied('MCP_ORIGIN_DENIED', context.activeConfig);
   }
-  if (!isValidOptionalCidrList(candidate.externalWhitelist)) {
+  if (!isValidOptionalWhitelist(candidate.externalWhitelist)) {
     return validationDenied('MCP_WHITELIST_DENIED', context.activeConfig);
   }
   if (hasWideOpenIpv4Cidr(candidate.externalWhitelist)) {
@@ -164,9 +166,7 @@ export function validateMcpSecurityConfig(
     if (!Array.isArray(candidate.externalWhitelist) || candidate.externalWhitelist.length === 0) {
       return validationDenied('MCP_WHITELIST_EMPTY', context.activeConfig);
     }
-    if (transportSecurity !== 'direct_tls' && transportSecurity !== 'trusted_tls_proxy') {
-      return validationDenied('MCP_TRANSPORT_TLS_REQUIRED', context.activeConfig);
-    }
+    // SEC-MCP-001 AC-2 (#231): plain HTTP is allowed; the settings dialog warns about it (AC-8).
     if (
       transportSecurity === 'trusted_tls_proxy'
       && (!Array.isArray(candidate.trustedProxies) || candidate.trustedProxies.length === 0)
@@ -202,7 +202,7 @@ export function evaluateMcpRequestGuard(request: GuardRequest): StringRecord {
     if (!clientAddressResult.ok) {
       return denied(clientAddressResult.code);
     }
-    if (!matchesAnyCidr(clientAddressResult.clientAddress, config.externalWhitelist ?? [])) {
+    if (!matchesWhitelist(clientAddressResult.clientAddress, config.externalWhitelist ?? [])) {
       return denied('MCP_WHITELIST_DENIED');
     }
   } else if (!isLoopbackAddress(remoteAddress)) {
@@ -645,8 +645,22 @@ function resolveWhitelistedClientAddress(
   return { ok: true, clientAddress: remoteAddress };
 }
 
-function matchesAnyCidr(address: string, cidrs: string[]): boolean {
+/** SEC-MCP-001: the one CIDR match for both guards. It knows no '*': see matchesWhitelist. */
+export function matchesAnyCidr(address: string, cidrs: readonly string[]): boolean {
   return cidrs.some((cidr) => matchesCidr(address, cidr));
+}
+
+/**
+ * SEC-MCP-001 AC-7: the external whitelist, where '*' allows every address. Trusted proxies use
+ * matchesAnyCidr, so a '*' that reached a stored proxy list never trusts every host.
+ */
+export function matchesWhitelist(address: string, whitelist: readonly string[]): boolean {
+  return whitelist.includes(MCP_ANY_ADDRESS) || matchesAnyCidr(address, whitelist);
+}
+
+/** Trusted proxies never take '*': any host could then forge the forwarded client address. */
+function isValidOptionalWhitelist(cidrs: unknown): boolean {
+  return cidrs === undefined || (Array.isArray(cidrs) && cidrs.every((cidr) => cidr === MCP_ANY_ADDRESS || isValidIpv4Cidr(cidr)));
 }
 
 function isValidOptionalCidrList(cidrs: unknown): boolean {
@@ -703,7 +717,7 @@ function isValidOrigin(value: unknown): boolean {
 function matchesCidr(address: string, cidr: string): boolean {
   const [network, prefixText] = cidr.split('/');
   const prefix = Number(prefixText ?? '32');
-  const addressInt = ipv4ToInt(address);
+  const addressInt = ipv4ToInt(normalizeIp(address));
   const networkInt = ipv4ToInt(normalizeIp(network ?? ''));
   if (addressInt === null || networkInt === null || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
     return false;

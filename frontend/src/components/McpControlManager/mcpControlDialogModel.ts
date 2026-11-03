@@ -215,6 +215,34 @@ export function createMcpSecurityDraft(config: McpControlConfig): McpSecurityDra
   };
 }
 
+/** SEC-MCP-001 AC-7: the external-whitelist entry that allows every address (the server's too). */
+export const MCP_ANY_ADDRESS = '*';
+
+export type McpSecurityWarning = 'httpExternal' | 'anyAddress';
+
+/**
+ * SEC-MCP-001 AC-8: what the dialog warns about and asks to confirm on save. Both apply only when
+ * MCP is on and open to other machines; loopback mode never reaches the whitelist.
+ */
+export function mcpSecurityWarnings(draft: McpSecurityDraft): McpSecurityWarning[] {
+  if (!draft.enabled || draft.bindMode !== 'whitelist') return [];
+  const warnings: McpSecurityWarning[] = [];
+  if (draft.transportSecurity === 'none') warnings.push('httpExternal');
+  if (parseMcpControlListInput(draft.externalWhitelistText).includes(MCP_ANY_ADDRESS)) warnings.push('anyAddress');
+  return warnings;
+}
+
+/**
+ * SEC-MCP-001 AC-9: a loopback host cannot be reached from outside, and a wildcard host is refused
+ * in loopback mode, so the host follows the mode. A host the user typed stays.
+ */
+export function withMcpBindMode(draft: McpSecurityDraft, bindMode: string): McpSecurityDraft {
+  const host = draft.host.trim();
+  if (bindMode === 'whitelist' && (host === 'localhost' || isLoopbackAddress(host))) return { ...draft, bindMode, host: '0.0.0.0' };
+  if (bindMode === 'loopback' && (host === '0.0.0.0' || host === '::')) return { ...draft, bindMode, host: '127.0.0.1' };
+  return { ...draft, bindMode };
+}
+
 export function validateMcpSecurityDraft(draft: McpSecurityDraft): string | null {
   const port = Number(draft.portText);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -234,21 +262,13 @@ export function validateMcpSecurityDraft(draft: McpSecurityDraft): string | null
     return t('mcp.validation.wideOpen');
   }
 
-  if (externalWhitelist.some(value => !isValidIpv4Cidr(value))) {
+  if (externalWhitelist.some(value => value !== MCP_ANY_ADDRESS && !isValidIpv4Cidr(value))) {
     return t('mcp.validation.whitelistFormat');
   }
 
   const trustedProxies = parseMcpControlListInput(draft.trustedProxiesText);
   if (trustedProxies.some(value => !isValidIpv4Cidr(value))) {
     return t('mcp.validation.trustedProxyFormat');
-  }
-
-  if (
-    draft.bindMode === 'whitelist'
-    && draft.transportSecurity !== 'direct_tls'
-    && draft.transportSecurity !== 'trusted_tls_proxy'
-  ) {
-    return t('mcp.validation.whitelistTls');
   }
 
   if (draft.bindMode === 'whitelist' && draft.transportSecurity === 'trusted_tls_proxy' && trustedProxies.length === 0) {

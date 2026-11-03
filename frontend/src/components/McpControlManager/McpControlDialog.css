@@ -348,3 +348,21 @@ textarea.mcp-control-textarea {
     justify-content: flex-start;
   }
 }
+
+/* SEC-MCP-001 AC-8: a risky value stays flagged under its field. */
+.mcp-control-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  color: var(--fg);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+.mcp-control-warning > svg { flex: none; margin-top: 2px; color: var(--warn); }
+.mcp-control-warning strong { display: block; margin-bottom: 2px; }
+.mcp-control-warning p { margin: 0; color: var(--fg-muted, var(--fg)); }

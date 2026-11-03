@@ -22,6 +22,7 @@ import {
   validateMcpWebhookDraft,
   validateMcpSecurityDraft,
 } from '../../src/components/McpControlManager/mcpControlDialogModel.ts';
+import type * as McpDialogModel from '../../src/components/McpControlManager/mcpControlDialogModel.ts';
 import { parseApiErrorPayload } from '../../src/services/apiError.ts';
 import { koCatalog } from './i18nTestSetup.ts';
 
@@ -340,15 +341,13 @@ test('T-PH007-01 FR-MCP-005 security draft validation blocks unsafe whitelist st
   };
   assert.match(validateMcpSecurityDraft(invalidCidrDraft) ?? '', /CIDR|whitelist|IPv4/i);
 
-  const missingTlsDraft = {
+  // #231: external access over plain HTTP is valid; the dialog warns instead (SEC-MCP-001 AC-2/AC-8).
+  const httpDraft = {
     ...draft,
     externalWhitelistText: '203.0.113.7/32',
     transportSecurity: 'none',
   };
-  assert.equal(
-    validateMcpSecurityDraft(missingTlsDraft),
-    '허용 목록 모드는 직접 TLS 또는 신뢰 프록시 TLS 전송 보안이 필요합니다.',
-  );
+  assert.equal(validateMcpSecurityDraft(httpDraft), null);
 
   const missingProxyDraft = {
     ...draft,
@@ -585,4 +584,64 @@ test('FR-LOOP-007: the audit log labels the loop tools', () => {
   assert.equal(formatMcpAuditAction('buildergate.loop.update'), '루프 수정');
   assert.equal(formatMcpAuditAction('buildergate.loop.delete'), '루프 삭제');
   assert.equal(formatMcpAuditAction('buildergate.loop.run'), '루프 지금 실행');
+});
+
+// SEC-MCP-001 AC-7..AC-9 (#231). Loaded inside the tests so a missing export names the test.
+async function loadModel(): Promise<typeof McpDialogModel> {
+  return await import('../../src/components/McpControlManager/mcpControlDialogModel.ts') as typeof McpDialogModel;
+}
+
+const externalDraft = (overrides: Record<string, string> = {}) => ({
+  ...createMcpSecurityDraft({
+    enabled: true,
+    bindMode: 'whitelist',
+    host: '0.0.0.0',
+    port: 3333,
+    transportSecurity: 'direct_tls',
+    trustedProxies: [],
+    externalWhitelist: ['203.0.113.0/24'],
+    allowedOrigins: [],
+    status: 'ready',
+    lastError: null,
+    lastRebindResult: null,
+    webhookRateLimit: { windowSeconds: 60, burstLimit: 10 },
+  }),
+  ...overrides,
+});
+
+test("SEC-MCP-001 AC-7: '*' is a valid external whitelist entry, but not a trusted proxy and not 0.0.0.0/0", () => {
+  assert.equal(validateMcpSecurityDraft(externalDraft({ externalWhitelistText: '*' })), null);
+  assert.equal(validateMcpSecurityDraft(externalDraft({ externalWhitelistText: '*\n203.0.113.7' })), null);
+  assert.equal(validateMcpSecurityDraft(externalDraft({ transportSecurity: 'trusted_tls_proxy', trustedProxiesText: '*' })), koCatalog['mcp.validation.trustedProxyFormat']);
+  assert.equal(validateMcpSecurityDraft(externalDraft({ externalWhitelistText: '0.0.0.0/0' })), koCatalog['mcp.validation.wideOpen']);
+});
+
+test('SEC-MCP-001 AC-8: HTTP external access and * raise warnings; loopback over HTTP does not', async () => {
+  const { mcpSecurityWarnings } = await loadModel();
+  assert.deepEqual(mcpSecurityWarnings(externalDraft()), []);
+  assert.deepEqual(mcpSecurityWarnings(externalDraft({ transportSecurity: 'none' })), ['httpExternal']);
+  assert.deepEqual(mcpSecurityWarnings(externalDraft({ externalWhitelistText: '203.0.113.7, *' })), ['anyAddress']);
+  assert.deepEqual(mcpSecurityWarnings(externalDraft({ transportSecurity: 'none', externalWhitelistText: '*' })), ['httpExternal', 'anyAddress']);
+  // Loopback mode never reaches the whitelist, so neither applies there.
+  assert.deepEqual(mcpSecurityWarnings(externalDraft({ bindMode: 'loopback', host: '127.0.0.1', transportSecurity: 'none', externalWhitelistText: '*' })), []);
+  // A save that turns MCP off opens nothing, so it is neither warned about nor confirmed.
+  assert.deepEqual(mcpSecurityWarnings({ ...externalDraft({ transportSecurity: 'none', externalWhitelistText: '*' }), enabled: false }), []);
+});
+
+test('SEC-MCP-001 AC-9: choosing a bind mode moves a loopback or wildcard host along with it', async () => {
+  const { withMcpBindMode } = await loadModel();
+  const loopback = externalDraft({ bindMode: 'loopback', host: '127.0.0.1' });
+  assert.equal(withMcpBindMode(loopback, 'whitelist').host, '0.0.0.0');
+  assert.equal(withMcpBindMode({ ...loopback, host: 'localhost' }, 'whitelist').host, '0.0.0.0');
+  assert.equal(withMcpBindMode({ ...loopback, host: '192.168.0.5' }, 'whitelist').host, '192.168.0.5');
+  assert.equal(withMcpBindMode(externalDraft(), 'loopback').host, '127.0.0.1');
+  assert.equal(withMcpBindMode(externalDraft({ host: '10.0.0.2' }), 'loopback').host, '10.0.0.2');
+  assert.equal(withMcpBindMode(loopback, 'whitelist').bindMode, 'whitelist');
+});
+
+test('SEC-MCP-001 AC-9: the transport and bind mode options say what they do', () => {
+  assert.equal(koCatalog['mcp.transport.none'], 'HTTP (암호화 없음)');
+  assert.equal(koCatalog['mcp.transport.directTls'], 'HTTPS (직접 TLS)');
+  assert.equal(koCatalog['mcp.transport.trustedTlsProxy'], 'HTTPS (신뢰 프록시)');
+  assert.equal(koCatalog['mcp.bindMode.whitelist'], '외부 접근 허용(IP 목록)');
 });

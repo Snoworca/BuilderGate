@@ -3,6 +3,8 @@ import net from 'node:net';
 import {
   createDefaultMcpSecurityConfig,
   getDefaultMcpSessionScopes,
+  matchesAnyCidr,
+  matchesWhitelist,
   mintMcpCapabilityToken,
   validateMcpAgentStatus,
   validateMcpSecurityConfig,
@@ -2337,14 +2339,11 @@ function evaluateTransportBoundary(
     if (config.externalWhitelist.length === 0) {
       return 'MCP_WHITELIST_EMPTY';
     }
-    if (config.transportSecurity !== 'direct_tls' && config.transportSecurity !== 'trusted_tls_proxy') {
-      return 'MCP_TRANSPORT_TLS_REQUIRED';
-    }
     const clientAddress = resolveClientAddress(config, remoteAddress, headers);
     if (typeof clientAddress !== 'string') {
       return clientAddress.code;
     }
-    return matchesAnyCidr(clientAddress, config.externalWhitelist) ? null : 'MCP_WHITELIST_DENIED';
+    return matchesWhitelist(clientAddress, config.externalWhitelist) ? null : 'MCP_WHITELIST_DENIED';
   }
 
   return isLoopbackAddress(remoteAddress) ? null : 'MCP_LOOPBACK_ONLY';
@@ -2445,40 +2444,6 @@ function sessionMatchesQuery(session: StringRecord, query: string): boolean {
 // @req IR-MCP-001
 function normalizeSearch(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
-}
-
-// @req SEC-MCP-001
-function matchesAnyCidr(address: string, cidrs: string[]): boolean {
-  return cidrs.some((cidr) => matchesCidr(address, cidr));
-}
-
-// @req SEC-MCP-001
-function matchesCidr(address: string, cidr: string): boolean {
-  const [network, prefixText] = cidr.split('/');
-  const prefix = Number(prefixText ?? '32');
-  const addressInt = ipv4ToInt(address);
-  const networkInt = ipv4ToInt(network ?? '');
-  if (addressInt === null || networkInt === null || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
-    return false;
-  }
-  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
-  return (addressInt & mask) === (networkInt & mask);
-}
-
-// @req SEC-MCP-001
-function ipv4ToInt(address: string): number | null {
-  const normalized = normalizeIp(address);
-  if (net.isIP(normalized) !== 4) {
-    return null;
-  }
-  const octets = normalized.split('.').map(Number);
-  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
-    return null;
-  }
-  return (((octets[0] ?? 0) << 24) >>> 0)
-    + (((octets[1] ?? 0) << 16) >>> 0)
-    + (((octets[2] ?? 0) << 8) >>> 0)
-    + ((octets[3] ?? 0) >>> 0);
 }
 
 // @req SEC-MCP-001
