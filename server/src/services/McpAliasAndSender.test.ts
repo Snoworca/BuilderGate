@@ -142,3 +142,15 @@ test('FR-MCP-011 AC-5: instructions explain the tag and the schemas list include
     assert.ok(((send.inputSchema as Rec).properties as Rec)[key], key);
   }
 });
+
+test('FR-MCP-011 AC-7: the tool, its fields and the instructions all say to always send your own session', () => {
+  const { service } = setup();
+  const send = (service.listTools().tools as Rec[]).find(t => t.name === 'buildergate.message.send')!;
+  const props = (send.inputSchema as Rec).properties as Record<string, Rec>;
+  assert.match(String(send.description), /always/i);
+  assert.match(String(send.description), /includeSender: true/);
+  assert.match(String(send.description), /fromSessionKey|fromSessionId/);
+  assert.match(String(props.includeSender!.description), /always/i);
+  assert.match(String(props.fromSessionKey!.description), /always|required/i);
+  assert.match(service.getInstructions(), /always pass includeSender: true/i);
+});

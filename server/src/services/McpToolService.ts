@@ -128,9 +128,10 @@ const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and w
   + 'so do not send a separate message just to submit. '
   // FR-MCP-011 AC-5
   + 'Input that starts with [from: <alias> · sessionKey <key> · sessionId <id>] was sent by another BuilderGate session (the server writes this tag); '
-  + 'answer with buildergate.message.send to that sessionKey. When you talk to another agent, pass includeSender: true; '
-  + 'when you type a shell command, leave it out. If your MCP connection is not tied to a session (a fixed access key), '
-  + 'pass your own session as fromSessionKey or fromSessionId so the receiver knows where to answer; without it no tag is written.';
+  + 'answer with buildergate.message.send to that sessionKey. When you write to another agent, always pass includeSender: true '
+  + '(FR-MCP-011 AC-7): a message without the tag leaves the receiver no session to answer. Leave it out only for a shell command. '
+  + 'If your MCP connection is not tied to a session (a fixed access key), also pass your own session as fromSessionKey or '
+  + 'fromSessionId; without it no tag is written.';
 // FR-MCP-010: the user's agent launch aliases, e.g. "claudep (Claude Code), codexp (Codex)".
 function describeAgentAliases(deps: McpToolServiceDeps): string | undefined {
   let aliases: ReturnType<NonNullable<McpToolServiceDeps['getAgentAliases']>>;
@@ -251,8 +252,8 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
       target: { type: 'string' },
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
-      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key> · sessionId <id>] tag before the text. Use true when talking to another agent, false (default) for a shell command.' },
-      fromSessionKey: { type: 'string', description: 'Your own session, when this MCP connection is not tied to one (a fixed access key). The server checks that it is a live session and writes its real ids in the tag; it turns the tag on unless includeSender is false.' },
+      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key> · sessionId <id>] tag before the text. Always pass true when writing to another agent, so it knows which session to answer; false (default) only for a shell command.' },
+      fromSessionKey: { type: 'string', description: 'Your own session. Always pass it (or fromSessionId) when this MCP connection is not tied to a session (a fixed access key): without it no tag is written and the receiver cannot answer. The server checks that it is a live session and writes its real ids in the tag; it turns the tag on unless includeSender is false.' },
       fromSessionId: { type: 'string', description: 'Like fromSessionKey, by session id.' },
       // FR-MCP-015
       keys: {
@@ -2510,7 +2511,9 @@ function toolDescription(name: string): string {
     'buildergate.session.claim': 'Bind a one-time claim code to a session.',
     'buildergate.session.list': 'List live MCP-visible sessions.',
     'buildergate.session.search': 'Search live sessions by alias or key.',
-    'buildergate.message.send': 'Send a paste or submit request to a session, and press keys (arrows, esc, tab, shift+tab, ctrl+c, ...) with keys.',
+    'buildergate.message.send': 'Send a paste or submit request to a session, and press keys (arrows, esc, tab, shift+tab, ctrl+c, ...) with keys. '
+      + 'When writing to another agent, always pass includeSender: true (and fromSessionKey or fromSessionId if your connection '
+      + 'is not tied to a session) so the receiver gets your session id and knows where to reply.',
     'buildergate.session.set_alias': 'Set a user alias for a session.',
     'buildergate.session.open_agent': 'Launch a follower agent session from an agent profile.',
     'buildergate.session.close': 'Close another session. Requires confirmation fields.',
