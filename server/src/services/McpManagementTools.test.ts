@@ -360,6 +360,6 @@ test('FR-MCP-009 AC-5: tools/list advertises terminal.read with a schema', () =>
   assert.ok(tool, 'listed');
   const schema = tool!.inputSchema as Rec;
   assert.equal(schema.type, 'object');
-  assert.deepEqual(Object.keys(schema.properties as Rec).sort(), ['lines', 'terminalId', 'terminalName', 'workspaceId', 'workspaceName']);
+  assert.deepEqual(Object.keys(schema.properties as Rec).sort(), ['lines', 'server', 'terminalId', 'terminalName', 'workspaceId', 'workspaceName']); // server: FR-MCP-022 AC-6
   assert.equal(schema.additionalProperties, false);
 });

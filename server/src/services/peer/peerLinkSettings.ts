@@ -39,7 +39,8 @@ export const DEFAULT_PEER_LINK_SETTINGS: Readonly<PeerLinkSettings> = Object.fre
   keyQueueTtlMs: 5_000,
   maxQueuedMessages: 256,
   maxQueuedBytes: 1024 * 1024,
-  inboundScopes: ['mcp:sessions.list', 'mcp:message.paste'],
+  // FR-MCP-022 AC-10: the master searches every linked server.
+  inboundScopes: ['mcp:sessions.list', 'mcp:sessions.search', 'mcp:message.paste'],
   links: [],
 });
 
@@ -103,7 +104,7 @@ export function validatePeerLinkSettings(patch: Record<string, unknown>, current
   } else {
     const seen = new Set<string>();
     links.forEach((raw, index) => {
-      const entry = validateLink(raw, index, current, seen, errors);
+      const entry = validateLink(raw, index, current, seen, errors, typeof nodeName === 'string' ? nodeName : current.nodeName);
       if (entry) validLinks.push(entry);
     });
   }
@@ -130,6 +131,7 @@ function validateLink(
   current: PeerLinkSettings,
   seen: Set<string>,
   errors: Record<string, string>,
+  nodeName: string,
 ): PeerLinkEntry | undefined {
   const field = (name: string) => `links.${index}.${name}`;
   const record = raw !== null && typeof raw === 'object' ? raw as Record<string, unknown> : {};
@@ -140,6 +142,10 @@ function validateLink(
     ok = false;
   } else if (seen.has(name.toLowerCase())) {
     errors[field('name')] = 'used twice';
+    ok = false;
+  } else if (name.toLowerCase() === nodeName.toLowerCase()) {
+    // FR-MCP-022: "<name>/<session>" must say which server; this server's name means this server.
+    errors[field('name')] = 'the name of this server';
     ok = false;
   } else {
     seen.add(name.toLowerCase());

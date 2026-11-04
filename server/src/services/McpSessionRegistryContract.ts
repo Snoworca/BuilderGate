@@ -457,8 +457,53 @@ function buildPrefixMatch(
   return null;
 }
 
-function buildBestSearchMatch(binding: McpSessionBinding, actorSessionKey: string | undefined, query: string): Record<string, unknown> | null {
-  const candidates: Array<{ matchType: string; matchSource: string; score: number }> = [];
+/** FR-MCP-022 AC-7: words people add to a session's name when they ask for it. */
+const SEARCH_STOP_WORDS = new Set(['세션', 'session', '탭', 'tab', '터미널', 'terminal']);
+const STOP_WORD_BONUS = 5;
+// FR-MCP-022 AC-8: every new kind of match scores under the lowest existing one (350), so a query an
+// existing match answers keeps its winner; the new kinds only find what used to be a miss.
+
+interface SearchQuery {
+  text: string;
+  /** Words of two letters or more that are not stop words; empty means no word matching. */
+  words: string[];
+  stopWords: string[];
+}
+
+function parseSearchQuery(raw: string): SearchQuery {
+  const text = raw.trim().toLowerCase();
+  const all = text.split(/\s+/u).filter(Boolean);
+  return {
+    text,
+    words: all.filter(word => !SEARCH_STOP_WORDS.has(word) && [...word].length >= 2),
+    stopWords: all.filter(word => SEARCH_STOP_WORDS.has(word)),
+  };
+}
+
+function lastFolderOf(cwd: string | undefined): string {
+  return normalizeSearchValue(cwd).split(/[\\/]+/u).filter(Boolean).pop() ?? '';
+}
+
+/** FR-MCP-022 AC-7: every word in the value, in any order; stop words found in it add a little. */
+function buildWordMatch(value: unknown, query: SearchQuery, matchSource: string, matchType: string, score: number): SearchCandidate | null {
+  const normalized = normalizeSearchValue(value);
+  if (!normalized || query.words.length === 0 || !query.words.every(word => normalized.includes(word))) {
+    return null;
+  }
+  const bonus = query.stopWords.some(word => normalized.includes(word)) ? STOP_WORD_BONUS : 0;
+  return { matchType, matchSource, score: score + bonus };
+}
+
+type SearchCandidate = { matchType: string; matchSource: string; score: number };
+
+function buildBestSearchMatch(
+  binding: McpSessionBinding,
+  actorSessionKey: string | undefined,
+  parsed: SearchQuery,
+  workspaceName: string | undefined,
+): Record<string, unknown> | null {
+  const query = parsed.text;
+  const candidates: SearchCandidate[] = [];
   const userAlias = binding.aliasSource === 'user';
   const aliasSource = userAlias ? 'user-alias' : `${binding.aliasSource}-alias`;
 
@@ -572,6 +617,34 @@ function buildBestSearchMatch(binding: McpSessionBinding, actorSessionKey: strin
     candidates.push(recoveryCommandMatch);
   }
 
+  // FR-MCP-022 AC-7: the words of the query in the name or the terminal title.
+  const aliasWords = buildWordMatch(binding.alias, parsed, aliasSource, 'word-alias', userAlias ? 340 : 330);
+  if (aliasWords) {
+    candidates.push(aliasWords);
+  }
+  const titleWords = buildWordMatch(binding.terminalTitle, parsed, 'terminal-title', 'word-terminal-title', 325);
+  if (titleWords) {
+    candidates.push(titleWords);
+  }
+
+  // FR-MCP-022 AC-8: the workspace name and the last folder of the working directory.
+  const workspaceMatch = buildFieldMatch(workspaceName, query, 'workspace-name', 'exact-workspace-name', 'partial-workspace-name', 310, 290);
+  if (workspaceMatch) {
+    candidates.push(workspaceMatch);
+  }
+  const folder = lastFolderOf(binding.cwd);
+  if (folder && folder === query) {
+    candidates.push({ matchType: 'exact-cwd-folder', matchSource: 'cwd', score: 300 });
+  }
+  // FR-MCP-022 AC-8: words split over the name and the workspace or folder, at least one in the name.
+  if (parsed.words.length >= 2) {
+    const named = [binding.alias, binding.terminalTitle].map(normalizeSearchValue).join('\n');
+    const fields = [named, normalizeSearchValue(workspaceName), folder].join('\n');
+    if (parsed.words.some(word => named.includes(word)) && parsed.words.every(word => fields.includes(word))) {
+      candidates.push({ matchType: 'word-fields', matchSource: 'fields', score: 320 });
+    }
+  }
+
   if (candidates.length === 0) {
     return null;
   }
@@ -592,8 +665,10 @@ export function searchMcpSessions(input: {
   query: string;
   includeSelf?: boolean;
   registry: unknown;
+  /** FR-MCP-022 AC-8: workspace names by workspace id. */
+  workspaceNames?: Readonly<Record<string, string>>;
 }): SearchMcpSessionsResult {
-  const query = input.query.trim().toLowerCase();
+  const parsed = parseSearchQuery(input.query);
   const actorSessionKey = asNonEmptyString(input.actorSessionKey) ?? undefined;
   const includeSelf = input.includeSelf === true;
   const matches: Array<Record<string, unknown>> = [];
@@ -601,7 +676,7 @@ export function searchMcpSessions(input: {
     if (!includeSelf && binding.sessionKey === actorSessionKey) {
       continue;
     }
-    const match = buildBestSearchMatch(binding, actorSessionKey, query);
+    const match = buildBestSearchMatch(binding, actorSessionKey, parsed, binding.workspaceId ? input.workspaceNames?.[binding.workspaceId] : undefined);
     if (match) {
       matches.push(match);
     }

@@ -260,6 +260,7 @@ export class WorkspaceService {
       query,
       includeSelf,
       registry: this.getMcpSessionRegistry(),
+      workspaceNames: Object.fromEntries(this.state.workspaces.map(workspace => [workspace.id, workspace.name])),
     });
   }
 

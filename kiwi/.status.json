@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-04T00:48:24.241Z",
+  "generatedAt": "2026-11-04T14:10:39.530Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "a86d3aa113bbf330a45fa6c026608db247194c15893a536b345132f719f34d94",
+    "value": "3331a7d4ec1dd8d95872db4dfce1e880d66a7aa9b435979b0e9b965d2b55b556",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -32,9 +32,9 @@
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "c073556c081a3cfdbe06a868773167865d9b3e8b7a68d24c9e7b54f9302f583e",
-        "size": 182004,
-        "mtimeMs": 1793753293923.3743
+        "sha256": "195116daf143dc0988affe951694496343ce858b9d8de3c8cfe9def66ff07868",
+        "size": 189040,
+        "mtimeMs": 1793801431366.1262
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
@@ -103,7 +103,7 @@
       "ARCH": 17,
       "AITUI": 23,
       "BGSTAB": 38,
-      "MCP": 21,
+      "MCP": 22,
       "MDE": 33,
       "FEX": 33,
       "FOP": 8,

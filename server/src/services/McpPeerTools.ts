@@ -5,6 +5,8 @@ type Rec = Record<string, unknown>;
 
 /** What McpToolService needs from the peer link (implemented by peer/peerLinkManager.ts). */
 export interface McpPeerLinks {
+  /** FR-MCP-022: this server's own name, the server of its items in merged lists. */
+  nodeName(): string;
   hasPeer(name: string): boolean;
   sendMessage(input: { peer: string; args: Rec; scopes: string[]; hasKeys: boolean }): Promise<Rec>;
   call(input: { peer: string; tool: string; arguments: Rec; scopes: string[] }): Promise<Rec>;

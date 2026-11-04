@@ -45,6 +45,7 @@ import {
   isMcpLoopTool,
   type McpLoopControl,
 } from './McpLoopTools.js';
+import { callFederated, withServerProperty } from './McpFederation.js';
 
 type StringRecord = Record<string, unknown>;
 
@@ -251,6 +252,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     properties: {
       query: { type: 'string' },
       includeSelf: { type: 'boolean' },
+      limit: { type: 'integer', minimum: 1, maximum: 20 },
     },
     required: ['query'],
     additionalProperties: false,
@@ -779,7 +781,7 @@ function listTools(deps: McpToolServiceDeps = {}): StringRecord {
       description: name === 'buildergate.terminal.exec' && aliases
         ? `${toolDescription(name)} Agent launch commands registered on this host: ${aliases}; run them as given.`
         : toolDescription(name),
-      inputSchema: TOOL_SCHEMAS[name],
+      inputSchema: withServerProperty(name, TOOL_SCHEMAS[name]),
     })),
   };
 }
@@ -789,7 +791,24 @@ function listTools(deps: McpToolServiceDeps = {}): StringRecord {
 async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, request: StringRecord): Promise<StringRecord> {
   const name = asString(request.name) ?? '';
   const actor = sanitizeActor(asRecord(request.actor));
-  const args = asRecord(request.arguments);
+  // FR-MCP-022: a server argument, and lists merged over the linked servers.
+  return callFederated({
+    links: deps.peerLinks,
+    name,
+    actor,
+    args: asRecord(request.arguments),
+    runLocal: (args) => callLocalTool(deps, state, request, name, actor, args),
+  });
+}
+
+async function callLocalTool(
+  deps: McpToolServiceDeps,
+  state: McpToolServiceState,
+  request: StringRecord,
+  name: string,
+  actor: StringRecord,
+  args: StringRecord,
+): Promise<StringRecord> {
   const context = {
     requestId: asString(request.requestId),
     sourceIp: asString(request.sourceIp),
@@ -988,8 +1007,8 @@ async function handleSessionSearch(deps: McpToolServiceDeps, actor: StringRecord
     const result = asRecord(await deps.searchSessions(actorSessionKey, asString(args.query) ?? '', includeSelf));
     return {
       ...result,
-      matches: Array.isArray(result.matches) ? result.matches.map((match) => sanitizeSession(asRecord(match))) : [],
-      candidates: Array.isArray(result.candidates) ? result.candidates.map((candidate) => sanitizeSession(asRecord(candidate))) : result.candidates,
+      matches: Array.isArray(result.matches) ? result.matches.map((match) => sanitizeSearchMatch(asRecord(match))) : [],
+      candidates: Array.isArray(result.candidates) ? result.candidates.map((candidate) => sanitizeSearchMatch(asRecord(candidate))) : result.candidates,
     };
   }
   const resolved = await resolveSessions(deps);
@@ -2372,6 +2391,16 @@ function sanitizeSession(session: StringRecord): StringRecord {
   });
 }
 
+/** FR-MCP-022 AC-9: a search match keeps how well it matched, so servers can be ranked together. */
+function sanitizeSearchMatch(session: StringRecord): StringRecord {
+  return sanitizeRecord({
+    ...sanitizeSession(session),
+    score: typeof session.score === 'number' ? session.score : undefined,
+    matchType: asString(session.matchType),
+    matchSource: asString(session.matchSource),
+  });
+}
+
 // @req OBS-MCP-001
 function sanitizeActor(actor: StringRecord): StringRecord {
   return sanitizeRecord({
@@ -2540,8 +2569,12 @@ function toolDescription(name: string): string {
   const descriptions: Record<string, string> = {
     'buildergate.session.whoami': 'Return the current MCP session binding.',
     'buildergate.session.claim': 'Bind a one-time claim code to a session.',
-    'buildergate.session.list': 'List live MCP-visible sessions.',
-    'buildergate.session.search': 'Search live sessions by alias or key.',
+    'buildergate.session.list': 'List live sessions of this server and of every connected linked server. Each item names its server, '
+      + 'and its target ("<server>/<sessionKey>") goes into buildergate.message.send as is.',
+    'buildergate.session.search': 'Find a session on this server and every connected linked server in one call. Pass the words of '
+      + 'its name (any order; drop particles like 에게). Matches the session name, terminal title, workspace name and folder. '
+      + 'When allowed is true, send to matches[0].target with buildergate.message.send; when AMBIGUOUS_TARGET, pick from candidates '
+      + 'or ask the user. limit: default 10, at most 20.',
     'buildergate.message.send': 'Send a paste or submit request to a session, and press keys (arrows, esc, tab, shift+tab, ctrl+c, ...) with keys. '
       + 'When writing to another agent, always pass includeSender: true (and fromSessionKey or fromSessionId if your connection '
       + 'is not tied to a session) so the receiver gets your session id and knows where to reply.',

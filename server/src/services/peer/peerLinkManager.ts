@@ -90,6 +90,8 @@ export interface PeerLinkManager {
   applySettings(settings: PeerLinkSettings): void;
   accept(socket: PeerSocket, request: unknown): PeerAcceptHandlers;
   hasPeer(name: string): boolean;
+  /** FR-MCP-022: this server's name. */
+  nodeName(): string;
   sendMessage(input: { peer: string; args: Record<string, unknown>; scopes: string[]; hasKeys: boolean }): Promise<PeerResult>;
   call(input: { peer: string; tool: string; arguments: Record<string, unknown>; scopes: string[] }): Promise<PeerResult>;
   list(): PeerStatus[];
@@ -741,6 +743,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     },
     accept,
     hasPeer: (name) => peers.has(name),
+    nodeName: () => settings.nodeName,
     dropInbound: () => {
       for (const peer of [...peers.values()]) if (peer.direction === 'inbound') dropConnection(peer.conn);
     },

@@ -226,11 +226,11 @@ export const MCP_MANAGEMENT_TOOL_SCHEMAS: Record<McpManagementToolName, Rec> = {
 };
 
 export const MCP_MANAGEMENT_TOOL_DESCRIPTIONS: Record<McpManagementToolName, string> = {
-  'buildergate.workspace.list': 'List BuilderGate workspaces with their terminal counts.',
+  'buildergate.workspace.list': 'List BuilderGate workspaces with their terminal counts, of this server and every connected linked server (see each item server).',
   'buildergate.workspace.create': 'Create a workspace.',
   'buildergate.workspace.rename': 'Rename a workspace given by workspaceId or workspaceName.',
   'buildergate.workspace.delete': 'Delete a workspace and close its terminals. Requires confirm: true.',
-  'buildergate.terminal.list': 'List terminal sessions, optionally only those of one workspace (workspaceId or workspaceName).',
+  'buildergate.terminal.list': 'List terminal sessions of this server and every connected linked server (see each item server), optionally only those of one workspace (workspaceId or workspaceName).',
   'buildergate.terminal.create': 'Open a terminal session in a workspace given by workspaceId or workspaceName.',
   'buildergate.terminal.delete': 'Close a terminal given by terminalId, or by terminalName within a workspace. Requires confirm: true.',
   'buildergate.terminal.exec': 'Run a command in a terminal and optionally return its screen text after waitMs.',

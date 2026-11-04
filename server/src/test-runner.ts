@@ -19647,6 +19647,14 @@ async function testWorkspaceServiceMcpSearchPreservesFailureMetadata(): Promise<
   assert.equal(ambiguous.allowed, false);
   assert.equal(ambiguous.code, 'AMBIGUOUS_TARGET');
   assert.deepEqual(candidates.map(candidate => candidate.sessionKey), ['sess_one', 'sess_two']);
+
+  // FR-MCP-022 AC-8: the workspace name is searched too.
+  const byWorkspace = asRecord(workspaceService.searchMcpSessions(undefined, 'workspace 1', true), 'WorkspaceService MCP workspace search');
+  const workspaceCandidates = asRecordArray(byWorkspace.candidates, 'WorkspaceService MCP workspace candidates');
+  assert.deepEqual(workspaceCandidates.map(candidate => [candidate.sessionKey, candidate.matchType]), [
+    ['sess_one', 'exact-workspace-name'],
+    ['sess_two', 'exact-workspace-name'],
+  ]);
 }
 
 async function testWorkspaceServiceStoresCodexRecoveryMetadata(): Promise<void> {

@@ -16,7 +16,8 @@ test('FR-MCP-020 AC-1: defaults are 15 s heartbeat, 60 s queue, 5 s key queue, 2
   assert.equal(DEFAULT_PEER_LINK_SETTINGS.keyQueueTtlMs, 5_000);
   assert.equal(DEFAULT_PEER_LINK_SETTINGS.maxQueuedMessages, 256);
   assert.equal(DEFAULT_PEER_LINK_SETTINGS.maxQueuedBytes, 1024 * 1024);
-  assert.deepEqual(DEFAULT_PEER_LINK_SETTINGS.inboundScopes, ['mcp:sessions.list', 'mcp:message.paste']);
+  // FR-MCP-022 AC-10 added search, so the master can search a linked server.
+  assert.deepEqual(DEFAULT_PEER_LINK_SETTINGS.inboundScopes, ['mcp:sessions.list', 'mcp:sessions.search', 'mcp:message.paste']);
   assert.deepEqual(DEFAULT_PEER_LINK_SETTINGS.links, []);
 });
 
@@ -74,4 +75,10 @@ test('FR-MCP-020 AC-3: a fingerprint is accepted with or without colons, in eith
     assert.equal(result.ok, true, value);
     if (result.ok) assert.equal(result.settings.links[0]!.tlsFingerprintSha256, 'ab'.repeat(32));
   }
+});
+
+test('FR-MCP-022 (review M2): a link may not have this server name', () => {
+  const result = validatePeerLinkSettings({ nodeName: 'corp', links: [{ ...link, name: 'Corp' }] }, DEFAULT_PEER_LINK_SETTINGS);
+  assert.equal(result.ok, false);
+  assert.match(JSON.stringify(result), /links\.0\.name/);
 });

@@ -17,6 +17,7 @@ function setup() {
   const calls: Rec[] = [];
   const delivered: Rec[] = [];
   const peerLinks = {
+    nodeName: () => 'corp',
     hasPeer: (name: string) => name === 'azure',
     sendMessage: async (input: Rec) => { sent.push(input); return { ok: true, status: 'queued', messageId: 'm-1', peer: input.peer }; },
     call: async (input: Rec) => { calls.push(input); return { ok: true, sessions: [] }; },

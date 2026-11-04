@@ -219,9 +219,10 @@ test('FR-MCP-012 AC-8: tools/list advertises the editor tools with schemas', () 
   const { service } = setup();
   const tools = service.listTools().tools as Rec[];
   const keys = (name: string) => Object.keys(((tools.find(t => t.name === name)?.inputSchema as Rec)?.properties ?? {}) as Rec).sort();
-  assert.deepEqual(keys(MD), ['content', 'filePath', 'overwrite', 'terminalId', 'terminalName', 'title', 'workspaceId', 'workspaceName']);
-  assert.deepEqual(keys(CODE), ['filePath', 'terminalId', 'terminalName', 'workspaceId', 'workspaceName']);
-  assert.deepEqual(keys(IMAGE), ['filePath', 'terminalId', 'terminalName', 'workspaceId', 'workspaceName']);
+  // FR-MCP-022 AC-6: every tool that can run on a linked server has server.
+  assert.deepEqual(keys(MD), ['content', 'filePath', 'overwrite', 'server', 'terminalId', 'terminalName', 'title', 'workspaceId', 'workspaceName']);
+  assert.deepEqual(keys(CODE), ['filePath', 'server', 'terminalId', 'terminalName', 'workspaceId', 'workspaceName']);
+  assert.deepEqual(keys(IMAGE), ['filePath', 'server', 'terminalId', 'terminalName', 'workspaceId', 'workspaceName']);
   for (const name of [MD, CODE, IMAGE]) {
     const tool = tools.find(t => t.name === name)!;
     assert.equal((tool.inputSchema as Rec).additionalProperties, false, name);
@@ -296,7 +297,7 @@ test('FR-MCP-013 AC-3: open_html follows the editor tools for paths, terminals, 
   const tool = tools.find((t) => t.name === HTML);
   assert.ok(tool, 'tools/list names open_html');
   const schema = tool!.inputSchema as Rec;
-  assert.deepEqual(Object.keys(schema.properties as Rec).sort(), ['filePath', 'html', 'overwrite', 'terminalId', 'terminalName', 'title', 'view', 'workspaceId', 'workspaceName']);
+  assert.deepEqual(Object.keys(schema.properties as Rec).sort(), ['filePath', 'html', 'overwrite', 'server', 'terminalId', 'terminalName', 'title', 'view', 'workspaceId', 'workspaceName']);
   assert.deepEqual(((schema.properties as Rec).view as Rec).enum, ['rendered', 'source']);
   assert.equal(schema.additionalProperties, false);
   assert.ok(String(tool!.description).length > 10);
