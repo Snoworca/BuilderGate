@@ -232,11 +232,40 @@ export class FileService {
     // dirPath is a real path; judging it against the real root keeps a session root reached
     // through a link from looking like an escape.
     const realCwd = await fs.realpath(cwd).catch(() => cwd);
-    const entry = await resolveAndValidateEntry(realCwd, path.join(dirPath, ...segments), this.config.blockedPaths);
+    const target = await this.resolveUploadEntry(realCwd, dirPath, segments);
+    return { realCwd, dirPath, segments, target };
+  }
+
+  /** The blocked-path and blocked-extension checks of an upload destination under a root. */
+  private async resolveUploadEntry(root: string, dirPath: string, segments: string[]): Promise<string> {
+    const entry = await resolveAndValidateEntry(root, path.join(dirPath, ...segments), this.config.blockedPaths);
     if (isBlockedExtension(path.extname(segments[segments.length - 1]).toLowerCase(), this.config.blockedExtensions)) {
       throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
     }
-    return { realCwd, dirPath, segments, target: entry.entryPath };
+    return entry.entryPath;
+  }
+
+  /** FR-MCP-021 AC-3: a session's working folder now, as a real path, to upload into later. */
+  async uploadDirectoryOf(sessionId: string): Promise<string> {
+    const cwd = await this.getCwd(sessionId);
+    return fs.realpath(cwd).catch(() => cwd);
+  }
+
+  /**
+   * FR-MCP-021 AC-3: one file named fileName directly in a fixed folder, with the file API rules
+   * (no separators or .., the block lists). The folder itself is the root.
+   */
+  async resolveUploadTargetInDirectory(directory: string, fileName: string): Promise<string> {
+    const segments = validateUploadRelativePath(fileName);
+    if (segments === null || segments.length !== 1) throw new AppError(ErrorCode.INVALID_UPLOAD_PATH);
+    const stat = await fs.stat(directory).catch(() => null);
+    if (stat === null || !stat.isDirectory()) throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    return this.resolveUploadEntry(directory, directory, segments);
+  }
+
+  /** FR-MCP-021 AC-3: the parent re-check of resolveUploadTargetInDirectory, without a session. */
+  async revalidateUploadParentIn(directory: string, parent: string): Promise<void> {
+    await resolveAndValidate(directory, parent, this.config.blockedPaths);
   }
 
   /**

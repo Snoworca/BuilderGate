@@ -23,6 +23,13 @@ import {
   type McpPeerLinks,
 } from './McpPeerTools.js';
 import {
+  MCP_FILE_UPLOAD_TOOL,
+  MCP_FILE_UPLOAD_TOOL_DESCRIPTION,
+  MCP_FILE_UPLOAD_TOOL_SCHEMA,
+  callMcpFileUploadTool,
+  type McpFileUploadPort,
+} from './McpFileUploadTools.js';
+import {
   MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
   MCP_MANAGEMENT_TOOL_NAMES,
   MCP_MANAGEMENT_TOOL_SCHEMAS,
@@ -69,6 +76,10 @@ type McpToolServiceDeps = {
   loopControl?: McpLoopControl;
   // FR-MCP-019: the MCP peer link (#233).
   peerLinks?: McpPeerLinks;
+  // FR-MCP-021: one-use upload URLs (#234), and the MCP listener's own address for a call that has
+  // no request address (one that came over a peer link).
+  fileUploads?: McpFileUploadPort;
+  mcpOrigin?: () => string | undefined;
   sleep?: (ms: number) => Promise<void>;
   // FR-MCP-010: user-registered agent launch commands (AgentAliasService), read on every request.
   getAgentAliases?: () => { claude?: readonly string[]; codex?: readonly string[] } | undefined;
@@ -195,6 +206,7 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   ...MCP_MANAGEMENT_TOOL_NAMES,
   ...MCP_LOOP_TOOL_NAMES,
   ...MCP_PEER_TOOL_NAMES,
+  MCP_FILE_UPLOAD_TOOL,
 ] as const;
 
 const SECRET_FIELD_NAMES = new Set([
@@ -328,6 +340,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
   ...MCP_MANAGEMENT_TOOL_SCHEMAS,
   ...MCP_LOOP_TOOL_SCHEMAS,
   ...MCP_PEER_TOOL_SCHEMAS,
+  [MCP_FILE_UPLOAD_TOOL]: MCP_FILE_UPLOAD_TOOL_SCHEMA,
 };
 
 /**
@@ -499,6 +512,17 @@ export function createMcpListenerController(deps: ListenerControllerDeps = {}): 
         policyUpdated: true,
         active,
       };
+    },
+    // FR-MCP-021 AC-7: only the address rules (IP list, trusted proxy) of evaluateRequest, for a
+    // request whose credential is not an MCP key (a one-use upload URL).
+    evaluateAddress: (request: unknown) => {
+      const requestRecord = asRecord(request);
+      const code = evaluateTransportBoundary(
+        normalizeTransportConfig(listenerConfigFromActive(active)),
+        normalizeIp(asString(requestRecord.remoteAddress) ?? ''),
+        normalizeHeaders(asRecord(requestRecord.headers)),
+      );
+      return code ? { ok: false, code } : { ok: true };
     },
     evaluateRequest: (request: unknown) => {
       const requestRecord = asRecord(request);
@@ -770,6 +794,8 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
     requestId: asString(request.requestId),
     sourceIp: asString(request.sourceIp),
   };
+  // FR-MCP-021 AC-2: the address the MCP request came to, for URLs handed back to the caller.
+  const origin = asString(request.origin) ?? deps.mcpOrigin?.();
 
   switch (name) {
     case 'buildergate.session.whoami':
@@ -808,6 +834,9 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
       }
       if (isMcpLoopTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpLoopTool(deps.loopControl, name, actor, args));
+      }
+      if (name === MCP_FILE_UPLOAD_TOOL) {
+        return withAudit(deps, state, name, actor, context, {}, await callMcpFileUploadTool(deps.fileUploads, actor, args, origin));
       }
       if (isMcpPeerTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpPeerTool(deps.peerLinks, name, actor, args));
@@ -1849,6 +1878,7 @@ async function handleMcpHttpRequest(
       actor: transport.actor ?? request.credential,
       requestId: String(id),
       sourceIp: request.remoteAddress,
+      origin: request.origin,
     }));
     if (transportSession && requestedToolName === 'buildergate.session.claim' && result.ok === true) {
       const actorToken = asString(result.actorToken);
@@ -2029,6 +2059,7 @@ async function handleModernMcpRequest(
       actor: transport.actor ?? request.credential,
       requestId: String(id),
       sourceIp: request.remoteAddress,
+      origin: request.origin,
     }));
     // A claimed actorToken is returned: there is no session to keep it in, so the client sends
     // it as its Bearer from the next request on.
@@ -2523,6 +2554,7 @@ function toolDescription(name: string): string {
     ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
     ...MCP_LOOP_TOOL_DESCRIPTIONS,
     ...MCP_PEER_TOOL_DESCRIPTIONS,
+    [MCP_FILE_UPLOAD_TOOL]: MCP_FILE_UPLOAD_TOOL_DESCRIPTION,
   };
   return descriptions[name] ?? name;
 }

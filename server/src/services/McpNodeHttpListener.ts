@@ -3,6 +3,7 @@ import https from 'https';
 import type { Duplex } from 'stream';
 import type { SSLConfig } from '../types/config.types.js';
 import { SSLService } from './SSLService.js';
+import { armRequestIdleTimeout, DEFAULT_UPLOAD_IDLE_TIMEOUT_MS } from '../middleware/requestBodyDeadline.js';
 import {
   buildMcpNodeRequestErrorResponse,
   readMcpIncomingRequestBody,
@@ -26,19 +27,28 @@ export async function createMcpNodeHttpListener(
   dispatch: (request: unknown) => unknown | Promise<unknown>,
   options: {
     sslConfig?: SSLConfig;
+    /** FR-MCP-021: requests answered before their body is read (/mcp/fu uploads). True when taken. */
+    onRawRequest?: (request: IncomingMessage, response: ServerResponse) => boolean;
     /** FR-MCP-016: WebSocket upgrades (the peer link). Answers true when it took the request. */
     onUpgrade?: (request: IncomingMessage, socket: Duplex, head: Buffer) => boolean;
   } = {},
 ): Promise<McpNodeListenerHandle> {
   const bindHost = typeof configRecord.bindHost === 'string' ? configRecord.bindHost : '127.0.0.1';
   const port = Number(configRecord.port ?? 3333);
+  const scheme = configRecord.transportSecurity === 'none' || configRecord.transportSecurity === undefined ? 'http' : 'https';
   const requestHandler = (req: IncomingMessage, res: ServerResponse) => {
-    void handleMcpNodeRequest(req, res, dispatch);
+    if (takenRaw(req, res, options.onRawRequest)) return;
+    // The server has no overall request deadline (an upload may take longer than any fixed one);
+    // a request whose body stops arriving is dropped instead.
+    armRequestIdleTimeout(req, DEFAULT_UPLOAD_IDLE_TIMEOUT_MS);
+    void handleMcpNodeRequest(req, res, dispatch, scheme);
   };
   const sslService = new SSLService(options.sslConfig ?? { certPath: '', keyPath: '', caPath: '' });
   const server = configRecord.transportSecurity === 'direct_tls'
     ? https.createServer(sslService.getTLSOptions(await sslService.loadCertificates()), requestHandler)
     : http.createServer(requestHandler);
+  // FR-MCP-021: a /mcp/fu upload may run longer than Node's default 5-minute request timeout.
+  server.requestTimeout = 0;
   const upgradedSockets = new Set<Duplex>();
   const handle: McpNodeListenerHandle = {
     server,
@@ -82,6 +92,26 @@ export async function createMcpNodeHttpListener(
   return handle;
 }
 
+/** A raw handler that throws answers 500 here, so one bad request cannot end the process. */
+function takenRaw(
+  req: IncomingMessage,
+  res: ServerResponse,
+  onRawRequest: ((request: IncomingMessage, response: ServerResponse) => boolean) | undefined,
+): boolean {
+  if (!onRawRequest) return false;
+  try {
+    return onRawRequest(req, res);
+  } catch (error) {
+    console.warn('[MCP] Raw request handler failed:', error instanceof Error ? error.message : String(error));
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Connection', 'close');
+      res.end();
+    }
+    return true;
+  }
+}
+
 export async function closeMcpNodeHttpListener(handle: unknown): Promise<void> {
   const record = handle as Partial<McpNodeListenerHandle> | null;
   const server = record?.server;
@@ -101,6 +131,7 @@ async function handleMcpNodeRequest(
   req: IncomingMessage,
   res: ServerResponse,
   dispatch: (request: unknown) => unknown | Promise<unknown>,
+  scheme: string,
 ): Promise<void> {
   try {
     const body = await readMcpIncomingRequestBody(req);
@@ -114,6 +145,8 @@ async function handleMcpNodeRequest(
       credential: bearer ? classifyMcpBearerCredential(bearer) : undefined,
       body,
       remoteAddress: req.socket.remoteAddress ?? '',
+      // FR-MCP-021 AC-2: how this client reached the listener, for URLs handed back to it.
+      origin: req.headers.host ? `${scheme}://${req.headers.host}` : undefined,
     }));
     writeMcpNodeResponse(res, response);
   } catch (error) {

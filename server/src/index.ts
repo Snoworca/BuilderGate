@@ -131,6 +131,7 @@ import {
   createMcpNodeHttpListener,
 } from './services/McpNodeHttpListener.js';
 import { createPeerLinkManager, type PeerLinkManager } from './services/peer/peerLinkManager.js';
+import { createMcpFileUploads } from './services/mcpFileUpload.js';
 import { createPeerLinkControl, createPeerLinkFileStore, type PeerLinkControl } from './services/peer/peerLinkStore.js';
 import { createPeerUpgradeHandler, dialPeerWebSocket, peerUpgradeAllowed } from './services/peer/peerWsTransport.js';
 import {
@@ -1693,6 +1694,16 @@ async function startServer(): Promise<void> {
       apply: (settings) => peerLinkManager.applySettings(settings),
       status: () => peerLinkManager.list(),
     });
+    // FR-MCP-021: one-use upload URLs, served by the MCP listener at /mcp/fu.
+    const mcpFileUploads = createMcpFileUploads({
+      files: fileService,
+      registry: uploadTempRegistry,
+      checkAccess: (req) => {
+        const evaluateAddress = mcpListenerController.evaluateAddress as (input: unknown) => unknown;
+        const result = asRecord(evaluateAddress({ remoteAddress: req.socket.remoteAddress ?? '', headers: req.headers }));
+        return result.ok === false ? asString(result.code) ?? 'MCP_TRANSPORT_DENIED' : null;
+      },
+    });
     const mcpListenerController = createMcpListenerController({
       current: {
         bindMode: asString(initialMcpControlConfig.bindMode) ?? 'loopback',
@@ -1716,6 +1727,7 @@ async function startServer(): Promise<void> {
         return await mcpHandlerForListener.handleRequest(request);
       }, {
         sslConfig: config.ssl || { certPath: '', keyPath: '', caPath: '' },
+        onRawRequest: (req, res) => mcpFileUploads.handle(req, res),
         onUpgrade: createPeerUpgradeHandler({
           manager: peerLinkManager,
           // FR-MCP-016 AC-5: a plain-HTTP listener takes links from loopback only.
@@ -1792,6 +1804,16 @@ async function startServer(): Promise<void> {
       setSessionAlias: (targetSessionKey, alias, actorSessionKey) => workspaceService.setMcpSessionAlias(targetSessionKey, alias, actorSessionKey),
       deliverMessage: createMcpGatewayDelivery(),
       peerLinks: peerLinkManager,
+      fileUploads: mcpFileUploads,
+      // FR-MCP-021 AC-2: the listener's own address, for a call without a request address.
+      mcpOrigin: () => {
+        const status = asRecord((mcpListenerController.getStatus as () => unknown)());
+        const host = asString(status.bindHost) ?? '127.0.0.1';
+        const shown = host === '0.0.0.0' || host === '::' ? os.hostname() : host;
+        // Behind a trusted TLS proxy the listener itself is plain HTTP.
+        const scheme = asString(status.transportSecurity) === 'direct_tls' ? 'https' : 'http';
+        return `${scheme}://${shown}:${String(status.port ?? '')}`;
+      },
       agentLifecycle: mcpAgentLifecycleService,
       // FR-LOOP-007: buildergate.loop.* go through the same loop service as the window and REST.
       loopControl: loopService,

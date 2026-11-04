@@ -49,3 +49,53 @@ test('FR-MCP-016: closing the listener also closes the links it accepted, so tur
   await clientClosed;
   wss.close();
 });
+
+test('FR-MCP-021: /mcp/fu goes to onRawRequest before the body is read, and requests carry their origin', async () => {
+  const dispatched: Array<Record<string, unknown>> = [];
+  const handle = await createMcpNodeHttpListener({ bindHost: '127.0.0.1', port: 0 }, (request) => {
+    dispatched.push(request as Record<string, unknown>);
+    return { status: 200, body: {} };
+  }, {
+    onRawRequest: (req, res) => {
+      if (!req.url?.startsWith('/mcp/fu')) return false;
+      res.end('raw');
+      return true;
+    },
+  });
+  try {
+    const raw = await fetch(`http://127.0.0.1:${handle.port}/mcp/fu?t=x`, { method: 'PUT', body: 'bytes' });
+    assert.equal(await raw.text(), 'raw');
+    await fetch(`http://127.0.0.1:${handle.port}/mcp`, { method: 'POST', body: '{}' });
+    assert.equal(dispatched.length, 1);
+    assert.equal(dispatched[0]!.origin, `http://127.0.0.1:${handle.port}`);
+  } finally {
+    handle.server.closeAllConnections?.();
+    await closeMcpNodeHttpListener(handle);
+  }
+});
+
+test('FR-MCP-021: a raw handler that throws answers 500 and the server stays up; long uploads are not cut at 5 minutes', async () => {
+  const net = await import('node:net');
+  const handle = await createMcpNodeHttpListener({ bindHost: '127.0.0.1', port: 0 }, () => ({ status: 200, body: {} }), {
+    onRawRequest: (req) => {
+      new URL(req.url ?? '/', 'http://x');
+      return false;
+    },
+  });
+  try {
+    assert.equal(handle.server.requestTimeout, 0);
+    const reply = await new Promise<string>((resolve) => {
+      const socket = net.connect(handle.port, '127.0.0.1', () => socket.write('GET http://[ HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'));
+      let text = '';
+      socket.on('data', (chunk) => { text += String(chunk); });
+      socket.on('close', () => resolve(text));
+      socket.on('error', () => resolve(text));
+    });
+    assert.match(reply, /^HTTP\/1\.1 500/);
+    const alive = await fetch(`http://127.0.0.1:${handle.port}/mcp`, { method: 'POST', body: '{}' });
+    assert.equal(alive.status, 200);
+  } finally {
+    handle.server.closeAllConnections?.();
+    await closeMcpNodeHttpListener(handle);
+  }
+});
