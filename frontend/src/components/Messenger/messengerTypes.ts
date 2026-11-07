@@ -34,6 +34,9 @@ export interface Room {
   agentRun: number;
   held: boolean;
   lastSeq: number;
+  /** The storage PC was off long enough last week that moving the room is suggested (FR-MSG-012). */
+  moveSuggested?: boolean;
+  offlineHours7d?: number;
 }
 
 export type SystemEvent =
@@ -58,6 +61,10 @@ export interface RoomMessage {
   system?: { event: SystemEvent; actor?: string; subject?: string };
   /** Session targets and how many got it / had it pasted (GET /rooms/:id). */
   receipts?: Receipts;
+  /** Agent messages in a row up to this one, as the storage PC counted (FR-MSG-005). */
+  agentRun?: number;
+  /** An outbox message already pasted into sessions on this PC (FR-MSG-011 AC-1). */
+  localReceipt?: Pick<Receipts, 'pasted' | 'skipped' | 'skippedReasons'>;
 }
 
 export interface Receipts {

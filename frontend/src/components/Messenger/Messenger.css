@@ -378,3 +378,6 @@
 .msgr-no-agent { font-size: 10px; white-space: nowrap; }
 .msgr-pick-hint { display: block; font-size: var(--fs-2xs); color: var(--warn-text); }
 .msgr-err-inline { margin-top: 0; }
+.msgr-pk-person { flex: none; height: 20px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: transparent; color: var(--fg-muted); font-size: 10px; cursor: pointer; }
+.msgr-pk-person:hover { background: var(--bg-hover); color: var(--fg); }
+.msgr-enter-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: var(--fs-xs); }

@@ -9,11 +9,12 @@ export function sequenceMessage(room: Room, message: RoomMessage): { room: Room;
     return { room: { ...room, lastSeq: seq, agentRun: 0, held: false }, message: { ...message, seq } };
   }
   if (kind === 'agent') {
+    // FR-MSG-005 AC-2: the message that reaches the limit is itself held ('연속 n/상한').
     const agentRun = room.agentRun + 1;
     const limit = room.settings.holdLimit;
     return {
       room: { ...room, lastSeq: seq, agentRun, held: agentRun >= limit },
-      message: { ...message, seq, ...(agentRun > limit ? { held: true } : {}) },
+      message: { ...message, seq, agentRun, ...(agentRun >= limit ? { held: true } : {}) },
     };
   }
   return { room: { ...room, lastSeq: seq }, message: { ...message, seq } };

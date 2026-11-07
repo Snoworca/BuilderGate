@@ -1924,5 +1924,11 @@
   "messenger.invite.waitingHost": "초대를 준비하고 있습니다. {host} 님 PC가 켜지면 보내집니다.",
   "messenger.room.invitesWaitingHost": "{names} · 초대를 준비하고 있습니다. {host} 님 PC가 켜지면 보내집니다.",
   "messenger.delivery.notPasted": "붙여넣지 않음",
-  "messenger.delivery.skippedMultiline.other": "{count}개 세션은 여러 줄을 받을 수 없는 화면"
+  "messenger.delivery.skippedMultiline.other": "{count}개 세션은 여러 줄을 받을 수 없는 화면",
+  "messenger.delivery.agentRun": "연속 {n}/{limit}",
+  "messenger.delivery.pastedHere": "붙여넣음 · 이 PC 안",
+  "messenger.form.enterFor": "받은 메시지를 바로 입력: {session}",
+  "messenger.picker.personOnly": "사람만 지정",
+  "messenger.picker.personOnlyHint": "세션이 아니라 사람을 지정합니다. 붙여넣지 않고 그 사람의 읽지 않은 수만 빨간색이 됩니다.",
+  "messenger.room.moveSuggested": "이 PC가 지난 7일 동안 {hours}시간 꺼져 있어 다른 참여자의 메시지가 기다렸습니다. 밤새 켜 두는 PC로 옮기면 좋습니다."
 }

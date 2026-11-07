@@ -382,3 +382,28 @@ export function validateRoomName(raw: string): 'messenger.form.nameRequired' | '
 export function inviteOutcome(result: { ok: true; status?: string }): 'sent' | 'waiting-host' {
   return result.status === 'waiting-host' ? 'waiting-host' : 'sent';
 }
+
+// ---------------------------------------------------------------- run count, local paste, Enter, move
+
+/** 「연속 19/20」 for an agent message (mockup ⑥, FR-MSG-005 AC-2). */
+export function agentRunLabel(message: RoomMessage, holdLimit: number): { key: 'messenger.delivery.agentRun'; params: { n: number; limit: number } } | null {
+  if (message.from.kind !== 'agent' || typeof message.agentRun !== 'number') return null;
+  return { key: 'messenger.delivery.agentRun', params: { n: message.agentRun, limit: holdLimit } };
+}
+
+/** 「붙여넣음 · 이 PC 안」 for a message still waiting for the storage PC (mockup ⑩, FR-MSG-011 AC-1). */
+export function localReceiptLabel(message: RoomMessage): Label | null {
+  if (message.seq !== null || !message.localReceipt || message.localReceipt.pasted <= 0) return null;
+  return { tone: 'ok', key: 'messenger.delivery.pastedHere' };
+}
+
+/** The chosen sessions with their 「받은 메시지를 바로 입력」 choice, on unless switched off (FR-MSG-001 AC-1). */
+export function sessionSelections(chosen: ReadonlySet<string>, enterOff: ReadonlySet<string>): Array<{ sessionKey: string; enter: boolean }> {
+  return [...chosen].map((sessionKey) => ({ sessionKey, enter: !enterOff.has(sessionKey) }));
+}
+
+/** The 「보관 PC 옮기기」 suggestion, shown on the storage PC only (FR-MSG-012 AC-1). */
+export function moveSuggestion(room: { hostNode: string; moveSuggested?: boolean; offlineHours7d?: number }, me: string): { hours: number } | null {
+  if (!room.moveSuggested || room.hostNode.toLowerCase() !== me.toLowerCase()) return null;
+  return { hours: room.offlineHours7d ?? 0 };
+}

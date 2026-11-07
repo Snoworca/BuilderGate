@@ -122,3 +122,9 @@ test('D4: an unknown or ambiguous name blocks the recipients even beside a good 
   assert.equal(recipientSummary('@api-server @nobody', room).kind, 'blocked');
   assert.equal(recipientSummary('@김철수_대리 hi', room).kind, 'room');
 });
+
+test('FR-MSG-003 AC-6: a person row can also name just the person (@name, no ::)', () => {
+  const model = buildPickerModel('', source);
+  assert.equal(model.items[0].personInsert, '@김철수_대리 ');
+  assert.equal(model.items.find((item) => item.section === 'mine')?.personInsert, undefined);
+});

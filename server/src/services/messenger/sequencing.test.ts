@@ -24,15 +24,19 @@ test('FR-MSG-002 AC-2: the host gives the next sequence number', () => {
   assert.equal(second.message.seq, 2);
 });
 
-test('FR-MSG-005 AC-1/AC-2: after holdLimit agent messages in a row the next ones are held', () => {
+test('FR-MSG-005 AC-2: the agent message that reaches holdLimit is itself held; each carries its run count', () => {
   let current = room({ settings: { invitePolicy: 'auto', holdLimit: 3 } });
   const held: boolean[] = [];
+  const runs: Array<number | undefined> = [];
   for (let i = 0; i < 5; i += 1) {
     const result = sequenceMessage(current, message('agent'));
     current = result.room;
     held.push(result.message.held === true);
+    runs.push(result.message.agentRun);
   }
-  assert.deepEqual(held, [false, false, false, true, true]);
+  assert.deepEqual(held, [false, false, true, true, true]);
+  assert.deepEqual(runs, [1, 2, 3, 4, 5]);
+  assert.equal(sequenceMessage(room(), message('human')).message.agentRun, undefined);
   assert.equal(current.agentRun, 5);
   assert.equal(current.held, true);
 });

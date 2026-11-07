@@ -24,6 +24,12 @@ export interface FakeServer {
   failPaste: Set<string>;
   /** Pastes into these sessions answer this refusal (e.g. PASTE_MULTILINE_UNSUPPORTED). */
   refusePaste: Map<string, string>;
+  /** Sessions whose program set DECSET 2004; others refuse multi-line text like buildRoomPaste. */
+  bracketed: Set<string>;
+  /** Real milliseconds one paste takes (text + Enter delay); 0 = at once. */
+  pasteMs: number;
+  /** Every wait the service asked for through deps.sleep. */
+  sleeps: number[];
   /** What ensureRoomLink answers (default ok). */
   roomLinkResult: Record<string, unknown>;
   /** LAN receiving: off means connectInfo() has no addresses. */
@@ -61,7 +67,7 @@ export class FakeNetwork {
   async add(name: string, sessions: Array<{ sessionKey: string; name: string; agent?: { kind: string; status: string } | null }>, store = createMemoryRoomStore()): Promise<FakeServer> {
     const server: FakeServer = {
       name, store, pastes: [], webhooks: [], notes: [], roomLinks: [], dropped: [], revoked: [], tickets: [],
-      roomKeys: new Map(), failPaste: new Set(), refusePaste: new Map(), roomLinkResult: { ok: true }, lanOn: true,
+      roomKeys: new Map(), failPaste: new Set(), refusePaste: new Map(), bracketed: new Set(), pasteMs: 0, sleeps: [], roomLinkResult: { ok: true }, lanOn: true,
       sessions: sessions.map((s) => ({ agent: { kind: 'claude', status: 'ready' }, ...s })),
       svc: undefined as unknown as RoomService,
     };
@@ -83,8 +89,10 @@ export class FakeNetwork {
       sessions: { list: () => server.sessions },
       paster: {
         paste: async (sessionKey, text, submit) => {
+          if (server.pasteMs > 0) await new Promise((resolve) => setTimeout(resolve, server.pasteMs));
           if (server.failPaste.has(sessionKey)) return false;
-          const refused = server.refusePaste.get(sessionKey);
+          const refused = server.refusePaste.get(sessionKey)
+            ?? (text.includes('\n') && !server.bracketed.has(sessionKey) ? 'PASTE_MULTILINE_UNSUPPORTED' : undefined);
           if (refused) return { ok: false as const, code: refused };
           server.pastes.push({ sessionKey, text, submit });
           return true;
@@ -117,7 +125,7 @@ export class FakeNetwork {
       },
       now: () => new Date(this.clock),
       randomId: () => `${name}${String(++ids).padStart(4, '0')}`,
-      sleep: async () => undefined,
+      sleep: async (ms) => { server.sleeps.push(ms); },
     });
     await server.svc.start();
     await server.svc.setWebhook('https://chat.example/hook');

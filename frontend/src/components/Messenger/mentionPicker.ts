@@ -33,6 +33,8 @@ export interface PickerItem {
   status?: string;
   /** For a person row: how many sessions they have in this room. */
   sessionCount?: number;
+  /** For a person row: the 「사람만 지정」 insert, naming the person only (`@name `). */
+  personInsert?: string;
 }
 
 export interface PickerModel {
@@ -92,6 +94,7 @@ export function buildPickerModel(query: string, source: PickerSource): PickerMod
         done: false,
         disabled: !person.connected,
         sessionCount: person.sessions.length,
+        personInsert: `${formatMention(null, person.node)} `,
       })),
       ...mine.map((session): PickerItem => ({
         section: 'mine',

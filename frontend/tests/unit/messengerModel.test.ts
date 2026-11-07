@@ -302,3 +302,32 @@ test('D7: a multi-line refusal has its own hint', () => {
     { key: 'messenger.delivery.skippedMultiline', count: 1 },
   ]);
 });
+
+// Low batch: run count, local paste of an outbox message, per-session Enter, move suggestion.
+import { agentRunLabel, localReceiptLabel, moveSuggestion, sessionSelections } from '../../src/components/Messenger/messengerModel.ts';
+
+test('FR-MSG-005 AC-2: an agent message shows 연속 n/limit; others and messages without a count show nothing', () => {
+  assert.deepEqual(agentRunLabel(msg(5, 'agent', { agentRun: 19 }), 20), { key: 'messenger.delivery.agentRun', params: { n: 19, limit: 20 } });
+  assert.equal(agentRunLabel(msg(5, 'human', { agentRun: 0 }), 20), null);
+  assert.equal(agentRunLabel(msg(5, 'agent'), 20), null);
+});
+
+test('FR-MSG-011 AC-1: an unsequenced message already pasted on this PC says so', () => {
+  assert.deepEqual(localReceiptLabel(msg(null, 'agent', { localReceipt: { pasted: 1 } })), { tone: 'ok', key: 'messenger.delivery.pastedHere' });
+  assert.equal(localReceiptLabel(msg(null, 'agent', { localReceipt: { pasted: 0, skipped: 1 } })), null);
+  assert.equal(localReceiptLabel(msg(null, 'agent')), null);
+  assert.equal(localReceiptLabel(msg(4, 'agent', { localReceipt: { pasted: 1 } })), null);
+});
+
+test('FR-MSG-001 AC-1: chosen sessions go out with their Enter choice, on unless switched off', () => {
+  assert.deepEqual(sessionSelections(new Set(['a', 'b']), new Set(['b', 'z'])), [{ sessionKey: 'a', enter: true }, { sessionKey: 'b', enter: false }]);
+  assert.deepEqual(sessionSelections(new Set(), new Set(['b'])), []);
+});
+
+test('FR-MSG-012 AC-1: the move suggestion shows on the storage PC only, with the hours it was off', () => {
+  const room = { hostNode: 'hong', moveSuggested: true, offlineHours7d: 31 };
+  assert.deepEqual(moveSuggestion(room, 'hong'), { hours: 31 });
+  assert.equal(moveSuggestion(room, 'kim'), null);
+  assert.equal(moveSuggestion({ ...room, moveSuggested: false }, 'hong'), null);
+  assert.deepEqual(moveSuggestion({ hostNode: 'hong', moveSuggested: true }, 'hong'), { hours: 0 });
+});

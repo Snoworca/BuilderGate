@@ -42,6 +42,8 @@ export interface RoomMeta {
   left?: boolean;
   /** FR-MSG-002 AC-4: receipts the host did not get (it was off); sent again after a sync. */
   pendingReceipts?: Array<{ seq: number; pasted: string[]; skipped: string[]; skippedReasons?: Record<string, string> }>;
+  /** FR-MSG-012 AC-1 (host): times members saw this host unreachable, last 7 days. */
+  offlineReports?: Array<{ from: string; to: string }>;
   /** Set on the old host after a transfer, for members that still sync here. */
   movedTo?: { host: string; tickets: Record<string, Ticket> };
 }

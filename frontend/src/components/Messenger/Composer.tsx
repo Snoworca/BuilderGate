@@ -61,9 +61,11 @@ export function Composer({ room, picker, onSend, notice }: ComposerProps) {
     });
   };
 
-  const choose = (item: PickerItem | undefined) => {
+  /** `personOnly`: the 「사람만 지정」 choice of a person row, `@name ` without `::`. */
+  const choose = (item: PickerItem | undefined, personOnly = false) => {
     if (!item || query === null) return;
-    const result = applyPickerItem(value, caret, { start: query.start, insert: item.insert });
+    const insert = personOnly && item.personInsert !== undefined ? item.personInsert : item.insert;
+    const result = applyPickerItem(value, caret, { start: query.start, insert });
     setText(result.value, result.caret);
   };
 
@@ -89,7 +91,7 @@ export function Composer({ room, picker, onSend, notice }: ComposerProps) {
       }
       if (event.key === 'Enter' || event.key === 'Tab') {
         event.preventDefault();
-        choose(items[current]);
+        choose(items[current], event.key === 'Enter' && event.shiftKey);
         return;
       }
     }
@@ -137,6 +139,16 @@ export function Composer({ room, picker, onSend, notice }: ComposerProps) {
                       ? (item.disabled ? t('messenger.picker.offline') : tn('messenger.picker.sessionCount', item.sessionCount ?? 0))
                       : item.status ?? ''}
                   </span>
+                  {item.personInsert !== undefined && (
+                    <button
+                      type="button"
+                      className="msgr-pk-person"
+                      title={t('messenger.picker.personOnlyHint')}
+                      onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); choose(item, true); }}
+                    >
+                      {t('messenger.picker.personOnly')}
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -186,7 +198,7 @@ export function Composer({ room, picker, onSend, notice }: ComposerProps) {
       </div>
       <div className="msgr-hintline">
         {pickerOpen
-          ? <><kbd>↑</kbd><kbd>↓</kbd> {t('messenger.picker.hintChoose')} · <kbd>Enter</kbd>/<kbd>Tab</kbd> {t('messenger.picker.hintInsert')} · <kbd>Esc</kbd> {t('messenger.picker.hintClose')}</>
+          ? <><kbd>↑</kbd><kbd>↓</kbd> {t('messenger.picker.hintChoose')} · <kbd>Enter</kbd>/<kbd>Tab</kbd> {t('messenger.picker.hintInsert')} · <kbd>Shift</kbd>+<kbd>Enter</kbd> {t('messenger.picker.personOnly')} · <kbd>Esc</kbd> {t('messenger.picker.hintClose')}</>
           : <><kbd>Enter</kbd> {t('messenger.composer.hintSend')} · <kbd>Shift</kbd>+<kbd>Enter</kbd> {t('messenger.composer.hintNewline')} · {t('messenger.composer.hintRoom')}</>}
       </div>
     </div>

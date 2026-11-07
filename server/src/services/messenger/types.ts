@@ -59,6 +59,10 @@ export interface RoomMessage {
   to: string[];
   text: string;
   held?: boolean;
+  /** FR-MSG-005 AC-2: agent messages since the last human one, this one included (set by the host). */
+  agentRun?: number;
+  /** FR-MSG-011 AC-1: on an outbox message, what this PC pasted while the host was away. */
+  localReceipt?: { pasted: number; skipped?: number; skippedReasons?: Record<string, number> };
   /** FR-MSG-002 AC-4: set by the host once numbered — receiving sessions, servers that acked, sessions pasted. */
   receipts?: { targets: number; delivered: number; pasted: number; skipped?: number; skippedReasons?: Record<string, number> };
   system?: { event: SystemEvent; actor?: string; subject?: string };

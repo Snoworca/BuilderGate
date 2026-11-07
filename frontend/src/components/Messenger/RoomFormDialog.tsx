@@ -4,10 +4,10 @@
 import { useState } from 'react';
 import { WindowDialog } from '../dialog';
 import { Icon } from '../common';
-import { Button, TextInput } from '../ui';
+import { Button, Switch, TextInput } from '../ui';
 import { t } from '../../i18n/i18n.ts';
 import { messengerApi, MessengerError } from '../../services/api.ts';
-import { inviteOutcome, validateRoomName } from './messengerModel.ts';
+import { inviteOutcome, sessionDisplayName, sessionSelections, validateRoomName } from './messengerModel.ts';
 import { copyTextToClipboard } from '../../utils/clipboardCopy.ts';
 import type { McpSessionRecord } from '../../types';
 import { SessionPicker, type PickerWorkspace } from './SessionPicker.tsx';
@@ -41,6 +41,12 @@ export function RoomFormDialog({ room, me, contacts, sessions, workspaces, onClo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverNameError, setServerNameError] = useState(false);
+  // FR-MSG-001 AC-1: 「받은 메시지를 바로 입력」 per chosen session, on unless switched off.
+  const [enterOff, setEnterOff] = useState<Set<string>>(() => new Set());
+  const sessionName = (key: string) => {
+    const record = sessions.find((candidate) => candidate.sessionKey === key);
+    return record ? sessionDisplayName(record) : key;
+  };
   const [waitingHost, setWaitingHost] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -57,7 +63,7 @@ export function RoomFormDialog({ room, me, contacts, sessions, workspaces, onClo
     setBusy(true);
     setError(null);
     try {
-      const input = { sessions: [...chosenSessions], people: [...people], message: message.trim() || undefined };
+      const input = { sessions: sessionSelections(chosenSessions, enterOff), people: [...people], message: message.trim() || undefined };
       if (room) {
         const result = await messengerApi.invite(room.id, input);
         // The storage PC is off: the invitation is queued, which is not the same as sent (mockup ⑨).
@@ -125,6 +131,15 @@ export function RoomFormDialog({ room, me, contacts, sessions, workspaces, onClo
                 disabled={inRoom}
                 onToggle={(key) => setChosenSessions((current) => toggle(current, key))}
               />
+              {chosenSessions.size > 0 && (
+                <div className="msgr-enter-list">
+                  {[...chosenSessions].map((key) => (
+                    <Switch key={key} checked={!enterOff.has(key)} onChange={() => setEnterOff((current) => toggle(current, key))}>
+                      {t('messenger.form.enterFor', { session: sessionName(key) })}
+                    </Switch>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="msgr-field">

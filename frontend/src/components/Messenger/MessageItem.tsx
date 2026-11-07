@@ -4,7 +4,7 @@ import { Button } from '../ui';
 import { t, tn } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
 import { labelMentions, splitMessageText, stripControlChars, type MentionRoom } from './mentions.ts';
-import { deliveryLabel, memberLabel, senderView, skipReasonHints, type DeliveryContext } from './messengerModel.ts';
+import { agentRunLabel, deliveryLabel, localReceiptLabel, memberLabel, senderView, skipReasonHints, type DeliveryContext } from './messengerModel.ts';
 import { formatTime } from './messengerFormat.ts';
 import type { RoomMessage, RoomSession, SystemEvent } from './messengerTypes.ts';
 
@@ -70,11 +70,15 @@ interface MessageItemProps {
   me: string;
   sessions: RoomSession[];
   delivery: DeliveryContext;
+  /** The room's hold limit, for 「연속 n/limit」. */
+  holdLimit: number;
 }
 
-export function MessageItem({ message, room, me, sessions, delivery }: MessageItemProps) {
+export function MessageItem({ message, room, me, sessions, delivery, holdLimit }: MessageItemProps) {
   const sender = senderView(message.from, me, sessions);
   const label = deliveryLabel(message, delivery);
+  const pastedHere = localReceiptLabel(message);
+  const run = agentRunLabel(message, holdLimit);
   const sessionTargets = message.to.filter((id) => id.includes('::')).length;
   return (
     <div className={`msgr-msg${message.seq === null ? ' is-sending' : ''}`}>
@@ -88,11 +92,13 @@ export function MessageItem({ message, room, me, sessions, delivery }: MessageIt
         <MessageText text={message.text} to={message.to} room={room} />
         {label !== null && (
           <div className="msgr-deliv">
+            {pastedHere !== null && <span className={`msgr-deliv-${pastedHere.tone}`}>{t(pastedHere.key)}</span>}
             <span className={`msgr-deliv-${label.tone}`}>{t(label.key, label.params)}</span>
-            {skipReasonHints(message.receipts).map((hint) => (
+            {skipReasonHints(message.receipts ?? (message.localReceipt && { targets: 0, delivered: 0, ...message.localReceipt })).map((hint) => (
               <span key={hint.key} className="msgr-deliv-wait">{tn(hint.key, hint.count)}</span>
             ))}
             {sessionTargets > 0 && <span>{`1:${sessionTargets}`}</span>}
+            {run !== null && <span>{t(run.key, run.params)}</span>}
           </div>
         )}
       </div>

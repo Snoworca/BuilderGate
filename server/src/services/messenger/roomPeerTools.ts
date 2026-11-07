@@ -28,6 +28,7 @@ export async function callRoomPeerTool(service: RoomService, tool: string, args:
     case ROOM_PEER.hosted: return service.peerHosted(from, args);
     case ROOM_PEER.receipt: return service.peerReceipt(from, args);
     case ROOM_PEER.approval: return service.peerApproval(from, args);
+    case ROOM_PEER.hostOfflineReport: return service.peerHostOfflineReport(from, args);
     default: return { ok: false, code: 'UNKNOWN_TOOL' };
   }
 }

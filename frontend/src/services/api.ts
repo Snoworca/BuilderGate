@@ -1129,13 +1129,13 @@ const roomPath = (id: string) => `/rooms/${encodeURIComponent(id)}`;
 export const messengerApi = {
   state: () => messengerCall<MessengerState>('GET', '/state'),
   rename: (name: string) => messengerCall<{ ok: true; name: string }>('PATCH', '/me', { name }),
-  createRoom: (input: { name: string; sessions: string[]; people: string[]; message?: string }) =>
+  createRoom: (input: { name: string; sessions: Array<{ sessionKey: string; enter: boolean }>; people: string[]; message?: string }) =>
     messengerCall<{ ok: true; room: Room }>('POST', '/rooms', input),
   room: (id: string, before?: number) =>
     messengerCall<RoomDetail & { ok: true }>('GET', `${roomPath(id)}?limit=50${before === undefined ? '' : `&before=${before}`}`),
   send: (id: string, text: string) => messengerCall<SendResult>('POST', `${roomPath(id)}/messages`, { text }),
   markRead: (id: string, seq: number) => messengerCall<{ ok: true }>('POST', `${roomPath(id)}/read`, { seq }),
-  invite: (id: string, input: { sessions?: string[]; people?: string[]; message?: string }) =>
+  invite: (id: string, input: { sessions?: Array<{ sessionKey: string; enter: boolean }>; people?: string[]; message?: string }) =>
     messengerCall<{ ok: true; status?: 'waiting-host' }>('POST', `${roomPath(id)}/invite`, input),
   inviteCode: (id: string, message?: string) => messengerCall<{ ok: true; code: string }>('POST', `${roomPath(id)}/invite-code`, { message }),
   removeMember: (id: string, memberId: string) =>

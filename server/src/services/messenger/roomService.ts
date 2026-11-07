@@ -80,6 +80,7 @@ export const ROOM_PEER = {
   hosted: 'buildergate.room.peer.hosted',
   receipt: 'buildergate.room.peer.receipt',
   approval: 'buildergate.room.peer.approval',
+  hostOfflineReport: 'buildergate.room.peer.hostOfflineReport',
 } as const;
 
 export const SYNC_INTERVAL_MS = 5_000;
@@ -87,6 +88,8 @@ const SYNC_PAGE = 500;
 const JOIN_HISTORY = 200;
 const PASTED_KEEP = 2_000;
 const RECEIPTS_KEEP = 1_000;
+const OFFLINE_WINDOW_MS = 7 * 24 * 3_600_000;
+const MOVE_SUGGEST_MS = 3_600_000;
 const HOLD_LIMIT_MAX = 1_000;
 const TEXT_MAX = 20_000;
 const JOIN_WAIT_MS = 10_000;
@@ -161,7 +164,9 @@ export class RoomService {
   private approvals: Approval[] = [];
   private settings: MessengerSettings = {};
   private readonly chains = new Map<string, Promise<unknown>>();
-  private readonly pasteChains = new Map<string, Promise<unknown>>();
+  /** FR-MSG-004 AC-3: pastes waiting per session, gathered into one block when they come close together. */
+  private readonly pasteQueues = new Map<string, Array<{ text: string; submit: boolean; resolve: (reason: string | null) => void }>>();
+  private readonly draining = new Set<string>();
   private readonly background = new Set<Promise<unknown>>();
   private saving: Promise<unknown> = Promise.resolve();
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -284,6 +289,7 @@ export class RoomService {
         sessions: this.sessionsWithAgents(record.room),
         isHost: this.isHost(record.room),
         invitedPending: invitedPending(record.room),
+        ...(this.isHost(record.room) ? this.offlineSummary(record) : {}),
       },
       messages: this.withReceipts(roomId, upTo.slice(-limit)),
       host: {
@@ -322,15 +328,17 @@ export class RoomService {
     if (name.length < 1 || name.length > ROOM_NAME_MAX) return fail('VALIDATION_ERROR', { fieldErrors: { name: `1 to ${ROOM_NAME_MAX} characters` } });
     if (hasInvalidNameChars(name)) return fail('NAME_INVALID_CHAR', { fieldErrors: { name: 'no control characters, ] or |' } });
     const self = this.self();
-    const sessions = this.localSessions(strings(input.sessions));
+    const choices = sessionChoices(input.sessions);
+    const sessions = this.localSessions(choices.map((choice) => choice.sessionKey));
     if ('code' in sessions) return sessions;
+    const enterOf = new Map(choices.map((choice) => [choice.sessionKey, choice.enter]));
     const people = [...new Set(strings(input.people).filter((node) => !sameNode(node, self)))];
     const now = this.nowIso();
     const room: Room = {
       id: this.newRoomId(), name, hostNode: self, createdBy: self, createdAt: now,
       settings: { invitePolicy: 'auto', holdLimit: DEFAULT_HOLD_LIMIT },
       people: [{ node: self, joinedAt: now, state: 'joined' }],
-      sessions: sessions.map((session) => this.sessionEntry(self, session)),
+      sessions: sessions.map((session) => ({ ...this.sessionEntry(self, session), enter: enterOf.get(session.sessionKey) ?? true })),
       agentRun: 0, held: false, lastSeq: 0,
     };
     const record: RoomRecord = { room, meta: { ...emptyMeta() } };
@@ -372,11 +380,16 @@ export class RoomService {
     if (!record) return fail('ROOM_NOT_FOUND');
     const self = this.self();
     const message = asString(input.message)?.trim() || undefined;
-    const sessions = this.localSessions(strings(input.sessions));
+    const choices = sessionChoices(input.sessions);
+    const sessions = this.localSessions(choices.map((choice) => choice.sessionKey));
     if ('code' in sessions) return sessions;
+    const enterOf = new Map(choices.map((choice) => [choice.sessionKey, choice.enter]));
     const fresh = sessions.filter((session) => !record.room.sessions.some((existing) => existing.id === sessionMemberId(self, session.sessionKey)));
     if (fresh.length > 0) {
-      const added = await this.memberOp(record, { op: 'add-sessions', sessions: fresh.map((s) => ({ sessionKey: s.sessionKey, name: s.name, agent: s.agent })) });
+      const added = await this.memberOp(record, {
+        op: 'add-sessions',
+        sessions: fresh.map((s) => ({ sessionKey: s.sessionKey, name: s.name, agent: s.agent, enter: enterOf.get(s.sessionKey) ?? true })),
+      });
       if (added.ok === false) return added;
     }
     const pending: string[] = [];
@@ -907,6 +920,22 @@ export class RoomService {
     return { ok: true };
   }
 
+  /** FR-MSG-012 AC-1: a member saw this host unreachable from `from` to `to`. */
+  async peerHostOfflineReport(from: string, args: Rec): Promise<Rec> {
+    const record = this.hostedFor(asString(args.roomId), from);
+    if ('code' in record) return record;
+    const start = Date.parse(asString(args.from) ?? '');
+    const end = Date.parse(asString(args.to) ?? '');
+    const now = this.now().getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || end > now + 60_000 || end - start > OFFLINE_WINDOW_MS) {
+      return fail('VALIDATION_ERROR');
+    }
+    record.meta.offlineReports = [...(record.meta.offlineReports ?? []), { from: new Date(start).toISOString(), to: new Date(end).toISOString() }]
+      .filter((report) => Date.parse(report.to) > now - OFFLINE_WINDOW_MS);
+    this.changed(record.room.id, 'room');
+    return { ok: true };
+  }
+
   // ---------------------------------------------------------------------------------------------
   // Sending (contract §4)
 
@@ -963,6 +992,16 @@ export class RoomService {
     });
     const local = await pending;
     const settled = local.pasted.length + Object.keys(local.skipped).length;
+    if (settled > 0) {
+      await this.serial(record.room.id, async () => {
+        const { waiting: _waiting, ...localReceipt } = deliveryOf(local, 0);
+        const outbox = this.outboxOf(record.room.id).map((queued) => queued.clientMsgId === message.clientMsgId ? { ...queued, localReceipt } : queued);
+        if (!outbox.some((queued) => queued.clientMsgId === message.clientMsgId)) return;
+        this.outboxes.set(record.room.id, outbox);
+        await this.deps.store.writeOutbox(record.room.id, outbox);
+      });
+      this.changed(record.room.id, 'receipt');
+    }
     return {
       ok: true, messageId: message.clientMsgId, seq: null, held: false, status: 'waiting-host',
       delivery: deliveryOf(local, waiting + localTargets - settled),
@@ -978,7 +1017,7 @@ export class RoomService {
       else if (queued.from.kind === 'agent') run += 1;
       if (queued.clientMsgId === message.clientMsgId) break;
     }
-    return run > record.room.settings.holdLimit;
+    return run >= record.room.settings.holdLimit;
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -1560,17 +1599,51 @@ export class RoomService {
 
   /** Answers null when written, else why not (MULTILINE_UNSUPPORTED, PASTE_FAILED). */
   private enqueuePaste(sessionKey: string, text: string, submit: boolean): Promise<string | null> {
-    const previous = this.pasteChains.get(sessionKey) ?? Promise.resolve();
-    const next = previous.then(async () => {
-      const result = await this.deps.paster.paste(sessionKey, text, submit).catch(() => false as const);
-      if (result === true) return null;
-      const reason = typeof result === 'object' && result.code === 'PASTE_MULTILINE_UNSUPPORTED' ? 'MULTILINE_UNSUPPORTED' : 'PASTE_FAILED';
-      this.log({ event: 'messenger.paste.failed', sessionKey, reason });
-      return reason;
+    return new Promise((resolve) => {
+      const queue = this.pasteQueues.get(sessionKey) ?? [];
+      queue.push({ text, submit, resolve });
+      this.pasteQueues.set(sessionKey, queue);
+      if (!this.draining.has(sessionKey)) this.track(this.drainPastes(sessionKey));
     });
-    this.pasteChains.set(sessionKey, next);
-    this.track(next);
-    return next;
+  }
+
+  /**
+   * FR-MSG-004 AC-3: the first paste for a session goes at once; what arrives while it is in flight
+   * (text, then the Enter delay — about a second) goes as one block as soon as it finishes.
+   */
+  private async drainPastes(sessionKey: string): Promise<void> {
+    this.draining.add(sessionKey);
+    try {
+      await Promise.resolve(); // everything one delivery queues for this session comes in the same batch
+      for (;;) {
+        const batch = this.pasteQueues.get(sessionKey)?.splice(0) ?? [];
+        if (batch.length === 0) break;
+        await this.pasteBatch(sessionKey, batch);
+      }
+    } finally {
+      this.draining.delete(sessionKey);
+      this.pasteQueues.delete(sessionKey);
+    }
+  }
+
+  /** One bracketed block of prefixed lines; if the session cannot take several lines, one by one. */
+  private async pasteBatch(sessionKey: string, batch: Array<{ text: string; submit: boolean; resolve: (reason: string | null) => void }>): Promise<void> {
+    if (batch.length > 1) {
+      const together = await this.pasteOnce(sessionKey, batch.map((job) => job.text).join('\n'), batch.some((job) => job.submit), false);
+      if (together !== 'MULTILINE_UNSUPPORTED') {
+        for (const job of batch) job.resolve(together);
+        return;
+      }
+    }
+    for (const job of batch) job.resolve(await this.pasteOnce(sessionKey, job.text, job.submit, true));
+  }
+
+  private async pasteOnce(sessionKey: string, text: string, submit: boolean, logRefusal: boolean): Promise<string | null> {
+    const result = await this.deps.paster.paste(sessionKey, text, submit).catch(() => false as const);
+    if (result === true) return null;
+    const reason = typeof result === 'object' && result.code === 'PASTE_MULTILINE_UNSUPPORTED' ? 'MULTILINE_UNSUPPORTED' : 'PASTE_FAILED';
+    if (logRefusal || reason !== 'MULTILINE_UNSUPPORTED') this.log({ event: 'messenger.paste.failed', sessionKey, reason });
+    return reason;
   }
 
   /** What this server pasted the message into and skipped; cleared once read. */
@@ -1664,10 +1737,34 @@ export class RoomService {
     return true;
   }
 
+  /** FR-MSG-012 AC-1: the host's own time away in the last 7 days (overlapping reports counted once). */
+  private offlineSummary(record: RoomRecord): { offlineHours7d: number; moveSuggested: boolean } {
+    const now = this.now().getTime();
+    const windowStart = now - OFFLINE_WINDOW_MS;
+    const spans = (record.meta.offlineReports ?? [])
+      .map((report) => [Math.max(Date.parse(report.from), windowStart), Math.min(Date.parse(report.to), now)] as const)
+      .filter(([start, end]) => end > start)
+      .sort((a, b) => a[0] - b[0]);
+    let total = 0;
+    let cursor = -Infinity;
+    for (const [start, end] of spans) {
+      const from = Math.max(start, cursor);
+      if (end > from) total += end - from;
+      cursor = Math.max(cursor, end);
+    }
+    return { offlineHours7d: Math.round(total / 360_000) / 10, moveSuggested: total > MOVE_SUGGEST_MS };
+  }
+
   private hostReached(record: RoomRecord): void {
-    if (!record.meta.hostOfflineSince) return;
+    const since = record.meta.hostOfflineSince;
+    if (!since) return;
     record.meta.hostOfflineSince = undefined;
     this.changed(record.room.id, 'host');
+    // FR-MSG-012 AC-1: tell the host how long it was away.
+    const to = this.nowIso();
+    this.track(this.deps.transport.call(record.room.hostNode, ROOM_PEER.hostOfflineReport, {
+      roomId: record.room.id, ms: Date.parse(to) - Date.parse(since), from: since, to,
+    }));
   }
 
   private hostMissed(record: RoomRecord, result: Rec): void {
@@ -1977,6 +2074,16 @@ function receiptsFromMessages(messages: RoomMessage[]): Rec {
   const out: Rec = {};
   for (const message of messages) if (message.receipts && message.seq !== null) out[String(message.seq)] = message.receipts;
   return out;
+}
+
+/** FR-MSG-001 AC-1: sessionKey strings or { sessionKey, enter } (enter defaults to on). */
+function sessionChoices(value: unknown): Array<{ sessionKey: string; enter: boolean }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item === 'string') return item ? [{ sessionKey: item, enter: true }] : [];
+    const record = asRecord(item);
+    return typeof record.sessionKey === 'string' && record.sessionKey ? [{ sessionKey: record.sessionKey, enter: record.enter !== false }] : [];
+  });
 }
 
 function parseSessionArgs(value: unknown): Array<{ sessionKey: string; name: string; enter: boolean; pasteAll: boolean; agent: SessionAgent | null }> {

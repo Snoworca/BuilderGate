@@ -134,8 +134,11 @@ test('FR-MSG-005 AC-1..AC-3: 20 agent messages in a row → held, a human messag
     results.push(await bob.svc.postFromSession('b1', roomId, `step ${i}`) as Rec);
     await net.idle();
   }
-  assert.deepEqual(results.map((r) => r.held), [...Array(20).fill(false), true, true]);
-  assert.equal(texts(alice, 'a1').length, 20);
+  assert.deepEqual(results.map((r) => r.held), [...Array(19).fill(false), true, true, true]);
+  assert.equal(texts(alice, 'a1').length, 19);
+  const log = (await alice.svc.getRoom(roomId, {}) as Rec).messages as Rec[];
+  assert.equal(log.at(-1)!.agentRun, 22);
+  assert.equal((((await alice.svc.getRoom(roomId, {}) as Rec).room as Rec).settings as Rec).holdLimit, 20);
   assert.equal(alice.svc.state().rooms[0]!.held, true);
   assert.equal(bob.svc.state().rooms[0]!.held, true);
   assert.ok(alice.webhooks.some((w) => w.includes('결제팀')));
@@ -541,7 +544,7 @@ test('H-1: with the host reachable, a member pastes its own sessions only after 
     await bob.svc.postFromSession('b1', roomId, `step ${i}`);
     await net.idle();
   }
-  assert.equal(steps(bob, 'b2').length, 20);
+  assert.equal(steps(bob, 'b2').length, 19);
 });
 
 test('H-1/M-6: with the host away, local pastes stop at the hold limit and while the room is held', async () => {
@@ -552,7 +555,7 @@ test('H-1/M-6: with the host away, local pastes stop at the hold limit and while
   net.online.delete('alice');
   for (let i = 1; i <= 5; i += 1) await bob.svc.postFromSession('b1', roomId, `step ${i}`);
   await net.idle();
-  assert.deepEqual(steps(bob, 'b2'), [1, 2, 3].map((i) => `[BG-ROOM:결제팀 | api] step ${i}`));
+  assert.deepEqual(steps(bob, 'b2'), [1, 2].map((i) => `[BG-ROOM:결제팀 | api] step ${i}`));
   await bob.svc.postFromUi(roomId, '사람');
   await bob.svc.postFromSession('b1', roomId, 'step 6');
   await net.idle();
@@ -653,6 +656,7 @@ test('D8: the send answer counts what was really pasted here, with reasons; mult
   const alice = await net.add('alice', [{ sessionKey: 'a1', name: 'one' }, { sessionKey: 'a2', name: 'two' }, { sessionKey: 'a3', name: 'three' }]);
   const created = await alice.svc.createRoom({ name: 'r', sessions: ['a1', 'a2', 'a3'], people: [] }) as Rec;
   const roomId = (created.room as Rec).id as string;
+  alice.bracketed.add('a1');
   alice.refusePaste.set('a2', 'PASTE_MULTILINE_UNSUPPORTED');
   alice.failPaste.add('a3');
   const sent = await alice.svc.postFromUi(roomId, '줄1\n줄2') as Rec;
@@ -672,4 +676,95 @@ test('D9: control characters are stripped when a message is made (local and over
   assert.deepEqual(texts2, ['x[31my\tz', 'b]0;titleell']);
   const onBob = ((await bob.svc.getRoom(roomId, {}) as Rec).messages as Rec[]).slice(-2).map((m) => m.text);
   assert.deepEqual(onBob, texts2);
+});
+
+test('FR-MSG-011 AC-1: while the host is away, the outbox message says what this PC already pasted', async () => {
+  const { net, alice, bob } = await trio();
+  const roomId = await roomWithBob(net, alice, bob);
+  net.online.delete('alice');
+  await bob.svc.postFromSession('b1', roomId, '여기서만');
+  await net.idle();
+  const outbox = (await bob.svc.getRoom(roomId, {}) as Rec).outbox as Rec[];
+  assert.deepEqual(outbox.map((m) => m.localReceipt), [{ pasted: 1 }]);
+});
+
+test('FR-MSG-001 AC-1: sessions may be given as {sessionKey, enter}; enter defaults to on', async () => {
+  const net = new FakeNetwork();
+  const alice = await net.add('alice', [{ sessionKey: 'a1', name: 'one' }, { sessionKey: 'a2', name: 'two' }, { sessionKey: 'a3', name: 'three' }]);
+  const created = await alice.svc.createRoom({ name: 'r', sessions: [{ sessionKey: 'a1', enter: false }, 'a2'], people: [] }) as Rec;
+  const roomId = (created.room as Rec).id as string;
+  assert.equal((await alice.svc.invite(roomId, { sessions: [{ sessionKey: 'a3', enter: false }] }) as Rec).ok, true);
+  const sessions = ((await alice.svc.getRoom(roomId, {}) as Rec).room as Rec).sessions as Rec[];
+  assert.deepEqual(sessions.map((s) => [s.sessionKey, s.enter]), [['a1', false], ['a2', true], ['a3', false]]);
+});
+
+test('FR-MSG-004 AC-3: messages arriving together for one session go as one bracketed block when 2004 is on, else one by one', async () => {
+  const { net, alice, bob } = await trio();
+  const roomId = await roomWithBob(net, alice, bob);
+  bob.bracketed.add('b1');
+  bob.pastes.length = 0;
+  net.online.delete('bob');
+  for (const text of ['하나', '둘', '셋']) await alice.svc.postFromUi(roomId, text);
+  net.online.add('bob');
+  await bob.svc.tick();
+  await net.idle();
+  assert.deepEqual(texts(bob, 'b1'), ['[BG-ROOM:결제팀 | alice] 하나\n[BG-ROOM:결제팀 | alice] 둘\n[BG-ROOM:결제팀 | alice] 셋']);
+  assert.deepEqual(texts(bob, 'b2'), ['하나', '둘', '셋'].map((t) => `[BG-ROOM:결제팀 | alice] ${t}`));
+  const log = ((await alice.svc.getRoom(roomId, {}) as Rec).messages as Rec[]).slice(-3);
+  assert.deepEqual(log.map((m) => (m.receipts as Rec).pasted), [3, 3, 3]);
+});
+
+test('FR-MSG-012 AC-1: members report how long the host was away; over 1 h in 7 days suggests moving (host view only)', async () => {
+  const { net, alice, bob } = await trio();
+  const roomId = await roomWithBob(net, alice, bob);
+  net.online.delete('alice');
+  await bob.svc.tick();
+  net.clock += 61 * 60_000;
+  net.online.add('alice');
+  await bob.svc.tick();
+  await net.idle();
+  const hostView = (await alice.svc.getRoom(roomId, {}) as Rec).room as Rec;
+  assert.equal(hostView.moveSuggested, true);
+  assert.equal(hostView.offlineHours7d, 1);
+  const memberView = (await bob.svc.getRoom(roomId, {}) as Rec).room as Rec;
+  assert.equal(memberView.moveSuggested, undefined);
+  net.clock += 8 * 24 * 3_600_000;
+  const later = (await alice.svc.getRoom(roomId, {}) as Rec).room as Rec;
+  assert.equal(later.moveSuggested, false);
+  assert.equal(later.offlineHours7d, 0);
+});
+
+test('FR-MSG-004 AC-3 (real timing): messages arriving while a paste is in flight go as one block right after it; the first is never delayed', async () => {
+  const net = new FakeNetwork();
+  const alice = await net.add('alice', [{ sessionKey: 'a1', name: 'one' }]);
+  const created = await alice.svc.createRoom({ name: 'r', sessions: ['a1'], people: [] }) as Rec;
+  const roomId = (created.room as Rec).id as string;
+  await net.idle();
+  alice.bracketed.add('a1');
+  alice.pastes.length = 0;
+  alice.pasteMs = 300;
+  const first = alice.svc.postFromUi(roomId, '첫째');
+  let pastesWhenFirstAnswered = -1;
+  void first.then(() => { pastesWhenFirstAnswered = alice.pastes.length; });
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  const second = alice.svc.postFromUi(roomId, '둘째');
+  const third = alice.svc.postFromUi(roomId, '셋째');
+  const firstDone = await first;
+  const [secondDone, thirdDone] = await Promise.all([second, third]);
+  assert.deepEqual(texts(alice, 'a1'), ['[BG-ROOM:r | alice] 첫째', '[BG-ROOM:r | alice] 둘째\n[BG-ROOM:r | alice] 셋째']);
+  for (const done of [firstDone, secondDone, thirdDone]) assert.deepEqual((done as Rec).delivery, { pasted: 1, waiting: 0 });
+  // Not wall-clock thresholds (load-sensitive): the first answers on its own paste; three messages take two pastes.
+  assert.equal(pastesWhenFirstAnswered, 1);
+  assert.equal(alice.pastes.length, 2);
+});
+
+test('FR-MSG-004 AC-3: a message after the previous paste finished is not held back', async () => {
+  const net = new FakeNetwork();
+  const alice = await net.add('alice', [{ sessionKey: 'a1', name: 'one' }]);
+  const created = await alice.svc.createRoom({ name: 'r', sessions: ['a1'], people: [] }) as Rec;
+  const roomId = (created.room as Rec).id as string;
+  await alice.svc.postFromUi(roomId, '하나');
+  alice.sleeps.length = 0;
+  await alice.svc.postFromUi(roomId, '둘');
+  assert.deepEqual(alice.sleeps, []);
 });

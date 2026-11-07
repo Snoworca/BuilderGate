@@ -10,7 +10,7 @@ import { Composer } from './Composer.tsx';
 import { MessageItem, SystemLine } from './MessageItem.tsx';
 import type { MentionRoom } from './mentions.ts';
 import type { PickerSource } from './mentionPicker.ts';
-import { agentChip, foldAgentRuns, senderView, sessionAgentNote } from './messengerModel.ts';
+import { agentChip, foldAgentRuns, moveSuggestion, senderView, sessionAgentNote } from './messengerModel.ts';
 import { dayKey, errorText, formatDay, formatTime } from './messengerFormat.ts';
 import type { MessengerState, RoomSummary } from './messengerTypes.ts';
 import type { UseRoomDetailResult } from './useMessenger.ts';
@@ -108,6 +108,7 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
   }
 
   const isCreator = roomData.createdBy === me;
+  const move = moveSuggestion(roomData, me);
   const heldCount = room.messages.filter((message) => message.held).length;
 
   const run = async (action: () => Promise<unknown>) => {
@@ -169,6 +170,13 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
           </span>
         </div>
       )}
+      {move !== null && (
+        <div className="msgr-banner msgr-banner-info" role="status">
+          <span aria-hidden="true">ⓘ</span>
+          <span>{t('messenger.room.moveSuggested', { hours: move.hours })}</span>
+          <Button size="sm" variant="secondary" onClick={onOpenMembers}>{t('messenger.settings.transfer')}</Button>
+        </div>
+      )}
       {(summary?.invitesWaitingHost?.length ?? 0) > 0 && (
         <div className="msgr-banner msgr-banner-warn" role="status">
           <span aria-hidden="true">⏾</span>
@@ -215,7 +223,7 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
               {separator}
               {message.system !== undefined || message.from.kind === 'system'
                 ? <SystemLine message={message} me={me} sessions={sessions} onKick={kickable ? (node) => void run(() => messengerApi.removeMember(roomData.id, node)) : undefined} />
-                : <MessageItem message={message} room={mentionRoom} me={me} sessions={sessions} delivery={{ hostOnline, hostNode }} />}
+                : <MessageItem message={message} room={mentionRoom} me={me} sessions={sessions} delivery={{ hostOnline, hostNode }} holdLimit={roomData.settings.holdLimit} />}
             </Fragment>
           );
         })}
