@@ -8,6 +8,8 @@ export interface PeerLinkView {
   hasAccessKey: boolean;
   tlsFingerprintSha256?: string;
   enabled: boolean;
+  /** Who made the link, e.g. 'room' for one the messenger added. The server keeps it when a save omits it. */
+  kind?: string;
 }
 
 export interface PeerLinksSettingsView {
@@ -55,10 +57,16 @@ export interface PeerLinkRow {
   hasAccessKey: boolean;
   tlsFingerprintSha256: string;
   enabled: boolean;
+  /** The stored link this row was loaded from; absent for a row added in the panel. */
+  loadedFrom?: PeerLinkView;
 }
 
 export interface PeerLinksDraft {
   nodeName: string;
+  /** The name as loaded, to tell a change made here from one made elsewhere. */
+  loadedNodeName: string;
+  /** Names of the links the panel loaded, so a row deleted here is told from a link it never saw. */
+  loadedLinkNames: string[];
   heartbeatSecondsText: string;
   /** Empty: 2.5 times the heartbeat. */
   timeoutSecondsText: string;
@@ -78,6 +86,8 @@ const seconds = (ms: number) => String(ms / 1000);
 export function createPeerLinksDraft(view: PeerLinksSettingsView): PeerLinksDraft {
   return {
     nodeName: view.nodeName,
+    loadedNodeName: view.nodeName,
+    loadedLinkNames: view.links.map((link) => link.name),
     heartbeatSecondsText: seconds(view.heartbeatMs),
     timeoutSecondsText: view.timeoutMs === null ? '' : seconds(view.timeoutMs),
     queueTtlSecondsText: seconds(view.queueTtlMs),
@@ -91,6 +101,7 @@ export function createPeerLinksDraft(view: PeerLinksSettingsView): PeerLinksDraf
       hasAccessKey: link.hasAccessKey,
       tlsFingerprintSha256: link.tlsFingerprintSha256 ?? '',
       enabled: link.enabled,
+      loadedFrom: link,
     })),
   };
 }
@@ -107,7 +118,58 @@ export function effectivePeerTimeoutSeconds(draft: Pick<PeerLinksDraft, 'heartbe
   return heartbeat === undefined ? undefined : heartbeat * PEER_TIMEOUT_RATIO;
 }
 
-export function buildPeerLinksPatch(draft: PeerLinksDraft):
+const rowPatch = (row: PeerLinkRow): Record<string, unknown> => ({
+  name: row.name.trim(),
+  url: row.url.trim(),
+  accessKey: row.accessKey.trim(),
+  tlsFingerprintSha256: row.tlsFingerprintSha256.trim(),
+  enabled: row.enabled,
+});
+
+const viewPatch = (link: PeerLinkView): Record<string, unknown> => ({
+  name: link.name,
+  url: link.url,
+  accessKey: '',
+  tlsFingerprintSha256: link.tlsFingerprintSha256 ?? '',
+  enabled: link.enabled,
+});
+
+function rowEdited(row: PeerLinkRow): boolean {
+  const loaded = row.loadedFrom;
+  if (!loaded) return true;
+  return row.name.trim() !== loaded.name
+    || row.url.trim() !== loaded.url
+    || row.accessKey.trim() !== ''
+    || row.tlsFingerprintSha256.trim() !== (loaded.tlsFingerprintSha256 ?? '')
+    || row.enabled !== loaded.enabled;
+}
+
+/**
+ * The links to save, merged onto a fresh read: rows edited here win, rows deleted here stay
+ * deleted, untouched rows take the stored version, and links this panel never showed (added or
+ * renamed elsewhere, such as by the messenger) pass through. Without `fresh`, the draft as is.
+ */
+function mergeLinks(draft: PeerLinksDraft, fresh: PeerLinkView[] | undefined): Array<Record<string, unknown>> {
+  if (fresh === undefined) return draft.links.map(rowPatch);
+  const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const out: Array<Record<string, unknown>> = [];
+  for (const link of fresh) {
+    const row = draft.links.find((candidate) => candidate.loadedFrom && sameName(candidate.loadedFrom.name, link.name));
+    if (row) {
+      out.push(rowEdited(row) ? rowPatch(row) : viewPatch(link));
+      continue;
+    }
+    const deletedHere = draft.loadedLinkNames.some((name) => sameName(name, link.name));
+    if (!deletedHere) out.push(viewPatch(link));
+  }
+  for (const row of draft.links) {
+    const stillStored = row.loadedFrom && fresh.some((link) => sameName(link.name, row.loadedFrom!.name));
+    if (!stillStored && rowEdited(row)) out.push(rowPatch(row));
+  }
+  return out;
+}
+
+export function buildPeerLinksPatch(draft: PeerLinksDraft, fresh?: PeerLinksSettingsView):
   | { ok: true; patch: Record<string, unknown> & { links: Array<Record<string, unknown>> } }
   | { ok: false; errors: Partial<Record<NumberField, MessageKey>> } {
   const errors: Partial<Record<NumberField, MessageKey>> = {};
@@ -131,20 +193,14 @@ export function buildPeerLinksPatch(draft: PeerLinksDraft):
   return {
     ok: true,
     patch: {
-      nodeName: draft.nodeName.trim(),
+      nodeName: fresh && draft.nodeName.trim() === draft.loadedNodeName ? fresh.nodeName : draft.nodeName.trim(),
       heartbeatMs,
       timeoutMs,
       queueTtlMs,
       keyQueueTtlMs,
       maxQueuedMessages: maxQueuedMessages as number,
       inboundScopes: [...draft.inboundScopes],
-      links: draft.links.map((row) => ({
-        name: row.name.trim(),
-        url: row.url.trim(),
-        accessKey: row.accessKey.trim(),
-        tlsFingerprintSha256: row.tlsFingerprintSha256.trim(),
-        enabled: row.enabled,
-      })),
+      links: mergeLinks(draft, fresh?.links),
     },
   };
 }

@@ -3,6 +3,8 @@
  * Phase 7: Frontend Security - Auth API added
  */
 import type { LoopInput, LoopRun, LoopView } from '../components/Loop/loopTypes.ts';
+import type { Contact, Invite, InvitePolicy, MessengerState, Room, RoomDetail, SearchResult, SendResult } from '../components/Messenger/messengerTypes.ts';
+import { messengerErrorKey, messengerErrorParams } from '../components/Messenger/messengerErrors.ts';
 import type { PeerLinksRejection, PeerLinksResponse } from '../components/McpControlManager/peerLinksModel.ts';
 import type { UsageSendResult, UsageSettingsUpdate, UsageState } from '../components/UsageLimits/usageLimitsTypes.ts';
 import { loopRejectionMessage } from '../components/Loop/loopMessages.ts';
@@ -1084,4 +1086,82 @@ export const usageLimitsApi = {
     if (!res.ok) throw await parseError(res);
     return res.json();
   },
+};
+
+// FR-MSG-013: the messenger window's REST API (docs/design/messenger.contract.md §9).
+
+/** A refused messenger call, with the server's code and the rest of its body. */
+export class MessengerError extends Error {
+  readonly code: string | undefined;
+  readonly body: Record<string, unknown>;
+
+  constructor(message: string, code: string | undefined, body: Record<string, unknown>) {
+    super(message);
+    this.name = 'MessengerError';
+    this.code = code;
+    this.body = body;
+  }
+}
+
+async function messengerCall<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await authFetch(`${API_BASE}/messenger${path}`, {
+    method,
+    headers: body === undefined ? getAuthHeaders() : { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  const record = data !== null && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, unknown> : {};
+  if (res.ok && record.ok !== false) return record as T;
+  const nested = record.error !== null && typeof record.error === 'object' ? record.error as Record<string, unknown> : {};
+  const code = typeof record.code === 'string' ? record.code : typeof nested.code === 'string' ? nested.code : undefined;
+  const refusal = { ...nested, ...record };
+  // FR-MSG-013 AC-5: a known messenger code is worded from the catalog, filled from the refusal.
+  const key = messengerErrorKey(code);
+  const params = messengerErrorParams(refusal);
+  const message = key === null
+    ? parseApiErrorPayload(res.status, res.statusText, data)
+    : `${t(key, params)}${params.reason ? ` (${params.reason})` : ''}`;
+  throw new MessengerError(message, code, refusal);
+}
+
+const roomPath = (id: string) => `/rooms/${encodeURIComponent(id)}`;
+
+export const messengerApi = {
+  state: () => messengerCall<MessengerState>('GET', '/state'),
+  rename: (name: string) => messengerCall<{ ok: true; name: string }>('PATCH', '/me', { name }),
+  createRoom: (input: { name: string; sessions: string[]; people: string[]; message?: string }) =>
+    messengerCall<{ ok: true; room: Room }>('POST', '/rooms', input),
+  room: (id: string, before?: number) =>
+    messengerCall<RoomDetail & { ok: true }>('GET', `${roomPath(id)}?limit=50${before === undefined ? '' : `&before=${before}`}`),
+  send: (id: string, text: string) => messengerCall<SendResult>('POST', `${roomPath(id)}/messages`, { text }),
+  markRead: (id: string, seq: number) => messengerCall<{ ok: true }>('POST', `${roomPath(id)}/read`, { seq }),
+  invite: (id: string, input: { sessions?: string[]; people?: string[]; message?: string }) =>
+    messengerCall<{ ok: true; status?: 'waiting-host' }>('POST', `${roomPath(id)}/invite`, input),
+  inviteCode: (id: string, message?: string) => messengerCall<{ ok: true; code: string }>('POST', `${roomPath(id)}/invite-code`, { message }),
+  removeMember: (id: string, memberId: string) =>
+    messengerCall<{ ok: true }>('DELETE', `${roomPath(id)}/members/${encodeURIComponent(memberId)}`),
+  leave: (id: string) => messengerCall<{ ok: true }>('POST', `${roomPath(id)}/leave`),
+  updateSettings: (id: string, settings: { invitePolicy?: InvitePolicy; holdLimit?: number }) =>
+    messengerCall<{ ok: true; room: Room }>('PATCH', `${roomPath(id)}/settings`, settings),
+  updateSession: (id: string, sessionKey: string, patch: { enter?: boolean; pasteAll?: boolean }) =>
+    messengerCall<{ ok: true }>('PATCH', `${roomPath(id)}/sessions/${encodeURIComponent(sessionKey)}`, patch),
+  resume: (id: string) => messengerCall<{ ok: true }>('POST', `${roomPath(id)}/resume`),
+  transfer: (id: string, node: string) => messengerCall<{ ok: true }>('POST', `${roomPath(id)}/transfer`, { node }),
+  continueRoom: (id: string) => messengerCall<{ ok: true; room: Room }>('POST', `${roomPath(id)}/continue`),
+  acceptInvite: (id: string, input: { sessions: string[]; personOnly: boolean; enter?: boolean }) =>
+    messengerCall<{ ok: true; room: Room }>('POST', `/invites/${encodeURIComponent(id)}/accept`, input),
+  declineInvite: (id: string) => messengerCall<{ ok: true }>('POST', `/invites/${encodeURIComponent(id)}/decline`),
+  approve: (id: string, approve: boolean) => messengerCall<{ ok: true }>('POST', `/approvals/${encodeURIComponent(id)}`, { approve }),
+  connectionCode: () => messengerCall<{ ok: true; code: string; expiresAt: string }>('GET', '/code'),
+  redeemCode: (code: string) =>
+    messengerCall<{ ok: true; kind: 'contact'; contact: Contact } | { ok: true; kind: 'invite'; invite: Invite }>('POST', '/codes/redeem', { code }),
+  addContact: (name: string, address: string) => messengerCall<{ ok: true; contact: Contact }>('POST', '/contacts', { name, address }),
+  removeContact: (name: string) => messengerCall<{ ok: true }>('DELETE', `/contacts/${encodeURIComponent(name)}`),
+  answerRequest: (id: string, accept: boolean) =>
+    messengerCall<{ ok: true }>('POST', `/requests/${encodeURIComponent(id)}/${accept ? 'accept' : 'decline'}`),
+  lan: () => messengerCall<{ ok: true; receiving: boolean; port: number }>('GET', '/lan'),
+  setLan: (receiving: boolean, port?: number) =>
+    messengerCall<{ ok: true; receiving: boolean; port: number }>('PATCH', '/lan', port === undefined ? { receiving } : { receiving, port }),
+  setWebhook: (webhookUrl: string) => messengerCall<{ ok: true; hasWebhook: boolean }>('PATCH', '/settings', { webhookUrl }),
+  search: (query: string) => messengerCall<SearchResult & { ok: true }>('GET', `/search?q=${encodeURIComponent(query)}`),
 };

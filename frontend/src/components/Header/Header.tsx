@@ -5,6 +5,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Icon, IconButton } from '../common';
 import { ContextMenu } from '../ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
@@ -65,6 +66,8 @@ interface HeaderProps {
    * @req FR-AITUI-018
    */
   onSessionRestore?: () => void;
+  /** The messenger button, drawn beside the editor tray. @req FR-MSG-013 */
+  messengerButton?: ReactNode;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -96,6 +99,7 @@ export function Header({
   sessionSaveState,
   onSessionSave,
   onSessionRestore,
+  messengerButton,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
@@ -208,6 +212,7 @@ export function Header({
               )}
             </button>
           )}
+          {messengerButton}
           {onToggleViewMode && !isMobile && (
             // The drawing and the name say where the press goes, not where the
             // view is now.

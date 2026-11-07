@@ -10,6 +10,7 @@ import { getRecoveryIconLabel } from '../../src/types/recoveryOption.ts';
 import { workspaceActivity } from '../../src/components/Workspace/workspaceActivity.ts';
 import { workspaceTabClassName } from '../../src/components/Workspace/workspaceTabClass.ts';
 import { t, tn } from '../../src/i18n/i18n.ts';
+import { roomDotLabelInput } from '../../src/components/Messenger/messengerWindowModel.ts';
 
 // Execute existing component render logic with real React elements and inert
 // unrelated hooks. This verifies capacity-dependent props, not browser layout.
@@ -124,6 +125,8 @@ const tabBar = component('../../src/components/Workspace/WorkspaceTabBar.tsx', '
   useDragReorder: () => ({ getTabHandlers: () => ({}), dropTargetIndex: null, dragIndex: null, ghostStyle: null, tabRefs: { current: [] } }),
   TAB_COLORS, getRecoveryIconLabel, ContextMenu: 'context-menu', Icon: 'icon', IconButton: 'icon-button',
   workspaceTabClassName,
+  // FR-MSG-013 AC-3: the messenger room dot on a tab.
+  roomDotLabelInput,
 }, 'getSafeRecoveryIconLabel');
 const workspaceItem = component('../../src/components/Workspace/WorkspaceItem.tsx', 'WorkspaceItem', {
   useState: (initial: unknown) => [initial, noop], useRef: (initial: unknown) => ({ current: initial }), useEffect: noop,

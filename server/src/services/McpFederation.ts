@@ -24,7 +24,15 @@ const MERGED_LISTS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** FR-MCP-022 AC-6: tools that never run elsewhere. */
-const LOCAL_ONLY_TOOLS = new Set(['buildergate.session.whoami', 'buildergate.session.claim']);
+const LOCAL_ONLY_TOOLS = new Set([
+  'buildergate.session.whoami',
+  'buildergate.session.claim',
+  // FR-MSG-007 (contract §8): rooms are reached through the messenger, never through a link.
+  'buildergate.room.list',
+  'buildergate.room.members',
+  'buildergate.room.send',
+  'buildergate.room.history',
+]);
 
 export function takesServerArgument(name: string): boolean {
   return !LOCAL_ONLY_TOOLS.has(name) && !isMcpPeerTool(name);

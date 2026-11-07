@@ -171,6 +171,8 @@ export type WorkspaceEventHandler = (data: unknown) => void;
 
 // @req FR-FEX-001
 export type FileJobMessageHandler = (msg: FileJobServerMessage) => void;
+/** A broadcast app event (`{type, data}`), e.g. `messenger:changed`. @req FR-MSG-013 */
+export type AppEventHandler = (data: unknown) => void;
 
 export interface TerminalResponderHandoffViewHandlers {
   getViewGeneration: () => number;
@@ -198,6 +200,8 @@ export interface WebSocketContextValue {
   subscribeSession: (sessionId: string, handlers: SessionHandlers) => () => void;
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
   registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
+  /** Several subscribers per event type; unlike setWorkspaceHandlers it replaces nothing. */
+  registerAppEventHandler: (type: string, handler: AppEventHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
   /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
   resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
@@ -237,6 +241,8 @@ export interface WebSocketActionsValue {
   subscribeSession: (sessionId: string, handlers: SessionHandlers) => () => void;
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
   registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
+  /** Several subscribers per event type; unlike setWorkspaceHandlers it replaces nothing. */
+  registerAppEventHandler: (type: string, handler: AppEventHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
   /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
   resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
@@ -387,6 +393,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }));
   const workspaceHandlersRef = useRef<Record<string, WorkspaceEventHandler>>({});
   const fileJobHandlersRef = useRef<Set<FileJobMessageHandler>>(new Set());
+  const appEventHandlersRef = useRef<Map<string, Set<AppEventHandler>>>(new Map());
   const debugSendFailureOverrideRef = useRef<Required<DebugWebSocketSendFailureOverride> | null>(null);
   const activeSubscriptionsRef = useRef<Set<string>>(new Set());
   const pendingUnsubscribeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -1101,6 +1108,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // FR-MSG-013: app events with several subscribers (the messenger window and the header badge).
+    const appHandlers = appEventHandlersRef.current.get(msg.type);
+    if (appHandlers && 'data' in msg) {
+      const data = (msg as { data: unknown }).data;
+      for (const handler of [...appHandlers]) handler(data);
+    }
+
     // Workspace/tab/grid events
     const wsHandler = workspaceHandlersRef.current[msg.type];
     if (wsHandler && 'data' in msg) {
@@ -1535,6 +1549,17 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // @req FR-MSG-013
+  const registerAppEventHandler = useCallback((type: string, handler: AppEventHandler): (() => void) => {
+    const handlers = appEventHandlersRef.current.get(type) ?? new Set<AppEventHandler>();
+    handlers.add(handler);
+    appEventHandlersRef.current.set(type, handlers);
+    return () => {
+      handlers.delete(handler);
+      if (handlers.size === 0 && appEventHandlersRef.current.get(type) === handlers) appEventHandlersRef.current.delete(type);
+    };
+  }, []);
+
   const registerTerminalResponderHandoffView = useCallback((
     sessionId: string,
     handlers: TerminalResponderHandoffViewHandlers,
@@ -1636,6 +1661,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     subscribeSession,
     setWorkspaceHandlers,
     registerFileJobHandler,
+    registerAppEventHandler,
     requestReconnect,
     resubscribeSession,
     acquireRecoveryReconnect,
@@ -1651,6 +1677,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     getTerminalControlSocketReceipt,
     publishTerminalDeliveryVisibility,
     registerFileJobHandler,
+    registerAppEventHandler,
     registerTerminalCheckpointDispatcher,
     registerTerminalResponderHandoffRuntime,
     registerTerminalResponderHandoffView,

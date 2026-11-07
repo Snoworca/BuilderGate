@@ -180,6 +180,12 @@
   --lane-4: #f28b54;
   --lane-5: #bdbdbd;
   --lane-6: #56d4dd;
+  /* FR-MSG-013 AC-4: who said it in the messenger (docs/design/messenger.html):
+   * a person, a session on this PC, a session on another PC. */
+  --who-human: #e8c37a;
+  --who-local: #6cb6ff;
+  --who-remote: #c49cf0;
+  --mention-bg: rgba(108, 182, 255, 0.16);
 }
 
 /* For people who would rather see more rows than hit them accurately. */

@@ -4901,6 +4901,11 @@ export class SessionManager {
     return this.sessions.get(id)?.headless?.terminal.modes.applicationCursorKeysMode === true;
   }
 
+  /** FR-MSG-004 AC-2: whether the program in the session asked for bracketed paste (DECSET 2004). */
+  getBracketedPasteMode(id: string): boolean {
+    return this.sessions.get(id)?.headless?.terminal.modes.bracketedPasteMode === true;
+  }
+
   deleteMultipleSessions(ids: string[], reason: SessionCleanupReason = 'direct-session-delete'): void {
     for (const id of ids) {
       this.deleteSession(id, reason);

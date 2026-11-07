@@ -100,3 +100,15 @@
   background: rgba(100, 149, 237, 0.15) !important;
   border: 2px solid rgba(100, 149, 237, 0.5) !important;
 }
+
+/* FR-MSG-013 AC-3: this tile's session is in a messenger room. */
+.grid-cell-room-dot {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--who-remote);
+}

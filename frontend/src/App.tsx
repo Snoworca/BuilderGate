@@ -86,6 +86,7 @@ import { AgentAliasDialog } from './components/AgentAlias/AgentAliasDialog';
 import { TerminalTextDialog } from './components/Terminal/TerminalTextDialog';
 import { isTouchMenuScreen } from './utils/terminalTextExport';
 import { LoopDialog } from './components/Loop/LoopDialog';
+import { MessengerButton, MessengerLayer, SessionRoomsContext, useMessenger } from './components/Messenger';
 import { McpControlDialog } from './components/McpControlManager';
 import {
   RestoreReportBanner,
@@ -204,6 +205,9 @@ function AppContent() {
   // FR-LOOP-006: Tools › Loop, and how many loops are on for the menu.
   const [showLoopDialog, setShowLoopDialog] = useState(false);
   const [loopEnabledCount, setLoopEnabledCount] = useState(0);
+  // FR-MSG-013: the messenger window and the state behind its header badge.
+  const messenger = useMessenger();
+  const [messengerOpen, setMessengerOpen] = useState(false);
   // FR-AITUI-009 / FR-AITUI-015: the session save button, the restore report and their dialogs.
   const sessionSnapshot = useSessionSnapshot(true);
   const [sessionDialog, setSessionDialog] = useState<'save' | 'restore' | 'report' | null>(null);
@@ -1067,6 +1071,7 @@ function AppContent() {
         sessionSaveState={sessionSnapshot.status ? sessionSaveState : undefined}
         onSessionSave={handleSessionSaveClick}
         onSessionRestore={() => setSessionDialog('restore')}
+        messengerButton={<MessengerButton state={messenger.state} active={messengerOpen} onClick={() => setMessengerOpen(true)} />}
       />
       {showRestoreBanner && (
         <RestoreReportBanner
@@ -1106,8 +1111,10 @@ function AppContent() {
                   onAddTab={handleTabBarAddTab}
                   onReorderTabs={handleReorderTabs}
                   availableShells={availableShells}
+                  sessionRooms={messenger.state?.sessionRooms}
                 />}
 
+                <SessionRoomsContext.Provider value={messenger.state?.sessionRooms}>
                 <TerminalRuntimeProvider>
                   <TerminalWorkspaceStage
                     tabs={runtimeResidency.residentTabs}
@@ -1303,6 +1310,7 @@ function AppContent() {
                     onRestore={(sessionId) => gitWindows.open(sessionId)}
                   />
                 </TerminalRuntimeProvider>
+                </SessionRoomsContext.Provider>
               </>
             ) : (
               <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
@@ -1406,6 +1414,15 @@ function AppContent() {
 
       {showAgentCommandDialog && <AgentAliasDialog onClose={() => setShowAgentCommandDialog(false)} />}
       {terminalTextDialog !== null && <TerminalTextDialog text={terminalTextDialog} onClose={() => setTerminalTextDialog(null)} />}
+
+      <MessengerLayer
+        open={messengerOpen}
+        onOpen={() => setMessengerOpen(true)}
+        onClose={() => setMessengerOpen(false)}
+        messenger={messenger}
+        workspaces={wm.workspaces}
+        isMobile={isMobile}
+      />
 
       {showLoopDialog && (
         <LoopDialog onClose={() => setShowLoopDialog(false)} defaultCwd={activeTab?.cwd} onEnabledCountChange={setLoopEnabledCount} />

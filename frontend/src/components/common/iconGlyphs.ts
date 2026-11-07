@@ -54,7 +54,8 @@ export type IconName =
   | 'upload'
   | 'folder-upload'
   | 'archive'
-  | 'cut';
+  | 'cut'
+  | 'chat';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -409,6 +410,10 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
       'M8 16L19 4',
       'M16 16L5 4',
     ],
+  },
+  // A speech balloon with its tail at the lower left: the messenger (FR-MSG-013).
+  chat: {
+    paths: ['M4 5h16v11H9l-5 4z'],
   },
   // A clipboard with its clip: paste.
   clipboard: {

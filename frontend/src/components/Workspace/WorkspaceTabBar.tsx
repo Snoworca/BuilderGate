@@ -12,6 +12,7 @@ import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import type { ShellInfo } from '../../types';
 import './WorkspaceTabBar.css';
 import { t, tn } from '../../i18n/i18n.ts';
+import { roomDotLabelInput } from '../Messenger/messengerWindowModel.ts';
 
 interface Props {
   tabs: WorkspaceTabRuntime[];
@@ -23,6 +24,8 @@ interface Props {
   onAddTab: (shell?: string) => void;
   onReorderTabs: (tabIds: string[]) => void;
   availableShells?: ShellInfo[];
+  /** FR-MSG-013 AC-3: room names per session key, for the purple dot. */
+  sessionRooms?: Record<string, string[]>;
 }
 
 function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIcon']): string | null {
@@ -40,7 +43,7 @@ export function WorkspaceTabBar({
   tabs, activeTabId,
   maxTabs,
   onSelectTab, onCloseTab, onRenameTab, onAddTab,
-  onReorderTabs, availableShells,
+  onReorderTabs, availableShells, sessionRooms,
 }: Props) {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -103,6 +106,7 @@ export function WorkspaceTabBar({
         const isActive = tab.id === activeTabId;
         const isEditing = editingTabId === tab.id;
         const recoveryIconLabel = getSafeRecoveryIconLabel(tab.recoveryIcon);
+        const roomDot = roomDotLabelInput(sessionRooms, tab.sessionKey);
 
         return (
           <div
@@ -138,6 +142,14 @@ export function WorkspaceTabBar({
               >
                 {recoveryIconLabel}
               </span>
+            )}
+            {roomDot !== null && (
+              <span
+                className="workspace-tab-room-dot"
+                role="img"
+                aria-label={tn('messenger.tabDot', roomDot.count, { rooms: roomDot.rooms })}
+                title={tn('messenger.tabDot', roomDot.count, { rooms: roomDot.rooms })}
+              />
             )}
             {isEditing ? (
               <input

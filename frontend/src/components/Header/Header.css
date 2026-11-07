@@ -93,6 +93,16 @@
   pointer-events: none;
 }
 
+/* FR-MSG-013 AC-1: the messenger button's unread badge; red when a message names me. */
+.header-messenger-button { position: relative; }
+.header-messenger-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  pointer-events: none;
+}
+.header-messenger-badge-danger { background: var(--danger-fill); color: var(--accent-fg); }
+
 /* Phone widths: every header button gets a whole fingertip (--ctl-touch). The
  * header is 58px tall, so the larger face still fits. FR-UIDS-011: the row has
  * to fit the screen too, so the title text goes (the logo stays), the padding

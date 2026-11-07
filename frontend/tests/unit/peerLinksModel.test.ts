@@ -75,3 +75,47 @@ test('FR-MCP-020 AC-3: field errors from the server are named by their field, an
     'mystery: x',
   ]);
 });
+
+// FR-MSG-008 / FR-MCP-020: the messenger adds and renames links while this panel is open. Saving
+// merges the user's edits onto a fresh read instead of writing back the stale list.
+const fresh = (links: PeerLinksSettingsView['links'], nodeName = 'corp'): PeerLinksSettingsView => ({ ...view, nodeName, links });
+const room = { name: 'park', url: 'wss://c/mcp/peer', hasAccessKey: true, enabled: true, kind: 'room' };
+
+test('FR-MCP-020: a link added elsewhere after the panel loaded is kept, not dropped', () => {
+  const draft = createPeerLinksDraft(view);
+  const result = buildPeerLinksPatch(draft, fresh([...view.links, room]));
+  assert.ok(result.ok);
+  assert.deepEqual(result.patch.links.map((link) => link.name), ['azure', 'park']);
+  assert.deepEqual(result.patch.links[1], { name: 'park', url: 'wss://c/mcp/peer', accessKey: '', tlsFingerprintSha256: '', enabled: true });
+});
+
+test('FR-MCP-020: a link renamed elsewhere is not reverted by an untouched row', () => {
+  const draft = createPeerLinksDraft(view);
+  const renamed = { ...view.links[0]!, name: 'kim' };
+  const result = buildPeerLinksPatch(draft, fresh([renamed]));
+  assert.ok(result.ok);
+  assert.deepEqual(result.patch.links.map((link) => link.name), ['kim']);
+});
+
+test('FR-MCP-020: edited rows win, deleted rows stay deleted, new rows are added', () => {
+  const base = { ...view, links: [...view.links, { name: 'lab', url: 'wss://b/mcp/peer', hasAccessKey: false, enabled: true }] };
+  const draft = createPeerLinksDraft(base);
+  const edited = { ...draft, links: [{ ...draft.links[0]!, url: 'wss://a2/mcp/peer' }, { ...emptyPeerLinkRow(), name: 'new', url: 'wss://n/mcp/peer' }] };
+  const result = buildPeerLinksPatch(edited, fresh([{ ...base.links[0]!, enabled: false }, { ...base.links[1]!, url: 'wss://b2/mcp/peer' }, room]));
+  assert.ok(result.ok);
+  assert.deepEqual(result.patch.links.map((link) => [link.name, link.url]), [
+    ['azure', 'wss://a2/mcp/peer'],
+    ['park', 'wss://c/mcp/peer'],
+    ['new', 'wss://n/mcp/peer'],
+  ]);
+});
+
+test('FR-MCP-020: my name changed elsewhere is kept unless the panel changed it', () => {
+  const draft = createPeerLinksDraft(view);
+  const untouched = buildPeerLinksPatch(draft, fresh(view.links, 'hong'));
+  assert.ok(untouched.ok);
+  assert.equal(untouched.patch.nodeName, 'hong');
+  const touched = buildPeerLinksPatch({ ...draft, nodeName: 'mine' }, fresh(view.links, 'hong'));
+  assert.ok(touched.ok);
+  assert.equal(touched.patch.nodeName, 'mine');
+});

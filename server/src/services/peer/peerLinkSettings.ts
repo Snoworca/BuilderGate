@@ -12,7 +12,11 @@ export interface PeerLinkEntry {
   /** SHA-256 of the remote certificate, 64 lower-case hex digits. */
   tlsFingerprintSha256?: string;
   enabled: boolean;
+  /** FR-MSG-009: 'room' is a link opened with a room ticket, hidden from contact lists. Absent means contact. */
+  kind?: PeerLinkKind;
 }
+
+export type PeerLinkKind = 'contact' | 'room';
 
 export interface PeerLinkSettings {
   nodeName: string;
@@ -27,7 +31,9 @@ export interface PeerLinkSettings {
   links: PeerLinkEntry[];
 }
 
-export const PEER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]{0,31}$/u;
+/** FR-MSG-008 AC-1: letters of any script, digits, '_' and '-'; never whitespace, '::', '@' or '/'. */
+export const PEER_NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,31}$/u;
+const PEER_NAME_RULE = 'letters, digits, _ and -, 1 to 32, starting with a letter or digit';
 export const PEER_TIMEOUT_RATIO = 2.5;
 export const PEER_INBOUND_SCOPE_CHOICES = ['mcp:sessions.list', 'mcp:sessions.search', 'mcp:message.paste', 'mcp:message.submit'] as const;
 
@@ -81,7 +87,7 @@ export function validatePeerLinkSettings(patch: Record<string, unknown>, current
   const errors: Record<string, string> = {};
   const nodeName = has(patch, 'nodeName') ? patch.nodeName : current.nodeName;
   if (typeof nodeName !== 'string' || !PEER_NAME_PATTERN.test(nodeName)) {
-    errors.nodeName = 'letters, digits and hyphens, 1 to 32';
+    errors.nodeName = PEER_NAME_RULE;
   }
   const heartbeatMs = numberField(patch, 'heartbeatMs', current.heartbeatMs, 1_000, 300_000, errors);
   const timeoutMs = has(patch, 'timeoutMs') ? patch.timeoutMs : current.timeoutMs;
@@ -138,7 +144,7 @@ function validateLink(
   const name = record.name;
   let ok = true;
   if (typeof name !== 'string' || !PEER_NAME_PATTERN.test(name)) {
-    errors[field('name')] = 'letters, digits and hyphens, 1 to 32';
+    errors[field('name')] = PEER_NAME_RULE;
     ok = false;
   } else if (seen.has(name.toLowerCase())) {
     errors[field('name')] = 'used twice';
@@ -170,6 +176,12 @@ function validateLink(
       ok = false;
     }
   }
+  // Review H3: a save that leaves kind out (the MCP settings panel) keeps the link's kind.
+  const kind = record.kind ?? current.links.find((link) => link.name === name)?.kind;
+  if (kind !== undefined && kind !== 'contact' && kind !== 'room') {
+    errors[field('kind')] = 'contact or room';
+    ok = false;
+  }
   if (!ok) return undefined;
   return {
     name: name as string,
@@ -177,6 +189,7 @@ function validateLink(
     accessKey,
     ...(tlsFingerprintSha256 ? { tlsFingerprintSha256 } : {}),
     enabled: record.enabled !== false,
+    ...(kind === 'room' ? { kind } : {}),
   };
 }
 

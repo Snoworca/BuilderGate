@@ -70,3 +70,20 @@ test('FR-MCP-020 AC-2/AC-3/AC-4: the control hides keys, refuses bad values, and
   assert.equal(applied[1]!.links[0]!.accessKey, 'secret-key-123');
   assert.equal((await store.load()).links[0]!.accessKey, 'secret-key-123');
 });
+
+test('FR-MSG-009: a room link keeps its kind across save and load', async () => {
+  const dataPath = await tempPath();
+  const store = createPeerLinkFileStore({ dataPath, crypto: new CryptoService('machine-a'), hostName: 'corp' });
+  await store.save({ ...DEFAULT_PEER_LINK_SETTINGS, nodeName: 'corp', links: [link, { ...link, name: 'host1', kind: 'room' }] });
+  const loaded = await store.load();
+  assert.equal(loaded.links[0]!.kind, undefined);
+  assert.equal(loaded.links[1]!.kind, 'room');
+});
+
+test('FR-MSG-008: the control hands the current settings, keys included, to the messenger', async () => {
+  const dataPath = await tempPath();
+  const store = createPeerLinkFileStore({ dataPath, crypto: new CryptoService('machine-a'), hostName: 'corp' });
+  const control = createPeerLinkControl({ store, initial: await store.load(), apply: () => {}, status: () => [] });
+  await control.update({ links: [link] });
+  assert.equal(control.settings().links[0]!.accessKey, 'secret-key-123');
+});

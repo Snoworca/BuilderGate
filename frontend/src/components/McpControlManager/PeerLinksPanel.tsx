@@ -77,7 +77,15 @@ export function PeerLinksPanel({ active }: { active: boolean }) {
     setSaving(true);
     setMessage(null);
     try {
-      const next = await mcpControlApi.putPeers(built.patch);
+      // The messenger adds and renames links while this panel is open: merge onto a fresh read
+      // rather than writing the list this panel loaded back over them.
+      const current = await mcpControlApi.getPeers();
+      const merged = buildPeerLinksPatch(draft, current.settings);
+      if (!merged.ok) {
+        setErrors(merged.errors);
+        return;
+      }
+      const next = await mcpControlApi.putPeers(merged.patch);
       if (next.ok === false) {
         setMessage({
           kind: 'error',

@@ -45,6 +45,14 @@ import {
   isMcpLoopTool,
   type McpLoopControl,
 } from './McpLoopTools.js';
+import {
+  MCP_ROOM_TOOL_DESCRIPTIONS,
+  MCP_ROOM_TOOL_NAMES,
+  MCP_ROOM_TOOL_SCHEMAS,
+  callMcpRoomTool,
+  isMcpRoomTool,
+  type McpRoomControl,
+} from './McpRoomTools.js';
 import { callFederated, withServerProperty } from './McpFederation.js';
 
 type StringRecord = Record<string, unknown>;
@@ -75,6 +83,8 @@ type McpToolServiceDeps = {
   workspaceControl?: McpWorkspaceControl;
   // FR-LOOP-007
   loopControl?: McpLoopControl;
+  /** FR-MSG-007: messenger rooms (buildergate.room.*). */
+  roomControl?: McpRoomControl;
   // FR-MCP-019: the MCP peer link (#233).
   peerLinks?: McpPeerLinks;
   // FR-MCP-021: one-use upload URLs (#234), and the MCP listener's own address for a call that has
@@ -206,6 +216,7 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   'buildergate.session.update_status',
   ...MCP_MANAGEMENT_TOOL_NAMES,
   ...MCP_LOOP_TOOL_NAMES,
+  ...MCP_ROOM_TOOL_NAMES,
   ...MCP_PEER_TOOL_NAMES,
   MCP_FILE_UPLOAD_TOOL,
 ] as const;
@@ -341,6 +352,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
   },
   ...MCP_MANAGEMENT_TOOL_SCHEMAS,
   ...MCP_LOOP_TOOL_SCHEMAS,
+  ...MCP_ROOM_TOOL_SCHEMAS,
   ...MCP_PEER_TOOL_SCHEMAS,
   [MCP_FILE_UPLOAD_TOOL]: MCP_FILE_UPLOAD_TOOL_SCHEMA,
 };
@@ -854,6 +866,9 @@ async function callLocalTool(
       if (isMcpLoopTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpLoopTool(deps.loopControl, name, actor, args));
       }
+      if (isMcpRoomTool(name)) {
+        return withAudit(deps, state, name, actor, context, {}, await callMcpRoomTool(deps.roomControl, name, actor, args));
+      }
       if (name === MCP_FILE_UPLOAD_TOOL) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpFileUploadTool(deps.fileUploads, actor, args, origin));
       }
@@ -910,7 +925,6 @@ async function handleClaim(deps: McpToolServiceDeps, actor: StringRecord, args: 
     audience: 'buildergate-mcp',
     sessionKey,
     scopes: getDefaultMcpSessionScopes(),
-    expiresInSeconds: 300,
   };
   const token = deps.tokenStore?.mint
     ? asRecord(await callMaybeAsync(deps.tokenStore.mint, mintRequest))
@@ -2586,6 +2600,7 @@ function toolDescription(name: string): string {
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
     ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
     ...MCP_LOOP_TOOL_DESCRIPTIONS,
+    ...MCP_ROOM_TOOL_DESCRIPTIONS,
     ...MCP_PEER_TOOL_DESCRIPTIONS,
     [MCP_FILE_UPLOAD_TOOL]: MCP_FILE_UPLOAD_TOOL_DESCRIPTION,
   };

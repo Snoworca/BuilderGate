@@ -107,6 +107,8 @@ export function peerSettingsView(settings: PeerLinkSettings): Record<string, unk
 
 export interface PeerLinkControl {
   get(): Record<string, unknown>;
+  /** The current settings with their keys, for the messenger (never sent to the browser). */
+  settings(): PeerLinkSettings;
   update(patch: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
@@ -130,6 +132,7 @@ export function createPeerLinkControl(deps: {
   });
   return {
     get,
+    settings: () => current,
     update: (patch) => {
       // Saves run one after another, so each merges onto the one before it.
       const run = saving.then(async () => {

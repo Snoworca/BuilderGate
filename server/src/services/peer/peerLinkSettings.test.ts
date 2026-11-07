@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   DEFAULT_PEER_LINK_SETTINGS,
   effectivePeerTimeoutMs,
+  PEER_NAME_PATTERN,
   validatePeerLinkSettings,
 } from './peerLinkSettings.js';
 
@@ -81,4 +82,33 @@ test('FR-MCP-022 (review M2): a link may not have this server name', () => {
   const result = validatePeerLinkSettings({ nodeName: 'corp', links: [{ ...link, name: 'Corp' }] }, DEFAULT_PEER_LINK_SETTINGS);
   assert.equal(result.ok, false);
   assert.match(JSON.stringify(result), /links\.0\.name/);
+});
+
+test('FR-MSG-008 AC-1: a name may hold Korean letters and underscores but no space, ::, @ or /', () => {
+  for (const name of ['김철수_대리', 'corp', 'a-b_c', 'Ab9']) {
+    assert.equal(PEER_NAME_PATTERN.test(name), true, name);
+  }
+  for (const name of ['김 철수', 'a::b', 'a@b', 'a/b', '_lead', '-lead', '', 'x'.repeat(33)]) {
+    assert.equal(PEER_NAME_PATTERN.test(name), false, name);
+  }
+  const result = validatePeerLinkSettings({ nodeName: '홍길동_팀장', links: [{ ...link, name: '김철수_대리' }] }, DEFAULT_PEER_LINK_SETTINGS);
+  assert.equal(result.ok, true, JSON.stringify(result));
+});
+
+test('FR-MSG-009: a link is a contact unless it says it is a room link, and the kind is kept', () => {
+  const result = validatePeerLinkSettings({ links: [link, { ...link, name: 'host1', kind: 'room' }] }, DEFAULT_PEER_LINK_SETTINGS);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  if (!result.ok) return;
+  assert.equal(result.settings.links[0]!.kind, undefined);
+  assert.equal(result.settings.links[1]!.kind, 'room');
+  const bad = validatePeerLinkSettings({ links: [{ ...link, kind: 'group' }] }, DEFAULT_PEER_LINK_SETTINGS);
+  assert.equal(bad.ok, false);
+  assert.match(JSON.stringify(bad), /links\.0\.kind/);
+});
+
+test('review H3: a link saved without kind keeps the kind it has (the MCP panel does not send it)', () => {
+  const current = { ...DEFAULT_PEER_LINK_SETTINGS, links: [{ ...link, name: 'host1', kind: 'room' as const }] };
+  const result = validatePeerLinkSettings({ links: [{ ...link, name: 'host1', accessKey: '' }] }, current);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  if (result.ok) assert.equal(result.settings.links[0]!.kind, 'room');
 });

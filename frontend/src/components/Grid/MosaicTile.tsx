@@ -5,6 +5,9 @@ import { useLongPress } from '../../hooks/useLongPress';
 import { dismissSoftKeyboard } from '../../hooks/doubleTap';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
+import { tn } from '../../i18n/i18n.ts';
+import { roomDotLabelInput } from '../Messenger/messengerWindowModel.ts';
+import { useSessionRooms } from '../Messenger/sessionRoomsContext.ts';
 
 interface MosaicTileProps {
   tabId: string;
@@ -94,6 +97,9 @@ export function MosaicTile({
   const isDisconnected = tab.status === 'disconnected';
   const isRunning = tab.status === 'running';
   const tabColor = TAB_COLORS[tab.colorIndex] || TAB_COLORS[0];
+  // FR-MSG-013 AC-3: read from context, so MosaicContainer does not pass it through.
+  const sessionRooms = useSessionRooms();
+  const roomDot = roomDotLabelInput(sessionRooms, tab.sessionKey);
 
   return (
     <div
@@ -115,6 +121,14 @@ export function MosaicTile({
         '--tab-color': tabColor,
       } as React.CSSProperties}
     >
+      {roomDot !== null && (
+        <span
+          className="grid-cell-room-dot"
+          role="img"
+          aria-label={tn('messenger.tabDot', roomDot.count, { rooms: roomDot.rooms })}
+          title={tn('messenger.tabDot', roomDot.count, { rooms: roomDot.rooms })}
+        />
+      )}
       {/* Terminal content — toolbar is now rendered by MosaicWindow's renderToolbar */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {children}

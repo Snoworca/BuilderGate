@@ -67,6 +67,7 @@ function makeNode(clock: FakeClock, opts: {
   wires?: Wire[];
   toolResult?: (tool: string, args: Rec) => Rec | Promise<Rec>;
   authenticate?: PeerLinkManagerDeps['authenticate'];
+  onConnected?: PeerLinkManagerDeps['onConnected'];
 }): Node {
   const calls: Node['calls'] = [];
   let epochCounter = 0;
@@ -109,6 +110,7 @@ function makeNode(clock: FakeClock, opts: {
       calls.push({ tool, args, actor: actor as unknown as Rec });
       return opts.toolResult ? opts.toolResult(tool, args) : { ok: true, status: 'delivered' };
     },
+    onConnected: opts.onConnected,
   }, { ...DEFAULT_PEER_LINK_SETTINGS, nodeName: opts.name, ...opts.settings });
   return node;
 }
@@ -520,4 +522,62 @@ test('FR-MCP-020 AC-2: a link without a key (one that could not be decrypted) is
   await clock.advance(60_000);
   assert.equal(wires.length, 0);
   assert.equal(statusOf(corp.manager, 'azure')?.lastError, 'PEER_KEY_MISSING');
+});
+
+test('FR-MSG-008/009: authenticate is told which node the hello came from, so a key can be bound to it', async () => {
+  const clock = new FakeClock();
+  const seen: Array<{ key: string; node: string }> = [];
+  const azure = makeNode(clock, {
+    name: 'azure',
+    authenticate: async (key, _request, node) => {
+      seen.push({ key, node });
+      return { ok: true, scopes: ['mcp:room'] };
+    },
+  });
+  const corp = makeNode(clock, { name: '김철수_대리', acceptor: () => azure, settings: { links: [LINK] } });
+  corp.manager.start();
+  await clock.advance(0);
+  assert.deepEqual(seen, [{ key: 'good-key', node: '김철수_대리' }]);
+  assert.equal(statusOf(azure.manager, '김철수_대리')?.state, 'connected');
+});
+
+test('FR-MSG-008 (contract 1): the dialer learns the name the remote calls itself when the link comes up', async () => {
+  const clock = new FakeClock();
+  const connected: Array<Record<string, unknown>> = [];
+  const azure = makeNode(clock, { name: 'real-name' });
+  const corp = makeNode(clock, {
+    name: 'corp',
+    acceptor: () => azure,
+    settings: { links: [LINK] },
+    onConnected: (info) => connected.push({ ...info }),
+  });
+  corp.manager.start();
+  await clock.advance(0);
+  assert.deepEqual(connected, [{ name: 'azure', direction: 'outbound', remoteNode: 'real-name' }]);
+});
+
+test('FR-MSG-008 AC-6 / FR-MSG-009 AC-4: dropPeer closes the connection of one peer and leaves the others', async () => {
+  const clock = new FakeClock();
+  const azure = makeNode(clock, { name: 'azure' });
+  const corp = makeNode(clock, { name: 'corp', acceptor: () => azure, settings: { links: [LINK] } });
+  const home = makeNode(clock, { name: 'home', acceptor: () => azure, settings: { links: [LINK] } });
+  corp.manager.start();
+  home.manager.start();
+  await clock.advance(0);
+  assert.equal(statusOf(azure.manager, 'corp')?.state, 'connected');
+  azure.manager.dropPeer('corp');
+  await clock.advance(0);
+  assert.equal(statusOf(azure.manager, 'corp'), undefined);
+  assert.equal(statusOf(azure.manager, 'home')?.state, 'connected');
+});
+
+test('review H2/M4: a room link gives the other side room scope only, and the actor carries the link scopes', async () => {
+  const clock = new FakeClock();
+  const azure = makeNode(clock, { name: 'azure' });
+  const corp = makeNode(clock, { name: 'corp', acceptor: () => azure, settings: { links: [{ ...LINK, kind: 'room' }] } });
+  corp.manager.start();
+  await clock.advance(0);
+  await azure.manager.call({ peer: 'corp', tool: 'buildergate.session.list', arguments: {}, scopes: ['mcp:sessions.list', 'mcp:room'] });
+  assert.deepEqual(corp.calls[0]!.actor.scopes, ['mcp:room']);
+  assert.deepEqual(corp.calls[0]!.actor.linkScopes, ['mcp:room']);
 });

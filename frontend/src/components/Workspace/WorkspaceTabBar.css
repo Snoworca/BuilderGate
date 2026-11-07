@@ -203,3 +203,12 @@
   pointer-events: none;
   z-index: 9999;
 }
+
+/* FR-MSG-013 AC-3: this tab's session is in a messenger room. */
+.workspace-tab-room-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--who-remote);
+}

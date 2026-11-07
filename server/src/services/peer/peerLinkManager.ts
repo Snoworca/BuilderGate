@@ -48,6 +48,8 @@ export interface PeerActor {
   type: 'mcp-peer';
   peer: string;
   scopes: string[];
+  /** The most this link allows, whatever the caller asked for (FR-MSG-009 AC-2 judges room-only links by it). */
+  linkScopes: string[];
 }
 
 export type PeerResult = Record<string, unknown>;
@@ -57,8 +59,13 @@ export interface PeerLinkManagerDeps {
   random?: () => number;
   createEpoch?: () => string;
   dial: (link: PeerLinkEntry, handlers: PeerDialHandlers) => PeerSocket;
-  /** FR-MCP-016 AC-4: checks the key a dialer sent in hello. */
-  authenticate: (key: string, request: unknown) => Promise<{ ok: true; scopes: string[] } | { ok: false; code: string }>;
+  /**
+   * FR-MCP-016 AC-4: checks the key a dialer sent in hello. `node` is the name the hello carries,
+   * so a messenger key can be bound to the node that first used it (FR-MSG-008/009).
+   */
+  authenticate: (key: string, request: unknown, node: string) => Promise<{ ok: true; scopes: string[] } | { ok: false; code: string }>;
+  /** A link came up. `remoteNode` is the name the remote calls itself (its hello or welcome). */
+  onConnected?: (info: { name: string; direction: 'outbound' | 'inbound'; remoteNode: string }) => void;
   /** Runs an MCP tool for a request that arrived over a link. */
   callTool: (tool: string, args: Record<string, unknown>, actor: PeerActor) => Promise<PeerResult>;
   audit?: (event: Record<string, unknown>) => void;
@@ -98,6 +105,8 @@ export interface PeerLinkManager {
   messageStatus(messageId: string): PeerMessageView | undefined;
   /** Closes every link a remote opened here; they must authenticate again (key rotated, MCP off). */
   dropInbound(): void;
+  /** Closes the link a remote named `name` opened here (its key was revoked). Outbound links follow the settings. */
+  dropPeer(name: string): void;
 }
 
 /** FR-MCP-019 AC-2: how long a send waits for its result before answering "queued". */
@@ -342,7 +351,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     if (!conn.closed) closeAndRetry(conn);
   };
 
-  const becomeReady = (conn: Connection, peer: Peer, remoteHeartbeatMs: number) => {
+  const becomeReady = (conn: Connection, peer: Peer, remoteHeartbeatMs: number, remoteNode: string) => {
     conn.ready = true;
     conn.peer = peer;
     conn.heartbeatMs = Math.max(PEER_MIN_HEARTBEAT_MS, Math.min(settings.heartbeatMs, remoteHeartbeatMs));
@@ -357,6 +366,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     beat(conn);
     audit({ event: 'peer.connected', peer: peer.name, direction: peer.direction });
     flush(peer);
+    deps.onConnected?.({ name: peer.name, direction: peer.direction, remoteNode });
   };
 
   const dial = (peer: Peer) => {
@@ -373,7 +383,8 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
       ready: false,
       closed: false,
       peer,
-      linkScopes: () => settings.inboundScopes,
+      // FR-MSG-009 AC-2: over a room link the room host reaches room tools only.
+      linkScopes: () => (link.kind === 'room' ? ['mcp:room'] : settings.inboundScopes),
       heartbeatMs: settings.heartbeatMs,
       request: undefined,
     };
@@ -450,7 +461,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     }
     // Stop the hello wait while the key is checked; the check has no time limit of its own.
     if (conn.watchTimer !== undefined) clock.clearTimeout(conn.watchTimer);
-    const auth = await deps.authenticate(frame.key, conn.request);
+    const auth = await deps.authenticate(frame.key, conn.request, node);
     if (conn.closed) return;
     if (!auth.ok) {
       audit({ event: 'peer.auth_failed', node, code: auth.code });
@@ -468,7 +479,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     const scopes = [...auth.scopes];
     conn.linkScopes = () => scopes;
     send(conn, { t: 'welcome', v: PROTOCOL_VERSION, node: settings.nodeName, epoch: peer.epoch, heartbeatMs: settings.heartbeatMs });
-    becomeReady(conn, peer, frame.heartbeatMs as number);
+    becomeReady(conn, peer, frame.heartbeatMs as number, node);
   };
 
   const receive = (conn: Connection, text: string) => {
@@ -530,7 +541,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
       closeAndRetry(conn);
       return;
     }
-    becomeReady(conn, peer, frame.heartbeatMs as number);
+    becomeReady(conn, peer, frame.heartbeatMs as number, typeof frame.node === 'string' ? frame.node : peer.name);
   };
 
   // -------------------------------------------------------------------------------------------
@@ -645,7 +656,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
       return;
     }
     box.last = seq;
-    const actor: PeerActor = { type: 'mcp-peer', peer: peer.name, scopes: intersect(conn.linkScopes(), frame.scopes) };
+    const actor: PeerActor = { type: 'mcp-peer', peer: peer.name, scopes: intersect(conn.linkScopes(), frame.scopes), linkScopes: conn.linkScopes() };
     const args = { ...(frame.args as Record<string, unknown>), includeSender: false };
     const run = peer.runChain.then(() => runTool('buildergate.message.send', args, actor));
     peer.runChain = run;
@@ -704,6 +715,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
         type: 'mcp-peer',
         peer: peer.name,
         scopes: intersect(conn.linkScopes(), frame.scopes),
+        linkScopes: conn.linkScopes(),
       });
     const current = peer.conn;
     if (current) send(current, { t: 'call-result', id: frame.id, result });
@@ -746,6 +758,10 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     nodeName: () => settings.nodeName,
     dropInbound: () => {
       for (const peer of [...peers.values()]) if (peer.direction === 'inbound') dropConnection(peer.conn);
+    },
+    dropPeer: (name) => {
+      const peer = peers.get(name);
+      if (peer?.direction === 'inbound') dropConnection(peer.conn);
     },
     sendMessage,
     call,

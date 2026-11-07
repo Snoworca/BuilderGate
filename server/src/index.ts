@@ -133,6 +133,20 @@ import {
 import { createPeerLinkManager, type PeerLinkManager } from './services/peer/peerLinkManager.js';
 import { createMcpFileUploads } from './services/mcpFileUpload.js';
 import { createPeerLinkControl, createPeerLinkFileStore, type PeerLinkControl } from './services/peer/peerLinkStore.js';
+import { normalizeFingerprint } from './services/peer/peerLinkSettings.js';
+import { createMessengerKeys, guardMessengerPeerCall } from './services/messenger/keys.js';
+import { createMessengerNet, type MessengerNet } from './services/messenger/contacts.js';
+import { createContactRequestRawHandler, httpsContactClient } from './services/messenger/contactHttp.js';
+import { createPeerHelloAuthenticator } from './services/messenger/peerAuth.js';
+import { createLanReceiver, lanAddressAllowed, openLanPeerListener, type LanReceiver } from './services/messenger/lanListener.js';
+import { createMessengerNetRoutes } from './routes/messengerNetRoutes.js';
+import { createRoomService, type RoomService } from './services/messenger/roomService.js';
+import { createFileRoomStore } from './services/messenger/roomStore.js';
+import { callRoomPeerTool, isRoomPeerTool } from './services/messenger/roomPeerTools.js';
+import { createWebhookNotifier } from './services/messenger/webhookNotifier.js';
+import { createMessengerRoutes } from './routes/messengerRoutes.js';
+import { buildRoomPaste, ROOM_PASTE_SOURCE } from './services/messenger/pasteFrame.js';
+import { detectSessionAgent } from './services/messenger/agentDetection.js';
 import { createPeerUpgradeHandler, dialPeerWebSocket, peerUpgradeAllowed } from './services/peer/peerWsTransport.js';
 import {
   buildMcpGatewayDeliveryResponse,
@@ -237,6 +251,14 @@ let mcpControlService: StringRecord | null = null;
 // FR-MCP-016..FR-MCP-020 (#233): the MCP peer link.
 let peerLinkControl: PeerLinkControl | null = null;
 let peerLinkManagerRef: PeerLinkManager | null = null;
+// FR-MSG-008/009/014: contacts, messenger keys and LAN receiving (services/messenger/contacts.ts).
+let messengerNetRef: MessengerNet | null = null;
+// FR-MSG-014: the dedicated LAN listener for peer links and contact requests (lanListener.ts).
+let messengerLanRef: LanReceiver | null = null;
+// FR-MSG-001..007, 009..013, 015: messenger rooms (services/messenger/roomService.ts).
+let messengerRoomsRef: RoomService | null = null;
+/** SHA-256 hex of the server certificate (main HTTPS and the direct_tls MCP listener share it). */
+let serverCertificateFingerprint = '';
 let webhookInvocationService: StringRecord | null = null;
 let mcpControlConfigStore: StringRecord | null = null;
 let mcpToolServiceForStatus: StringRecord | null = null;
@@ -570,6 +592,51 @@ function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringR
   };
 }
 
+// The AI agent in a session, or null for a plain terminal: foreground detection (the session save's
+// source, sees agents started by hand) plus the MCP registry's agentKind (services/messenger/agentDetection.ts).
+function messengerAgentOf(session: StringRecord): { kind: string; status: string } | null {
+  const sessionId = asString(session.currentSessionId) ?? asString(session.sessionId) ?? '';
+  const runtime = sessionId ? sessionManager.getAgentRuntimeInfo(sessionId) : null;
+  const activity = sessionId ? sessionManager.getSession(sessionId)?.status : undefined;
+  return detectSessionAgent(
+    { agentKind: asString(session.agentKind), agentStatus: asString(session.agentStatus) },
+    runtime ? { foregroundAppId: runtime.foregroundAppId } : null,
+    activity,
+  );
+}
+
+// FR-MSG-004 AC-2 (contract §6): room pastes. The messenger is a trusted local caller with its own
+// gateway source — the MCP Enter policy is for agents — and multi-line text goes as a bracketed
+// paste, so line breaks never act as Enter. Enter is its own write, only when the member wants it.
+function createMessengerPaster(): (sessionKey: string, text: string, submit: boolean) => Promise<boolean | { ok: false; code: string }> {
+  return async (sessionKey, text, submit) => {
+    const targetBinding = resolveMcpGatewayTarget(sessionKey, '0');
+    if (targetBinding.ok === false) return false;
+    const sessionId = asString(asRecord(targetBinding.binding).currentSessionId) ?? '';
+    const framed = buildRoomPaste(text, { bracketed: sessionManager.getBracketedPasteMode(sessionId), submit });
+    if (!framed.ok) {
+      console.warn('[Messenger] Paste refused', JSON.stringify({ sessionKey, code: framed.code }));
+      return { ok: false, code: framed.code };
+    }
+    const gateway = createSessionInputGateway({
+      writeInput: (write) => sessionManager.writeInput(String(write.sessionId ?? ''), String(write.data ?? ''), write.metadata as never),
+      auditInput: (event) => console.info('[Messenger Input Audit]', JSON.stringify(event)),
+      resolveTarget: () => targetBinding,
+      readReplayState: () => readMcpReplayState(targetBinding),
+      evaluateInputPolicy: () => ({ ok: true }),
+    });
+    const result = await submitWithSeparateEnter((request) => gateway.submitInput(request), {
+      target: { sessionKey },
+      data: framed.body,
+      actor: { type: 'messenger', sessionKey: '0', scopes: ['mcp:message.paste', 'mcp:message.submit'] },
+      delivery: { mode: framed.enter ? 'submit' : 'paste', submit: framed.enter },
+      replayPolicy: 'reject',
+      source: ROOM_PASTE_SOURCE,
+    }, { delay: currentSubmitEnterDelay() });
+    return isAccepted(result);
+  };
+}
+
 function createMcpAgentInputGateway(): { submitInput: (request: unknown) => Promise<StringRecord> } {
   return {
     submitInput: async (request: unknown) => {
@@ -889,6 +956,14 @@ function setupRoutes(): void {
   app.use('/api/command-presets', authMiddleware, commandPresetRoutes);
   app.use('/api/loops', authMiddleware, createLoopRoutes(loopService));
   app.use('/api/usage-limits', authMiddleware, createUsageLimitsRoutes(usageLimitsService));
+  if (messengerNetRef) app.use('/api/messenger', authMiddleware, createMessengerNetRoutes(messengerNetRef));
+  if (messengerRoomsRef) {
+    const net = messengerNetRef;
+    app.use('/api/messenger', authMiddleware, createMessengerRoutes({
+      rooms: messengerRoomsRef,
+      ...(net ? { net, lan: async () => ({ receiving: (await net.lan()).receiving }) } : {}),
+    }));
+  }
   const terminalShortcutRoutes = createTerminalShortcutRoutes(terminalShortcutService);
   app.use('/api/terminal-shortcuts', authMiddleware, terminalShortcutRoutes);
   const recoveryOptionRoutes = createRecoveryOptionRoutes(recoveryOptionService, {
@@ -1662,37 +1737,123 @@ async function startServer(): Promise<void> {
     const peerLinkStore = createPeerLinkFileStore({ crypto: cryptoService, hostName: os.hostname() });
     const initialPeerLinkSettings = await peerLinkStore.load();
     let peerToolService: StringRecord | null = null;
+    const messengerKeys = createMessengerKeys({});
+    const mcpAddressDenial = (record: StringRecord): string | null => {
+      const evaluateAddress = mcpListenerController.evaluateAddress as (input: unknown) => unknown;
+      const result = asRecord(evaluateAddress({ remoteAddress: asString(record.remoteAddress) ?? '', headers: asRecord(record.headers) }));
+      return result.ok === false ? asString(result.code) ?? 'MCP_TRANSPORT_DENIED' : null;
+    };
     const peerLinkManager: PeerLinkManager = createPeerLinkManager({
       dial: dialPeerWebSocket,
-      authenticate: async (key, request) => {
-        const record = asRecord(request);
-        const evaluateRequest = mcpListenerController.evaluateRequest as (input: unknown) => unknown;
-        const result = asRecord(await evaluateRequest({
-          method: 'GET',
-          path: '/mcp/peer',
-          headers: asRecord(record.headers),
-          credential: classifyMcpBearerCredential(key),
-          remoteAddress: asString(record.remoteAddress) ?? '',
-        }));
-        const actor = asRecord(result.actor);
-        if (result.ok === false || actor.type !== 'mcp-fixed-access-key') {
-          return { ok: false, code: 'PEER_AUTH_FAILED' };
-        }
-        return { ok: true, scopes: stringArray(actor.scopes) };
-      },
+      // Contract §7: messenger keys first (they work with the fixed key off), then the fixed key.
+      authenticate: createPeerHelloAuthenticator({
+        keys: messengerKeys,
+        checkAddress: (request) => mcpAddressDenial(asRecord(request)),
+        lanAddressAllowed,
+        fixedKey: async (key, request) => {
+          const record = asRecord(request);
+          const evaluateRequest = mcpListenerController.evaluateRequest as (input: unknown) => unknown;
+          const result = asRecord(await evaluateRequest({
+            method: 'GET',
+            path: '/mcp/peer',
+            headers: asRecord(record.headers),
+            credential: classifyMcpBearerCredential(key),
+            remoteAddress: asString(record.remoteAddress) ?? '',
+          }));
+          const actor = asRecord(result.actor);
+          if (result.ok === false || actor.type !== 'mcp-fixed-access-key') {
+            return { ok: false, code: 'PEER_AUTH_FAILED' };
+          }
+          return { ok: true, scopes: stringArray(actor.scopes) };
+        },
+      }),
       callTool: async (tool, args, actor) => {
+        // FR-MSG-009 AC-2: a room-key link reaches room peer tools of its own rooms only.
+        const refused = guardMessengerPeerCall({ tool, args, actor }, messengerKeys.allowedRooms);
+        if (refused) return refused;
+        // Contract §3: the messenger's server-to-server calls; never MCP tools.
+        if (isRoomPeerTool(tool)) {
+          return messengerRoomsRef
+            ? callRoomPeerTool(messengerRoomsRef, tool, args, actor as unknown as Record<string, unknown>)
+            : { ok: false, code: 'MESSENGER_UNAVAILABLE' };
+        }
         const callTool = peerToolService?.callTool as ((request: unknown) => Promise<unknown>) | undefined;
         if (!callTool) return { ok: false, code: 'MCP_PEER_UNAVAILABLE' };
         return asRecord(await callTool({ name: tool, arguments: args, actor }));
       },
+      onConnected: (info) => {
+        messengerNetRef?.onPeerConnected(info);
+        messengerRoomsRef?.onLinkConnected(info.name);
+      },
       audit: (event) => console.info('[MCP Peer]', JSON.stringify(event)),
     }, initialPeerLinkSettings);
     peerLinkManagerRef = peerLinkManager;
-    peerLinkControl = createPeerLinkControl({
+    const peerLinks = createPeerLinkControl({
       store: peerLinkStore,
       initial: initialPeerLinkSettings,
       apply: (settings) => peerLinkManager.applySettings(settings),
       status: () => peerLinkManager.list(),
+    });
+    peerLinkControl = peerLinks;
+    // FR-MSG-014 (decision A): a second TLS listener on its own port; the MCP listener is untouched.
+    // Closing it destroys its upgraded sockets, so exactly the peers that came over it drop.
+    const messengerLan = createLanReceiver({
+      defaultPort: mcpPort + 1,
+      open: (port) => openLanPeerListener({
+        port,
+        sslConfig: config.ssl || { certPath: '', keyPath: '', caPath: '' },
+        isAllowed: lanAddressAllowed,
+        accept: (socket, request) => peerLinkManager.accept(socket, request),
+        contactRequest: (req, res) => contactRequests(req, res),
+      }),
+    });
+    messengerLanRef = messengerLan;
+    const messengerNet = createMessengerNet({
+      keys: messengerKeys,
+      peers: {
+        nodeName: () => peerLinkManager.nodeName(),
+        list: () => peerLinkManager.list(),
+        dropPeer: (name) => peerLinkManager.dropPeer(name),
+      },
+      peerSettings: { get: () => peerLinks.settings(), update: (patch) => peerLinks.update(patch) },
+      lan: messengerLan,
+      certificateFingerprint: () => serverCertificateFingerprint,
+      http: httpsContactClient,
+      notify: (reason) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll('messenger:changed', { reason }),
+    });
+    messengerNetRef = messengerNet;
+    // FR-MSG-001..007, 009..013, 015: the rooms. Peer calls go over the same links with scope mcp:room.
+    const findPeer = (node: string) => peerLinkManager.list().find((peer) => peer.name.toLowerCase() === node.toLowerCase());
+    const messengerRooms = createRoomService({
+      store: createFileRoomStore(),
+      transport: {
+        nodeName: () => peerLinkManager.nodeName(),
+        isConnected: (node) => findPeer(node)?.state === 'connected',
+        call: (node, tool, args) => peerLinkManager.call({ peer: findPeer(node)?.name ?? node, tool, arguments: args, scopes: ['mcp:room'] }),
+      },
+      sessions: {
+        list: () => workspaceService.listMcpSessions(undefined, true).map((session) => ({
+          sessionKey: asString(session.sessionKey) ?? '',
+          name: asString(session.alias) ?? asString(session.sessionKey) ?? '',
+          // Security: the registry's agent detection (what the session list shows); room text is pasted only there.
+          agent: messengerAgentOf(session),
+        })).filter((session) => session.sessionKey !== ''),
+      },
+      // Contract §6: a trusted local caller of the MCP paste path; Enter only when the member asks for it.
+      paster: { paste: createMessengerPaster() },
+      notify: (change) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll('messenger:changed', change),
+      webhook: createWebhookNotifier(),
+      net: messengerNet,
+      keys: messengerKeys,
+    });
+    await messengerRooms.start();
+    messengerRoomsRef = messengerRooms;
+    messengerNet.setInviteRedeemer((payload) => messengerRooms.redeemInvite(payload));
+    app.set('messengerKeys', messengerKeys);
+    app.set('messengerNet', messengerNet);
+    const contactRequests = createContactRequestRawHandler({
+      handle: (call) => messengerNet.handleContactRequest(call),
+      checkAccess: (req) => (lanAddressAllowed(req.socket.remoteAddress ?? '') ? null : 'LAN_ADDRESS_DENIED'),
     });
     // FR-MCP-021: one-use upload URLs, served by the MCP listener at /mcp/fu.
     const mcpFileUploads = createMcpFileUploads({
@@ -1817,6 +1978,8 @@ async function startServer(): Promise<void> {
       agentLifecycle: mcpAgentLifecycleService,
       // FR-LOOP-007: buildergate.loop.* go through the same loop service as the window and REST.
       loopControl: loopService,
+      // FR-MSG-007: buildergate.room.* for session agents.
+      roomControl: messengerRooms,
       workspaceControl: createWorkspaceServiceMcpControl({
         workspaceService,
         sessionManager,
@@ -2049,6 +2212,8 @@ async function startServer(): Promise<void> {
     await (mcpListenerController.start as (request: unknown) => Promise<unknown>)({ enabled: mcpControlSecurityConfig.enabled !== false });
     peerToolService = mcpToolService as StringRecord;
     peerLinkManager.start();
+    messengerNet.start();
+    messengerRooms.startLoop();
     mcpListenerControllerInstance = mcpListenerController;
     app.set('mcpListenerController', mcpListenerController);
     app.set('mcpClaimCodes', mcpClaimCodes);
@@ -2132,6 +2297,11 @@ async function startServer(): Promise<void> {
 
     // Load or generate SSL certificates
     const credentials = await sslService.loadCertificates();
+    serverCertificateFingerprint = normalizeFingerprint(new crypto.X509Certificate(credentials.cert).fingerprint256) ?? '';
+    // FR-MSG-014 AC-2: LAN receiving comes back on after a restart when it was on.
+    void messengerLanRef?.startFromSaved().then((result) => {
+      if (!result.ok) console.warn('[Messenger] LAN receiving could not start:', result.code, result.port ?? '');
+    });
     const tlsOptions = sslService.getTLSOptions(credentials);
 
     // Create HTTPS server
@@ -2301,6 +2471,8 @@ function setupGracefulShutdown(): void {
     }
     shutdownInProgress = true;
     peerLinkManagerRef?.stop();
+    messengerRoomsRef?.stop();
+    void messengerLanRef?.stop();
     console.log(`[Shutdown] ${signal} received, saving session CWDs...`);
     try {
       const result = await performServerGracefulShutdown(signal);
