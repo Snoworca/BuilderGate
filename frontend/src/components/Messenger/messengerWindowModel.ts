@@ -6,6 +6,20 @@ import { clampDialogRect } from '../dialog/dialogGeometry.ts';
 import type { DialogRect, DialogSize } from '../dialog/types.ts';
 
 /** The open room left the list (I left, or was removed). Unknown while the list has not loaded. */
+/**
+ * The name of the open room when it vanished from the list without my leaving it (I was removed or
+ * the room ended), so the window can say why it closed; null otherwise.
+ */
+export function removedRoomNotice(
+  previousRooms: Array<{ id: string; name: string }>,
+  roomIds: string[] | null,
+  openRoomId: string | null,
+  leftByMe: boolean,
+): string | null {
+  if (leftByMe || !openRoomGone(roomIds, openRoomId)) return null;
+  return previousRooms.find((room) => room.id === openRoomId)?.name ?? null;
+}
+
 export function openRoomGone(roomIds: string[] | null, openRoomId: string | null): boolean {
   return roomIds !== null && openRoomId !== null && !roomIds.includes(openRoomId);
 }

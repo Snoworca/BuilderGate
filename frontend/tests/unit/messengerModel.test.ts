@@ -331,3 +331,17 @@ test('FR-MSG-012 AC-1: the move suggestion shows on the storage PC only, with th
   assert.equal(moveSuggestion({ ...room, moveSuggested: false }, 'hong'), null);
   assert.deepEqual(moveSuggestion({ hostNode: 'hong', moveSuggested: true }, 'hong'), { hours: 0 });
 });
+
+import { composerNotice } from '../../src/components/Messenger/messengerModel.ts';
+
+test('FR-MSG-004 AC-2: a session whose screen is not a ready agent TUI gets its own hint', () => {
+  assert.deepEqual(skipReasonHints({ targets: 2, delivered: 1, pasted: 1, skipped: 1, skippedReasons: { AGENT_NOT_READY: 1 } }), [
+    { key: 'messenger.delivery.skippedNotReady', count: 1 },
+  ]);
+});
+
+test('FR-MSG-011 AC-3: the composer waiting-host notice goes away once the storage PC is back', () => {
+  assert.equal(composerNotice('waiting-host', false), 'waiting-host');
+  assert.equal(composerNotice('waiting-host', true), null);
+  assert.equal(composerNotice(null, false), null);
+});

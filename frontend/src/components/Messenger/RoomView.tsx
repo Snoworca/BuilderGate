@@ -10,7 +10,7 @@ import { Composer } from './Composer.tsx';
 import { MessageItem, SystemLine } from './MessageItem.tsx';
 import type { MentionRoom } from './mentions.ts';
 import type { PickerSource } from './mentionPicker.ts';
-import { agentChip, foldAgentRuns, moveSuggestion, senderView, sessionAgentNote } from './messengerModel.ts';
+import { agentChip, foldAgentRuns, moveSuggestion, senderView, sessionAgentNote, composerNotice } from './messengerModel.ts';
 import { dayKey, errorText, formatDay, formatTime } from './messengerFormat.ts';
 import type { MessengerState, RoomSummary } from './messengerTypes.ts';
 import type { UseRoomDetailResult } from './useMessenger.ts';
@@ -30,7 +30,7 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
   const me = state.me.name;
   const detail = room.detail;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<'waiting-host' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -124,7 +124,7 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
   const send = async (text: string): Promise<string | null> => {
     try {
       const result = await messengerApi.send(roomData.id, text);
-      setNotice(result.status === 'waiting-host' ? t('messenger.composer.waitingHost') : null);
+      setNotice(result.status === 'waiting-host' ? 'waiting-host' : null);
       atBottomRef.current = true;
       await room.reload();
       return null;
@@ -239,7 +239,7 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
         )}
       </div>
       {actionError !== null && <div className="msgr-err msgr-err-pad" role="alert">{actionError}</div>}
-      <Composer room={mentionRoom} picker={pickerSource} onSend={send} notice={notice} />
+      <Composer room={mentionRoom} picker={pickerSource} onSend={send} notice={composerNotice(notice, hostOnline) === null ? null : t('messenger.composer.waitingHost')} />
     </div>
   );
 }

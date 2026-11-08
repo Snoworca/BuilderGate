@@ -1988,5 +1988,9 @@
   "messenger.form.enterFor": "Enter received messages at once: {session}",
   "messenger.picker.personOnly": "Person only",
   "messenger.picker.personOnlyHint": "Name the person, not a session: nothing is pasted; their unread count turns red.",
-  "messenger.room.moveSuggested": "This PC was off for {hours} hours in the last 7 days, so other members' messages waited. Moving the room to a PC that stays on overnight would help."
+  "messenger.room.moveSuggested": "This PC was off for {hours} hours in the last 7 days, so other members' messages waited. Moving the room to a PC that stays on overnight would help.",
+  "messenger.delivery.skippedNotReady.one": "{count} session's agent screen was not ready",
+  "messenger.delivery.skippedNotReady.other": "{count} sessions' agent screens were not ready",
+  "messenger.room.removedNotice": "You are no longer in “{room}”: you were removed or the room ended.",
+  "messenger.room.removedNoticeClose": "Close"
 }

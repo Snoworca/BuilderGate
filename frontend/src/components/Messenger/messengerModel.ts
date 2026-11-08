@@ -354,7 +354,7 @@ export function contactStatus(contact: Contact, now: Date): { key: ContactStatus
   }
 }
 
-export type SkipReasonKey = 'messenger.delivery.skippedNoAgent' | 'messenger.delivery.skippedFailed' | 'messenger.delivery.skippedMultiline';
+export type SkipReasonKey = 'messenger.delivery.skippedNoAgent' | 'messenger.delivery.skippedFailed' | 'messenger.delivery.skippedMultiline' | 'messenger.delivery.skippedNotReady';
 
 /** Why some targets were not pasted into, one hint per reason (「1개 세션은 에이전트 없음」). */
 export function skipReasonHints(receipts: Receipts | undefined): Array<{ key: SkipReasonKey; count: number }> {
@@ -364,7 +364,13 @@ export function skipReasonHints(receipts: Receipts | undefined): Array<{ key: Sk
   if ((reasons.NO_AGENT ?? 0) > 0) hints.push({ key: 'messenger.delivery.skippedNoAgent', count: reasons.NO_AGENT as number });
   if ((reasons.PASTE_FAILED ?? 0) > 0) hints.push({ key: 'messenger.delivery.skippedFailed', count: reasons.PASTE_FAILED as number });
   if ((reasons.MULTILINE_UNSUPPORTED ?? 0) > 0) hints.push({ key: 'messenger.delivery.skippedMultiline', count: reasons.MULTILINE_UNSUPPORTED as number });
+  if ((reasons.AGENT_NOT_READY ?? 0) > 0) hints.push({ key: 'messenger.delivery.skippedNotReady', count: reasons.AGENT_NOT_READY as number });
   return hints;
+}
+
+/** The composer's 'storage PC is off' notice, dropped once the storage PC is reachable again. */
+export function composerNotice(notice: 'waiting-host' | null, hostOnline: boolean): 'waiting-host' | null {
+  return notice === 'waiting-host' && !hostOnline ? notice : null;
 }
 
 // ---------------------------------------------------------------- room names and invitations

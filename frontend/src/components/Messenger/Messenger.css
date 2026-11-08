@@ -381,3 +381,16 @@
 .msgr-pk-person { flex: none; height: 20px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: transparent; color: var(--fg-muted); font-size: 10px; cursor: pointer; }
 .msgr-pk-person:hover { background: var(--bg-hover); color: var(--fg); }
 .msgr-enter-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: var(--fs-xs); }
+
+/* FR-MSG-001 AC-4: why the open room closed when I did not leave it. */
+.msgr-removed-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+.msgr-removed-notice > span { flex: 1; min-width: 0; }

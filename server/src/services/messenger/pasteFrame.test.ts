@@ -14,11 +14,12 @@ test('FR-MSG-004 AC-2: bracketed paste wraps the body unchanged; Enter goes on i
   assert.deepEqual(buildRoomPaste('한 줄', { bracketed: true, submit: true }), { ok: true, body: `${START}한 줄${END}`, enter: true });
 });
 
-test('FR-MSG-004 AC-2: without bracketed paste, one line goes as is; several lines are refused rather than run line by line', () => {
-  // Only agent sessions get room pastes, so one line is submitted even without DECSET 2004 (TUIs that never set it).
-  assert.deepEqual(buildRoomPaste('한 줄', { bracketed: false, submit: true }), { ok: true, body: '한 줄', enter: true });
-  assert.deepEqual(buildRoomPaste('한 줄', { bracketed: false, submit: false }), { ok: true, body: '한 줄', enter: false });
-  assert.deepEqual(buildRoomPaste('a\r\nb', { bracketed: false, submit: false }), { ok: false, code: 'PASTE_MULTILINE_UNSUPPORTED' });
+test('FR-MSG-004 AC-2: without bracketed paste nothing is pasted, one line or several (the program on screen is not a ready agent TUI)', () => {
+  // Live E2E 2026-11-08: the foreground hint said claude while vim ex mode was on screen; ex took the
+  // paste and Enter. Agent TUIs set DECSET 2004, ex/vim/less do not, so 2004 is the readiness check.
+  assert.deepEqual(buildRoomPaste('한 줄', { bracketed: false, submit: true }), { ok: false, code: 'AGENT_NOT_READY' });
+  assert.deepEqual(buildRoomPaste('한 줄', { bracketed: false, submit: false }), { ok: false, code: 'AGENT_NOT_READY' });
+  assert.deepEqual(buildRoomPaste('a\r\nb', { bracketed: false, submit: false }), { ok: false, code: 'AGENT_NOT_READY' });
 });
 
 test('FR-MSG-004: a paste-end sequence inside the text cannot close the paste early', () => {

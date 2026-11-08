@@ -1930,5 +1930,8 @@
   "messenger.form.enterFor": "받은 메시지를 바로 입력: {session}",
   "messenger.picker.personOnly": "사람만 지정",
   "messenger.picker.personOnlyHint": "세션이 아니라 사람을 지정합니다. 붙여넣지 않고 그 사람의 읽지 않은 수만 빨간색이 됩니다.",
-  "messenger.room.moveSuggested": "이 PC가 지난 7일 동안 {hours}시간 꺼져 있어 다른 참여자의 메시지가 기다렸습니다. 밤새 켜 두는 PC로 옮기면 좋습니다."
+  "messenger.room.moveSuggested": "이 PC가 지난 7일 동안 {hours}시간 꺼져 있어 다른 참여자의 메시지가 기다렸습니다. 밤새 켜 두는 PC로 옮기면 좋습니다.",
+  "messenger.delivery.skippedNotReady.other": "{count}개 세션은 에이전트 화면이 준비되지 않음",
+  "messenger.room.removedNotice": "「{room}」 방에서 더 이상 참여하고 있지 않습니다. 내보내졌거나 방이 사라졌습니다.",
+  "messenger.room.removedNoticeClose": "닫기"
 }

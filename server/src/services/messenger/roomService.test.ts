@@ -666,6 +666,20 @@ test('D8: the send answer counts what was really pasted here, with reasons; mult
   assert.deepEqual(message.receipts, { targets: 3, delivered: 1, pasted: 1, skipped: 2, skippedReasons: { MULTILINE_UNSUPPORTED: 1, PASTE_FAILED: 1 } });
 });
 
+test('FR-MSG-004 AC-2: a session whose screen is not a ready agent TUI (no bracketed paste) is skipped as AGENT_NOT_READY, even for one line and even inside a batch', async () => {
+  const net = new FakeNetwork();
+  const alice = await net.add('alice', [{ sessionKey: 'a1', name: 'one' }, { sessionKey: 'a2', name: 'two' }]);
+  const created = await alice.svc.createRoom({ name: 'r', sessions: ['a1', 'a2'], people: [] }) as Rec;
+  const roomId = (created.room as Rec).id as string;
+  alice.bracketed.add('a1');
+  alice.refusePaste.set('a2', 'AGENT_NOT_READY');
+  const sent = await alice.svc.postFromUi(roomId, '한 줄') as Rec;
+  assert.deepEqual(sent.delivery, { pasted: 1, waiting: 0, skipped: 1, skippedReasons: { AGENT_NOT_READY: 1 } });
+  await net.idle();
+  const message = ((await alice.svc.getRoom(roomId, {}) as Rec).messages as Rec[]).at(-1)!;
+  assert.deepEqual(message.receipts, { targets: 2, delivered: 1, pasted: 1, skipped: 1, skippedReasons: { AGENT_NOT_READY: 1 } });
+});
+
 test('D9: control characters are stripped when a message is made (local and over the link); history keeps tabs', async () => {
   const { net, alice, bob } = await trio();
   const roomId = await roomWithBob(net, alice, bob);

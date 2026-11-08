@@ -73,7 +73,7 @@ export interface Receipts {
   pasted: number;
   /** Targets not pasted into; `targets` includes them. */
   skipped?: number;
-  skippedReasons?: { NO_AGENT?: number; PASTE_FAILED?: number; MULTILINE_UNSUPPORTED?: number };
+  skippedReasons?: { NO_AGENT?: number; PASTE_FAILED?: number; MULTILINE_UNSUPPORTED?: number; AGENT_NOT_READY?: number };
 }
 
 export interface DeliveryCounts {

@@ -52,7 +52,7 @@ export interface RoomServiceDeps {
   store: RoomStore;
   transport: RoomTransport;
   sessions: { list(): LocalSession[] };
-  /** true when written; false for a write error; { ok:false, code } for a refusal (PASTE_MULTILINE_UNSUPPORTED). */
+  /** true when written; false for a write error; { ok:false, code } for a refusal (AGENT_NOT_READY, PASTE_MULTILINE_UNSUPPORTED). */
   paster: { paste(sessionKey: string, text: string, submit: boolean): Promise<boolean | { ok: false; code: string }> };
   notify: (change: { roomId?: string; reason: string }) => void;
   /** FR-MSG-015: posts `text` to the webhook at `url`. */
@@ -1597,7 +1597,7 @@ export class RoomService {
     record.meta.greeted = greeted;
   }
 
-  /** Answers null when written, else why not (MULTILINE_UNSUPPORTED, PASTE_FAILED). */
+  /** Answers null when written, else why not (AGENT_NOT_READY, MULTILINE_UNSUPPORTED, PASTE_FAILED). */
   private enqueuePaste(sessionKey: string, text: string, submit: boolean): Promise<string | null> {
     return new Promise((resolve) => {
       const queue = this.pasteQueues.get(sessionKey) ?? [];
@@ -1641,7 +1641,7 @@ export class RoomService {
   private async pasteOnce(sessionKey: string, text: string, submit: boolean, logRefusal: boolean): Promise<string | null> {
     const result = await this.deps.paster.paste(sessionKey, text, submit).catch(() => false as const);
     if (result === true) return null;
-    const reason = typeof result === 'object' && result.code === 'PASTE_MULTILINE_UNSUPPORTED' ? 'MULTILINE_UNSUPPORTED' : 'PASTE_FAILED';
+    const reason = refusalReason(result);
     if (logRefusal || reason !== 'MULTILINE_UNSUPPORTED') this.log({ event: 'messenger.paste.failed', sessionKey, reason });
     return reason;
   }
@@ -2111,4 +2111,12 @@ function checkSettings(patch: Rec): { invitePolicy?: 'auto' | 'approve'; holdLim
     out.holdLimit = limit;
   }
   return out;
+}
+
+/** A paster refusal code as a receipt reason; anything else that is not a write is a write error. */
+function refusalReason(result: unknown): string {
+  const code = typeof result === 'object' && result !== null ? (result as { code?: unknown }).code : undefined;
+  if (code === 'AGENT_NOT_READY') return 'AGENT_NOT_READY';
+  if (code === 'PASTE_MULTILINE_UNSUPPORTED') return 'MULTILINE_UNSUPPORTED';
+  return 'PASTE_FAILED';
 }

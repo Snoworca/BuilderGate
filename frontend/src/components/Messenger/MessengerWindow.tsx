@@ -16,7 +16,7 @@ import { RoomList } from './RoomList.tsx';
 import { BackButton, RoomView } from './RoomView.tsx';
 import type { PickerWorkspace } from './SessionPicker.tsx';
 import { messengerLayout, visiblePanes } from './messengerModel.ts';
-import { autoOpenRoomId, fitMessengerWindow, MESSENGER_MIN_SIZE, openRoomGone } from './messengerWindowModel.ts';
+import { autoOpenRoomId, fitMessengerWindow, MESSENGER_MIN_SIZE, openRoomGone, removedRoomNotice } from './messengerWindowModel.ts';
 import { readDialogGeometry, writeDialogGeometry } from '../dialog/dialogGeometry';
 import type { DialogRect } from '../dialog/types';
 import { errorText, useLocalSessions, useViewportRect } from './messengerFormat.ts';
@@ -190,13 +190,23 @@ function MessengerWindow({ messenger, isMobile, openRoomId, onOpenRoom, onClose,
     if (autoRoomId !== null) onOpenRoom(autoRoomId);
   }, [autoRoomId, onOpenRoom]);
   // A room I left or was removed from drops out of the list; stop showing it.
-  const roomGone = openRoomGone(state ? rooms.map((candidate) => candidate.id) : null, openRoomId);
+  const roomIds = state ? rooms.map((candidate) => candidate.id) : null;
+  const roomGone = openRoomGone(roomIds, openRoomId);
+  // FR-MSG-001 AC-4: when the open room vanishes without my leaving it, say so instead of just closing it.
+  const previousRoomsRef = useRef<Array<{ id: string; name: string }>>([]);
+  const leftByMeRef = useRef(false);
+  const [removedNotice, setRemovedNotice] = useState<string | null>(null);
   useEffect(() => {
     if (roomGone) {
+      setRemovedNotice(removedRoomNotice(previousRoomsRef.current, roomIds, openRoomId, leftByMeRef.current));
+      leftByMeRef.current = false;
       setMembersOpen(false);
       onOpenRoom(null);
     }
-  }, [roomGone, onOpenRoom]);
+  }, [roomGone, onOpenRoom]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (state) previousRoomsRef.current = rooms.map((candidate) => ({ id: candidate.id, name: candidate.name }));
+  });
 
   const panes = visiblePanes(layout, openRoomId);
   const summary = rooms.find((candidate) => candidate.id === openRoomId);
@@ -226,6 +236,12 @@ function MessengerWindow({ messenger, isMobile, openRoomId, onOpenRoom, onClose,
           <div className="msgr-empty">{error !== null ? t('messenger.loadError', { error }) : ''}</div>
         ) : (
           <>
+            {removedNotice !== null && (
+              <div className="msgr-removed-notice" role="status">
+                <span>{t('messenger.room.removedNotice', { room: removedNotice })}</span>
+                <Button size="sm" variant="secondary" onClick={() => setRemovedNotice(null)}>{t('messenger.room.removedNoticeClose')}</Button>
+              </div>
+            )}
             {panes.list && (
               <RoomList
                 state={state}
@@ -268,7 +284,7 @@ function MessengerWindow({ messenger, isMobile, openRoomId, onOpenRoom, onClose,
           isMobile={isMobile}
           onClose={() => setMembersOpen(false)}
           onChanged={() => { void room.reload(); void refresh(); }}
-          onLeft={async () => { await refresh(); setMembersOpen(false); onOpenRoom(null); }}
+          onLeft={async () => { leftByMeRef.current = true; await refresh(); setMembersOpen(false); onOpenRoom(null); leftByMeRef.current = false; }}
           onContinued={async (next) => { await refresh(); setMembersOpen(false); onOpenRoom(next.id); }}
           onAddContact={(node) => onDialog({ kind: 'contacts', name: node })}
         />

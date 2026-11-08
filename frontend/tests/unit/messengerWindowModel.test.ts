@@ -80,3 +80,14 @@ test('D6: the messenger window is pulled back inside the viewport, bottom includ
   assert.deepEqual(fitMessengerWindow({ x: 160, y: 70, width: 720, height: 540 }, { width: 700, height: 500 }), { x: 0, y: 0, width: 700, height: 500 });
   assert.ok(MESSENGER_MIN_SIZE.width <= 320);
 });
+
+import { removedRoomNotice } from '../../src/components/Messenger/messengerWindowModel.ts';
+
+test('FR-MSG-001 AC-4: a room that disappears without my leaving tells me so; leaving myself says nothing', () => {
+  const before = [{ id: 'r1', name: '로그인 API' }, { id: 'r2', name: 'x' }];
+  assert.equal(removedRoomNotice(before, ['r2'], 'r1', false), '로그인 API');
+  assert.equal(removedRoomNotice(before, ['r2'], 'r1', true), null);
+  assert.equal(removedRoomNotice(before, ['r1', 'r2'], 'r1', false), null);
+  assert.equal(removedRoomNotice(before, null, 'r1', false), null);
+  assert.equal(removedRoomNotice(before, ['r2'], null, false), null);
+});
