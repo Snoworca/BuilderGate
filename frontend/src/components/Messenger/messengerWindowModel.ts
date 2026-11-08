@@ -80,3 +80,17 @@ export const MESSENGER_MIN_SIZE: DialogSize = { width: 300, height: 360 };
 export function fitMessengerWindow(rect: DialogRect, viewport: DialogSize): DialogRect {
   return clampDialogRect(rect, viewport, MESSENGER_MIN_SIZE);
 }
+
+/**
+ * FR-MSG-013 AC-2: the rect to keep after a move or resize. The window is drawn fitted to the
+ * viewport; a move of that fitted rect keeps the size the user chose, so widening the browser again
+ * brings it back. A change of size is the user's new size.
+ */
+export function nextPlacedRect(
+  placed: { x: number; y: number; width: number; height: number },
+  rendered: { width: number; height: number },
+  next: { x: number; y: number; width: number; height: number },
+): { x: number; y: number; width: number; height: number } {
+  const moved = next.width === rendered.width && next.height === rendered.height;
+  return moved ? { x: next.x, y: next.y, width: placed.width, height: placed.height } : { ...next };
+}

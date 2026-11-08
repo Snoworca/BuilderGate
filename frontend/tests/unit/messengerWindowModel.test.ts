@@ -91,3 +91,13 @@ test('FR-MSG-001 AC-4: a room that disappears without my leaving tells me so; le
   assert.equal(removedRoomNotice(before, null, 'r1', false), null);
   assert.equal(removedRoomNotice(before, ['r2'], null, false), null);
 });
+
+import { nextPlacedRect } from '../../src/components/Messenger/messengerWindowModel.ts';
+
+test('FR-MSG-013 AC-2: moving a window that the viewport shrank keeps the size the user chose; resizing takes the new size', () => {
+  const placed = { x: 160, y: 70, width: 720, height: 540 };
+  const rendered = { x: 0, y: 70, width: 398, height: 540 };
+  assert.deepEqual(nextPlacedRect(placed, rendered, { x: 0, y: 120, width: 398, height: 540 }), { x: 0, y: 120, width: 720, height: 540 });
+  assert.deepEqual(nextPlacedRect(placed, rendered, { x: 0, y: 70, width: 380, height: 500 }), { x: 0, y: 70, width: 380, height: 500 });
+  assert.deepEqual(nextPlacedRect(placed, placed, { x: 200, y: 80, width: 720, height: 540 }), { x: 200, y: 80, width: 720, height: 540 });
+});

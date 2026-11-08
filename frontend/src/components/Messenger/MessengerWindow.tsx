@@ -16,7 +16,7 @@ import { RoomList } from './RoomList.tsx';
 import { BackButton, RoomView } from './RoomView.tsx';
 import type { PickerWorkspace } from './SessionPicker.tsx';
 import { messengerLayout, visiblePanes } from './messengerModel.ts';
-import { autoOpenRoomId, fitMessengerWindow, MESSENGER_MIN_SIZE, openRoomGone, removedRoomNotice } from './messengerWindowModel.ts';
+import { autoOpenRoomId, fitMessengerWindow, MESSENGER_MIN_SIZE, nextPlacedRect, openRoomGone, removedRoomNotice } from './messengerWindowModel.ts';
 import { readDialogGeometry, writeDialogGeometry } from '../dialog/dialogGeometry';
 import type { DialogRect } from '../dialog/types';
 import { errorText, useLocalSessions, useViewportRect } from './messengerFormat.ts';
@@ -25,6 +25,7 @@ import { useRoomDetail, type UseMessengerResult } from './useMessenger.ts';
 import './Messenger.css';
 
 const MESSENGER_DEFAULT_RECT: DialogRect = { x: 160, y: 70, width: 720, height: 540 };
+const UNBOUNDED_VIEWPORT = { width: Number.MAX_SAFE_INTEGER, height: Number.MAX_SAFE_INTEGER };
 
 type MessengerDialog =
   | { kind: 'new-room' }
@@ -162,11 +163,13 @@ function MessengerWindow({ messenger, isMobile, openRoomId, onOpenRoom, onClose,
   // Unknown until measured: a guess would pick the split layout and open a room on a narrow window.
   const [width, setWidth] = useState<number | null>(null);
   const viewport = useViewportRect();
-  const [placed, setPlaced] = useState<DialogRect>(() => readDialogGeometry('messenger', MESSENGER_DEFAULT_RECT, viewport, MESSENGER_MIN_SIZE));
+  // The size the user chose, read without fitting it to this viewport: it is fitted when drawn, so a
+  // window first opened on a narrow screen comes back at full size on a wide one.
+  const [placed, setPlaced] = useState<DialogRect>(() => readDialogGeometry('messenger', MESSENGER_DEFAULT_RECT, UNBOUNDED_VIEWPORT, MESSENGER_MIN_SIZE));
   const placeWindow = (next: DialogRect) => {
-    const fitted = fitMessengerWindow(next, viewport);
-    setPlaced(fitted);
-    writeDialogGeometry('messenger', fitted);
+    const kept = nextPlacedRect(placed, fitMessengerWindow(placed, viewport), next);
+    setPlaced(kept);
+    writeDialogGeometry('messenger', kept);
   };
   const [membersOpen, setMembersOpen] = useState(false);
   const { sessions: localSessions } = useLocalSessions();

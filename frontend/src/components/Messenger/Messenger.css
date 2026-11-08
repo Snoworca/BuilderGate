@@ -1,5 +1,6 @@
 /* FR-MSG-013: the messenger window and its dialogs (docs/design/messenger.html). */
 .msgr {
+  position: relative;
   display: flex;
   height: 100%;
   min-height: 0;
@@ -330,7 +331,8 @@
 .msgr-check input { margin-top: 2px; }
 
 /* ---------- toast ---------- */
-.msgr-toast-host { position: fixed; right: 12px; top: 64px; z-index: 1200; width: min(330px, calc(100vw - 24px)); }
+/* Above modeless windows (3000-3980, windowDialogModel), below modal dialogs (5000+): the messenger window must not cover it. */
+.msgr-toast-host { position: fixed; right: 12px; top: 64px; z-index: 4000; width: min(330px, calc(100vw - 24px)); }
 .msgr-toast {
   display: flex;
   flex-direction: column;
@@ -384,6 +386,13 @@
 
 /* FR-MSG-001 AC-4: why the open room closed when I did not leave it. */
 .msgr-removed-notice {
+  /* An overlay across the top: in the flex row it would take a column of its own. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  box-shadow: var(--shadow-popover, 0 6px 20px rgba(0, 0, 0, .45));
   display: flex;
   align-items: center;
   gap: 8px;
