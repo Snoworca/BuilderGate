@@ -23,10 +23,12 @@ interface RoomViewProps {
   showBack: boolean;
   onBack: () => void;
   onOpenMembers: () => void;
+  /** FR-MSG-012 AC-1: open the members panel with focus on the move control. */
+  onOpenMove: () => void;
   onInvite: () => void;
 }
 
-export function RoomView({ summary, state, room, localSessions, showBack, onBack, onOpenMembers, onInvite }: RoomViewProps) {
+export function RoomView({ summary, state, room, localSessions, showBack, onBack, onOpenMembers, onOpenMove, onInvite }: RoomViewProps) {
   const me = state.me.name;
   const detail = room.detail;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -174,7 +176,7 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
         <div className="msgr-banner msgr-banner-info" role="status">
           <span aria-hidden="true">ⓘ</span>
           <span>{t('messenger.room.moveSuggested', { hours: move.hours })}</span>
-          <Button size="sm" variant="secondary" onClick={onOpenMembers}>{t('messenger.settings.transfer')}</Button>
+          <Button size="sm" variant="secondary" onClick={onOpenMove}>{t('messenger.settings.transfer')}</Button>
         </div>
       )}
       {(summary?.invitesWaitingHost?.length ?? 0) > 0 && (

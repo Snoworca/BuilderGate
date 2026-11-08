@@ -3,6 +3,7 @@
 // and paste into their own sessions only (contract §2–§6, §10). This module knows nothing about
 // WebSocket, Express or MCP: it talks to the world through the ports in RoomServiceDeps.
 import { createHash, randomBytes } from 'node:crypto';
+import { addOfflineReport, OFFLINE_WINDOW_MS } from './offlineReports.js';
 import { entranceNotice, displayMember, hasInvalidNameChars, isForSession, planDelivery, senderLabel, stripControls, type PasteJob } from './delivery.js';
 import { resolveMentions, resolveTargets, type MentionRoster } from './mentions.js';
 import { resumeRoom, sequenceMessage } from './sequencing.js';
@@ -88,7 +89,6 @@ const SYNC_PAGE = 500;
 const JOIN_HISTORY = 200;
 const PASTED_KEEP = 2_000;
 const RECEIPTS_KEEP = 1_000;
-const OFFLINE_WINDOW_MS = 7 * 24 * 3_600_000;
 const MOVE_SUGGEST_MS = 3_600_000;
 const HOLD_LIMIT_MAX = 1_000;
 const TEXT_MAX = 20_000;
@@ -930,8 +930,7 @@ export class RoomService {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || end > now + 60_000 || end - start > OFFLINE_WINDOW_MS) {
       return fail('VALIDATION_ERROR');
     }
-    record.meta.offlineReports = [...(record.meta.offlineReports ?? []), { from: new Date(start).toISOString(), to: new Date(end).toISOString() }]
-      .filter((report) => Date.parse(report.to) > now - OFFLINE_WINDOW_MS);
+    record.meta.offlineReports = addOfflineReport(record.meta.offlineReports ?? [], { from: start, to: end }, now);
     this.changed(record.room.id, 'room');
     return { ok: true };
   }

@@ -172,6 +172,7 @@ function MessengerWindow({ messenger, isMobile, openRoomId, onOpenRoom, onClose,
     writeDialogGeometry('messenger', kept);
   };
   const [membersOpen, setMembersOpen] = useState(false);
+  const [membersFocusMove, setMembersFocusMove] = useState(false);
   const { sessions: localSessions } = useLocalSessions();
   const room = useRoomDetail(openRoomId, change);
 
@@ -264,7 +265,8 @@ function MessengerWindow({ messenger, isMobile, openRoomId, onOpenRoom, onClose,
                 localSessions={localSessions}
                 showBack={layout === 'single'}
                 onBack={() => onOpenRoom(null)}
-                onOpenMembers={() => setMembersOpen(true)}
+                onOpenMembers={() => { setMembersFocusMove(false); setMembersOpen(true); }}
+                onOpenMove={() => { setMembersFocusMove(true); setMembersOpen(true); }}
                 onInvite={() => onDialog({ kind: 'invite' })}
               />
             )}
@@ -285,6 +287,7 @@ function MessengerWindow({ messenger, isMobile, openRoomId, onOpenRoom, onClose,
           me={state.me.name}
           contacts={state.contacts}
           isMobile={isMobile}
+          focusMove={membersFocusMove}
           onClose={() => setMembersOpen(false)}
           onChanged={() => { void room.reload(); void refresh(); }}
           onLeft={async () => { leftByMeRef.current = true; await refresh(); setMembersOpen(false); onOpenRoom(null); leftByMeRef.current = false; }}

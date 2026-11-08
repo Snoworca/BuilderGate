@@ -62,6 +62,7 @@ Carried by the existing `peerLinks.call({peer, tool, arguments, scopes})`. Tool 
 | `room.peer.ticket` (host) | `{roomId, invitee: string /* node */}` | `{ok, ticket}` or `APPROVAL_PENDING` when invitePolicy=approve |
 | `room.peer.adopt` (new host) | `{room, messages /* full log */}` | `{ok, tickets: {[node]: Ticket}}` |
 | `room.peer.hosted` (member) | `{roomId, newHost, ticket?}` | `{ok}` — member re-points to the new host |
+| `room.peer.hostOfflineReport` (host) | `{roomId, from, to, ms?}` | `{ok}` — a member reports when the storage PC was unreachable; the host keeps merged intervals for 7 days (overlaps counted once). `from`/`to` (ISO) are the data; `ms` is informational and not used. Over 1 h in 7 days → `room.moveSuggested` on the host's own view |
 
 Sync loop: every 5 s, for each room where this server is a member but not the host, if the link to `hostNode` is connected, call `room.peer.sync`. Also on link connect. Host pushes `deliver` to every connected member after each append (fire and forget). Log is the queue: no TTL, nothing is lost while a PC is off. `hostOfflineSince` is set when a sync or post fails with `PEER_DISCONNECTED|PEER_NOT_FOUND|PEER_CALL_TIMEOUT` and cleared on success.
 

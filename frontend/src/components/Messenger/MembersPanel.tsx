@@ -1,7 +1,7 @@
 // Mockup ⑨: people with their sessions indented, per-session toggles, removal,
 // room settings, moving the storage PC, continuing elsewhere and leaving.
 // @req FR-MSG-001 FR-MSG-004 FR-MSG-006 FR-MSG-009 FR-MSG-012
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { WindowDialog } from '../dialog';
 import { Icon } from '../common';
 import { Button, NumberInput, Select, Switch } from '../ui';
@@ -11,11 +11,15 @@ import { errorText, useViewportRect } from './messengerFormat.ts';
 import { sessionAgentNote } from './messengerModel.ts';
 import type { Contact, InvitePolicy, Room, RoomDetail } from './messengerTypes.ts';
 
+const MOVE_TARGET_ID = 'msgr-move-target';
+
 interface MembersPanelProps {
   detail: RoomDetail;
   me: string;
   contacts: Contact[];
   isMobile: boolean;
+  /** Opened from the move suggestion: put the keyboard on the move control. */
+  focusMove?: boolean;
   onClose: () => void;
   onChanged: () => void;
   onLeft: () => Promise<void>;
@@ -23,7 +27,10 @@ interface MembersPanelProps {
   onAddContact: (node: string) => void;
 }
 
-export function MembersPanel({ detail, me, contacts, isMobile, onClose, onChanged, onLeft, onContinued, onAddContact }: MembersPanelProps) {
+export function MembersPanel({ detail, me, contacts, isMobile, focusMove = false, onClose, onChanged, onLeft, onContinued, onAddContact }: MembersPanelProps) {
+  useEffect(() => {
+    if (focusMove) document.getElementById(MOVE_TARGET_ID)?.focus();
+  }, [focusMove]);
   const room = detail.room;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -180,7 +187,7 @@ export function MembersPanel({ detail, me, contacts, isMobile, onClose, onChange
             <>
               <span className="msgr-faint">{t('messenger.settings.transfer')}</span>
               <div className="msgr-row">
-                <Select value={moveTo} disabled={busy || !detail.host.online || moveTargets.length === 0} onChange={(event) => setMoveTo(event.target.value)} aria-label={t('messenger.settings.transferTo')}>
+                <Select id={MOVE_TARGET_ID} value={moveTo} disabled={busy || !detail.host.online || moveTargets.length === 0} onChange={(event) => setMoveTo(event.target.value)} aria-label={t('messenger.settings.transferTo')}>
                   <option value="">{t('messenger.settings.transferTo')}</option>
                   {moveTargets.map((person) => <option key={person.node} value={person.node}>{person.node}</option>)}
                 </Select>
