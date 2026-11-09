@@ -624,7 +624,6 @@ async function mintActorToken(deps: AgentLifecycleDeps, sessionKey: string): Pro
     audience: 'buildergate-mcp',
     sessionKey,
     scopes,
-    expiresInSeconds: 300,
   });
 }
 

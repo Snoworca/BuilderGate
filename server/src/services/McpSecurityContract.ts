@@ -80,7 +80,8 @@ type McpClaims = {
   scope: string[];
   jti: string;
   iat: number;
-  exp: number;
+  // Absent on session-bound tokens: they end when the session closes (revoke) or stops being live.
+  exp?: number;
 };
 
 /** FR-MCP-023 AC-2: commands and Enter through buildergate.terminal.input. */
@@ -275,7 +276,7 @@ export function mintMcpCapabilityToken(input: {
     scope: [...input.scopes],
     jti: crypto.randomUUID(),
     iat: now,
-    exp: now + Math.max(1, input.expiresInSeconds ?? 300),
+    ...(input.expiresInSeconds === undefined ? {} : { exp: now + Math.max(1, input.expiresInSeconds) }),
   };
   const payload = base64UrlEncode(JSON.stringify(claims));
   const signature = signTokenPayload(payload);
@@ -295,7 +296,7 @@ export function verifyMcpCapabilityToken(token: string, expected: {
   if (!claims) {
     return denied('INVALID_TOKEN');
   }
-  if (claims.exp <= Math.floor(Date.now() / 1000)) {
+  if (claims.exp !== undefined && claims.exp <= Math.floor(Date.now() / 1000)) {
     return denied('TOKEN_EXPIRED');
   }
   if (claims.aud !== expected.expectedAudience) {
@@ -782,6 +783,7 @@ function parseAndVerifyToken(token: string): McpClaims | null {
       || typeof claims.sessionKey !== 'string'
       || !Array.isArray(claims.scope)
       || typeof claims.jti !== 'string'
+      || (claims.exp !== undefined && typeof claims.exp !== 'number')
     ) {
       return null;
     }

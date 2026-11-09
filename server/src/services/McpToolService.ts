@@ -909,13 +909,18 @@ async function callLocalTool(
 
 // @req IR-MCP-001
 async function handleWhoami(deps: McpToolServiceDeps, actor: StringRecord): Promise<StringRecord> {
+  const sessionKey = asString(actor.sessionKey);
+  if (!sessionKey) {
+    return {
+      ok: false,
+      code: 'UNBOUND_ACTOR',
+      message: 'This MCP connection is not bound to a session (for example the fixed access key). '
+        + 'Connect with the session token in BUILDERGATE_MCP_TOKEN, or call buildergate.session.claim, to use whoami.',
+    };
+  }
   const scope = requireScope(actor, 'mcp:self.read');
   if (scope) {
     return scope;
-  }
-  const sessionKey = asString(actor.sessionKey);
-  if (!sessionKey) {
-    return { ok: false, code: 'UNBOUND_ACTOR' };
   }
   const resolved = await resolveSessions(deps);
   if (!Array.isArray(resolved)) {
@@ -2724,7 +2729,7 @@ function listenerRuntimeStatus(handle: unknown): StringRecord {
 // @req IR-MCP-001
 function toolDescription(name: string): string {
   const descriptions: Record<string, string> = {
-    'buildergate.session.whoami': 'Return the current MCP session binding.',
+    'buildergate.session.whoami': 'Return the current MCP session binding. Needs a session-bound connection (BUILDERGATE_MCP_TOKEN); the fixed access key gets UNBOUND_ACTOR.',
     'buildergate.session.claim': 'Bind a one-time claim code to a session.',
     'buildergate.session.list': 'List live sessions of this server and of every connected linked server. Each item names its server, '
       + 'and its target ("<server>/<sessionKey>") goes into buildergate.message.send as is.',

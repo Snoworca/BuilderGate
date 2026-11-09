@@ -5,6 +5,7 @@
  * Phase 3: Two-Factor Authentication
  */
 
+import { createMcpAgentTokenStore } from './services/mcpAgentTokenStore.js';
 import express from 'express';
 import cors from 'cors';
 import https from 'https';
@@ -195,7 +196,6 @@ import { encodeTerminalKey, type ParsedMcpKey } from './services/terminalKeys.js
 import {
   createMcpFixedAccessKey,
   getFixedMcpAccessKeyScopes,
-  mintMcpCapabilityToken,
   validateMcpSecurityConfig,
   verifyMcpFixedAccessKey,
 } from './services/McpSecurityContract.js';
@@ -1682,7 +1682,6 @@ async function startServer(): Promise<void> {
     }
 
     const mcpClaimCodes = new Map<string, Record<string, unknown>>();
-    const mcpAgentTokens = new Map<string, { sessionKey: string; revoked: boolean; createdAt: string }>();
     const createMcpClaimCode = (request: unknown): StringRecord => issueMcpClaimCode(
       mcpClaimCodes,
       request,
@@ -1692,55 +1691,7 @@ async function startServer(): Promise<void> {
         maxEntries: 256,
       },
     );
-    const agentTokenStore = {
-      mint: (request: unknown) => {
-        const record = asRecord(request);
-        const sessionKey = asString(record.sessionKey) ?? '';
-        const scopes = Array.isArray(record.scopes) ? record.scopes.map(String) : [];
-        const requestedExpiresInSeconds = Number(record.expiresInSeconds ?? 300);
-        const tokenRecord = asRecord(mintMcpCapabilityToken({
-          audience: asString(record.audience) ?? 'buildergate-mcp',
-          sessionKey,
-          scopes,
-          expiresInSeconds: Number.isFinite(requestedExpiresInSeconds) ? requestedExpiresInSeconds : 300,
-        }));
-        const token = asString(tokenRecord.token);
-        if (token) {
-          mcpAgentTokens.set(token, {
-            sessionKey,
-            revoked: false,
-            createdAt: new Date().toISOString(),
-          });
-        }
-        return tokenRecord;
-      },
-      revoke: (request: unknown) => {
-        const record = asRecord(request);
-        const token = asString(record.token);
-        const sessionKey = asString(record.sessionKey);
-        let revoked = 0;
-        if (token && mcpAgentTokens.has(token)) {
-          const entry = mcpAgentTokens.get(token);
-          if (entry) {
-            entry.revoked = true;
-            revoked += 1;
-          }
-        }
-        if (sessionKey) {
-          for (const entry of mcpAgentTokens.values()) {
-            if (entry.sessionKey === sessionKey && !entry.revoked) {
-              entry.revoked = true;
-              revoked += 1;
-            }
-          }
-        }
-        return { ok: true, revoked };
-      },
-      isRevoked: (credential: StringRecord) => {
-        const token = asString(credential.token);
-        return token ? mcpAgentTokens.get(token)?.revoked === true : false;
-      },
-    };
+    const agentTokenStore = createMcpAgentTokenStore();
     mcpControlConfigStore = createMcpControlConfigFileStore();
     const loadMcpControlConfig = mcpControlConfigStore.loadConfig as (() => Promise<unknown>) | undefined;
     const getMcpControlConfigDataPath = mcpControlConfigStore.getDataFilePath as (() => string) | undefined;
