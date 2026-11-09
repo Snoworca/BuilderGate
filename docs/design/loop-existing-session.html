@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>루프 기존 세션 시안</title>
+<style>
+/* Tokens and base styles copied from docs/design/loop-scheduler.html (which copies frontend/src/styles/tokens.css). */
+:root{
+  --bg-app:#202020;--bg-chrome:#2b2b2b;--bg-surface:#272727;--bg-raised:#2f2f2f;--bg-sunken:#1e1e1e;
+  --bg-hover:rgba(255,255,255,.055);--bg-active:rgba(0,120,212,.2);
+  --fg:#dcdcdc;--fg-strong:#f5f5f5;--fg-muted:#a0a0a0;--fg-faint:#767676;
+  --line:#3a3a3a;--line-strong:#4a4a4a;
+  --accent:#0078d4;--accent-fg:#fff;--accent-text:#6cb6ff;--accent-tint:rgba(0,120,212,.18);
+  --ok:#4cc38a;--ok-tint:rgba(76,195,138,.14);--warn:#d8a534;--warn-tint:rgba(216,165,52,.14);--danger:#e05c5c;--danger-text:#ec8f8f;--danger-tint:rgba(224,92,92,.12);
+  --r-sm:6px;--r-md:8px;--r-lg:10px;--r-pill:999px;
+  --fs-2xs:11px;--fs-xs:12px;--fs-sm:13px;--fs-md:14px;
+  --font-sans:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,'Helvetica Neue','Malgun Gothic',sans-serif;
+  --font-mono:'Cascadia Code','Fira Code',Consolas,'Courier New',monospace;
+  --shadow-dialog:0 24px 64px rgba(0,0,0,.55);--shadow-popover:0 10px 28px rgba(0,0,0,.5);
+  --step-cmd:#6cb6ff;--step-prompt:#c586c0;--step-delay:#d8a534;--step-end:#e05c5c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#171717;color:var(--fg);font-family:var(--font-sans);font-size:var(--fs-sm)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.mono{font-family:var(--font-mono)}.muted{color:var(--fg-muted)}.faint{color:var(--fg-faint)}
+.page-head{position:sticky;top:0;z-index:50;background:#141414;border-bottom:1px solid var(--line)}
+.page-title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:14px 20px 4px}
+.page-title h1{margin:0;font-size:18px}
+.nav{display:flex;gap:2px;padding:6px 16px 0;overflow-x:auto}
+.nav button{border:0;background:transparent;color:var(--fg-muted);height:36px;padding:0 14px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.nav button[aria-selected="true"]{color:var(--fg-strong);border-bottom-color:var(--accent)}
+.screen{display:none;padding:24px 20px 60px;max-width:1180px;margin:0 auto}
+.screen.on{display:block}
+.note{color:var(--fg-muted);font-size:var(--fs-xs);line-height:1.7;max-width:860px}
+.note b{color:var(--fg)}
+h2{font-size:15px;margin:0 0 6px}
+h3{font-size:13px;margin:18px 0 6px;color:var(--fg-strong)}
+.scrim{background:rgba(0,0,0,.45);padding:28px 16px;display:flex;justify-content:center;border-radius:var(--r-lg);margin-top:14px}
+.dialog{width:min(860px,100%);background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:var(--r-lg);box-shadow:var(--shadow-dialog);display:flex;flex-direction:column}
+.dlg-head{display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;border-bottom:1px solid var(--line)}
+.dlg-head h4{margin:0;font-size:var(--fs-md);font-weight:600}
+.x{margin-left:auto;width:28px;height:28px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--fg-muted);cursor:pointer}
+.dlg-body{padding:16px;display:flex;flex-direction:column;gap:18px}
+.dlg-foot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
+.btn{height:30px;padding:0 14px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--bg-raised);cursor:pointer}
+.btn:hover{background:#383838}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--fg-muted)}
+.btn.danger{color:var(--danger-text)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.field{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:start}
+.field>label,.field>.lbl{padding-top:6px;color:var(--fg-muted)}
+.input,select.input,textarea.input{height:30px;padding:0 9px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg-sunken);width:100%}
+textarea.input{height:auto;min-height:58px;padding:7px 9px;resize:vertical;line-height:1.5}
+select.input optgroup{color:var(--fg-muted);font-style:normal}
+select.input option{color:var(--fg)}
+select.input.err{border-color:var(--danger)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hint{font-size:var(--fs-xs);color:var(--fg-faint);margin-top:5px;line-height:1.5}
+.errtext{font-size:var(--fs-xs);color:var(--danger-text);margin-top:5px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--r-sm);overflow:hidden}
+.seg button{border:0;background:transparent;height:30px;padding:0 14px;cursor:pointer;color:var(--fg-muted)}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--accent-tint);color:var(--fg-strong)}
+.days{display:flex;gap:6px;flex-wrap:wrap}
+.day{width:34px;height:34px;border-radius:50%;border:1px solid var(--line-strong);background:transparent;color:var(--fg-muted)}
+.day[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:var(--r-pill);background:var(--bg-raised);border:1px solid var(--line-strong)}
+.preview{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:var(--r-sm);background:var(--accent-tint);color:#cfe3f7;font-size:var(--fs-xs)}
+.section-label{display:flex;align-items:center;gap:8px;font-size:var(--fs-xs);color:var(--fg-muted)}
+.section-label::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* NEW: target tabs */
+.ttabs{display:inline-flex;gap:2px;padding:3px;border-radius:var(--r-md);background:var(--bg-sunken);border:1px solid var(--line-strong)}
+.ttabs button{border:0;background:transparent;height:30px;padding:0 16px;border-radius:var(--r-sm);color:var(--fg-muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.ttabs button[aria-selected="true"]{background:var(--bg-raised);color:var(--fg-strong);box-shadow:0 1px 0 rgba(255,255,255,.04),0 1px 3px rgba(0,0,0,.4)}
+.ttabs .ti{color:var(--accent-text)}
+.tpanel{display:flex;flex-direction:column;gap:14px}
+.tpanel[hidden]{display:none}
+/* NEW: selected session card */
+.scard{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg-app)}
+.scard .ws{color:var(--fg-muted);font-size:var(--fs-xs)}
+.scard .nm{color:var(--fg-strong);font-weight:600}
+.scard .meta{grid-column:2/4;font-size:var(--fs-xs);color:var(--fg-faint)}
+.scard .ico{color:var(--accent-text);font-size:16px;grid-row:1/3}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:var(--r-pill);font-size:var(--fs-2xs);white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-ok{background:var(--ok-tint);color:var(--ok)}.p-wait{background:var(--accent-tint);color:var(--accent-text)}
+.p-n{background:var(--bg-raised);color:var(--fg-muted)}.p-off{background:var(--danger-tint);color:var(--danger-text)}
+.p-warn{background:var(--warn-tint);color:var(--warn)}
+.check{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.check input{margin-top:3px;accent-color:var(--accent)}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--r-md);font-size:var(--fs-xs);line-height:1.6}
+.banner.warn{background:var(--warn-tint);border:1px solid rgba(216,165,52,.4);color:#ecd08f}
+.banner.danger{background:var(--danger-tint);border:1px solid rgba(224,92,92,.4);color:var(--danger-text)}
+.banner .acts{margin-left:auto;display:flex;gap:6px;flex-shrink:0}
+.empty-box{padding:18px;border:1px dashed var(--line-strong);border-radius:var(--r-md);text-align:center;color:var(--fg-muted);font-size:var(--fs-xs)}
+
+/* steps */
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{display:grid;grid-template-columns:22px 28px 92px 1fr auto;gap:8px;align-items:start;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg-app)}
+.step.bad{border-color:var(--danger)}
+.step .grip{color:var(--fg-faint);padding-top:5px;text-align:center}
+.step .no{color:var(--fg-faint);padding-top:6px;text-align:right}
+.kind{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:var(--r-sm);font-size:var(--fs-xs);border:1px solid var(--line-strong);background:var(--bg-surface)}
+.kind::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.k-cmd{color:var(--step-cmd)}.k-prompt{color:var(--step-prompt)}.k-delay{color:var(--step-delay)}.k-end{color:var(--step-end)}
+.icon-btn{width:28px;height:30px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--fg-faint);cursor:pointer}
+.icon-btn:hover{background:var(--bg-hover);color:var(--fg)}
+.icon-btn:disabled{opacity:.35;cursor:not-allowed}
+.adders{display:flex;gap:6px;flex-wrap:wrap}
+.adders .btn{border-style:dashed;background:transparent}
+.adders [hidden]{display:none}
+
+/* drawn native list (screen ②) */
+.native{position:relative;max-width:520px}
+.native .list{margin-top:2px;background:#2b2b2b;border:1px solid var(--line-strong);border-radius:var(--r-sm);box-shadow:var(--shadow-popover);padding:4px 0;font-size:var(--fs-sm)}
+.native .grp{padding:6px 10px 2px;color:var(--fg-faint);font-size:var(--fs-2xs);font-weight:600}
+.native .opt{padding:5px 10px 5px 22px;display:flex;gap:8px}
+.native .opt .st{margin-left:auto;color:var(--fg-muted);font-size:var(--fs-xs)}
+.native .opt.sel{background:var(--accent);color:#fff}.native .opt.sel .st{color:#d5e8fb}
+.native .opt.dis{color:var(--fg-faint)}
+.callout{display:inline-block;margin-left:8px;font-size:var(--fs-2xs);color:var(--warn)}
+
+/* manager */
+.mgr{width:min(980px,100%)}
+.mgr-tools{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.loop-row{display:grid;grid-template-columns:44px 1fr 200px 170px 110px;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.loop-row.head{font-size:var(--fs-2xs);color:var(--fg-faint);padding-top:8px;padding-bottom:8px}
+.loop-row.dim>*:not(.row-acts){opacity:.6}
+.loop-name{font-weight:600;color:var(--fg-strong);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.loop-sub{font-size:var(--fs-xs);color:var(--fg-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tgt{display:inline-flex;align-items:center;gap:4px;padding:0 7px;height:18px;border-radius:var(--r-pill);background:var(--accent-tint);color:#cfe3f7;font-size:var(--fs-2xs)}
+.tgt.gone{background:var(--warn-tint);color:var(--warn);text-decoration:line-through}
+.switch{width:34px;height:20px;border-radius:10px;background:#4a4a4a;position:relative;border:0;cursor:pointer}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#ddd;transition:left .15s}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"]::after{left:17px}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs)}
+.dot{width:7px;height:7px;border-radius:50%}
+.s-ok .dot{background:var(--ok)}.s-run .dot{background:var(--accent-text);box-shadow:0 0 0 3px rgba(108,182,255,.2)}.s-fail .dot{background:var(--danger)}.s-off .dot{background:var(--fg-faint)}.s-skip .dot{background:var(--warn)}
+.row-acts{display:flex;gap:2px;justify-content:flex-end}
+.hist{padding:10px 14px 14px 70px;background:#1b1b1b;border-bottom:1px solid var(--line);font-size:var(--fs-xs)}
+.hist table{border-collapse:collapse;width:100%}
+.hist th{text-align:left;font-weight:400;color:var(--fg-faint);padding:4px 8px;border-bottom:1px solid #2a2a2a;font-size:var(--fs-2xs)}
+.hist td{padding:5px 8px;border-bottom:1px solid #2a2a2a;vertical-align:top}
+.hist a{color:var(--accent-text);text-decoration:none}
+
+/* phone */
+.phone{width:375px;max-width:100%;margin:14px auto 0;border:1px solid var(--line-strong);border-radius:28px;padding:12px 0;background:#000}
+.phone .dialog{border-radius:0;border-left:0;border-right:0;box-shadow:none}
+.phone .field{grid-template-columns:1fr;gap:6px}
+.phone .field>label,.phone .field>.lbl{padding-top:0}
+.phone .ttabs{display:flex}.phone .ttabs button{flex:1;justify-content:center}
+.phone .scard{grid-template-columns:auto 1fr}.phone .scard .pill{grid-column:2;justify-self:start}.phone .scard .meta{grid-column:1/3}
+.phone .step{grid-template-columns:18px 1fr auto}.phone .step .no{display:none}.phone .step .body{grid-column:1/-1}
+.phone .dlg-foot .grow{flex:1}
+.qa{display:grid;gap:0;margin-top:10px;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.qa div{display:grid;grid-template-columns:34px 260px 1fr;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:var(--fs-xs);line-height:1.6}
+.qa div:last-child{border-bottom:0}
+.qa .q{color:var(--fg-strong)}.qa .a{color:var(--fg-muted)}.qa .a b{color:var(--fg)}
+@media (max-width:760px){
+  .field{grid-template-columns:1fr}.field>label,.field>.lbl{padding-top:0}
+  .ttabs{display:flex}.ttabs button{flex:1;justify-content:center}
+  .step{grid-template-columns:18px 1fr auto}.step .no{display:none}.step .body{grid-column:1/-1}
+  .loop-row{grid-template-columns:44px 1fr auto}.loop-row .c-next,.loop-row .c-status,.loop-row.head{display:none}
+  .hist{padding-left:14px}
+  .qa div{grid-template-columns:24px 1fr}.qa .a{grid-column:2}
+}
+</style>
+</head>
+<body>
+<header class="page-head">
+  <div class="page-title"><h1>루프 — 기존 세션에 보내기</h1><span class="muted">새 탭을 열지 않고, 이미 열려 있는 세션에 일정마다 메시지를 보낸다</span></div>
+  <nav class="nav" role="tablist">
+    <button role="tab" aria-selected="true" data-to="s1">① 편집 — 기존 세션</button>
+    <button role="tab" aria-selected="false" data-to="s2">② 세션 고르기</button>
+    <button role="tab" aria-selected="false" data-to="s3">③ 루프 관리</button>
+    <button role="tab" aria-selected="false" data-to="s4">④ 실행 기록</button>
+    <button role="tab" aria-selected="false" data-to="s5">⑤ 세션이 없어졌을 때</button>
+    <button role="tab" aria-selected="false" data-to="s6">⑥ 좁은 화면</button>
+    <button role="tab" aria-selected="false" data-to="s7">⑦ 정할 것</button>
+  </nav>
+</header>
+
+<!-- ① -->
+<section class="screen on" id="s1">
+  <h2>① 루프 편집 — 「어디서」에 탭 두 개</h2>
+  <p class="note">「언제」와 「무엇을」은 기존 시안 그대로다. <b>「어디서」만 「새 세션」 / 「기존 세션」 탭</b>으로 나눈다. 탭을 눌러 보자 — 「새 세션」은 지금의 셸·디렉터리·남겨 둘 탭, 「기존 세션」은 세션 셀렉트와 바쁠 때 옵션이다. 기존 세션에서는 <b>「세션 종료」 추가 버튼이 사라진다</b>(사용자 세션을 닫지 않는다). 셀렉트를 바꾸면 아래 카드의 폴더·에이전트 상태가 바뀐다.</p>
+  <div class="scrim">
+    <div class="dialog" role="dialog" aria-label="루프 편집">
+      <div class="dlg-head"><span style="color:var(--accent-text)">↻</span><h4>루프 편집</h4><button class="x" aria-label="닫기">✕</button></div>
+      <div class="dlg-body">
+        <div class="field"><label for="nm">이름</label><input id="nm" class="input" value="리뷰 진행 확인"></div>
+        <div class="section-label">언제</div>
+        <div class="field"><span class="lbl">반복</span>
+          <div class="seg"><button aria-pressed="false">요일마다</button><button aria-pressed="false">매월</button><button aria-pressed="false">특정 날짜</button><button aria-pressed="true">간격</button></div>
+        </div>
+        <div class="field"><span class="lbl">간격</span>
+          <div><div class="seg"><button aria-pressed="false">10분</button><button aria-pressed="false">20분</button><button aria-pressed="true">30분</button><button aria-pressed="false">1시간</button></div>
+          <div class="row" style="margin-top:8px"><span class="muted">기준 시각</span><input type="time" class="input" style="width:120px" value="09:00"></div></div>
+        </div>
+        <div class="preview">ⓘ 다음 실행: 오늘 14:30 · 그다음 15:00, 15:30</div>
+
+        <div class="section-label">어디서</div>
+        <div class="field"><span class="lbl">보낼 곳</span>
+          <div>
+            <div class="ttabs" role="tablist" aria-label="보낼 곳" id="ttabs">
+              <button role="tab" aria-selected="false" aria-controls="p-new" data-t="new"><span class="ti">＋</span>새 세션</button>
+              <button role="tab" aria-selected="true" aria-controls="p-ses" data-t="ses"><span class="ti">→</span>기존 세션</button>
+            </div>
+          </div>
+        </div>
+        <div class="tpanel" id="p-new" role="tabpanel" hidden>
+          <div class="field"><label for="sh">셸</label><div><select id="sh" class="input" style="width:220px"><option>PowerShell</option><option>cmd</option><option>WSL</option><option>bash</option></select></div></div>
+          <div class="field"><label for="dir">디렉터리</label><div><div class="row" style="flex-wrap:nowrap"><input id="dir" class="input mono" value="C:\work\git\orbit-api"><button class="btn">찾아보기…</button></div><div class="hint">세션은 <span class="mono">@schedule-{n}</span> 워크스페이스에 새 탭으로 열린다.</div></div></div>
+          <div class="field"><label for="keep">남겨 둘 탭</label><div class="row"><input id="keep" class="input" type="number" min="1" max="16" value="1" style="width:80px"><span class="muted">개</span></div></div>
+        </div>
+        <div class="tpanel" id="p-ses" role="tabpanel">
+          <div class="field"><label for="ses">세션</label>
+            <div>
+              <select id="ses" class="input" style="max-width:520px"></select>
+              <div class="scard" id="scard"></div>
+              <div class="hint">이 세션에 그대로 입력합니다. 새 탭을 열지 않습니다. 그 탭에 글을 치던 중이면 입력이 섞일 수 있습니다.</div>
+            </div>
+          </div>
+          <div class="field"><span class="lbl">바쁠 때</span>
+            <label class="check"><input type="checkbox" checked><span>에이전트가 작업 중이면 이번 실행을 건너뜁니다<div class="hint" style="margin-top:2px">끄면 작업 중이어도 그대로 보냅니다. 건너뛴 실행은 기록에 남습니다.</div></span></label>
+          </div>
+        </div>
+
+        <div class="section-label">무엇을 <span class="faint" style="font-size:11px">— 위에서 아래로 차례로</span></div>
+        <div class="steps" id="steps"></div>
+        <div class="banner danger" id="endwarn" hidden>⚠ 기존 세션에서는 세션 종료를 쓸 수 없습니다. 이 단계를 지워야 저장할 수 있습니다.</div>
+        <div class="adders">
+          <button class="btn" data-add="cmd"><span class="k-cmd">●</span> 명령</button>
+          <button class="btn" data-add="prompt"><span class="k-prompt">●</span> 프롬프트</button>
+          <button class="btn" data-add="delay"><span class="k-delay">●</span> 대기</button>
+          <button class="btn" data-add="end" id="addEnd" hidden><span class="k-end">●</span> 세션 종료</button>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn danger">삭제</button>
+        <button class="btn">지금 한 번 실행</button>
+        <span style="flex:1"></span>
+        <label class="row" style="gap:6px;margin-right:8px"><button class="switch" role="switch" aria-checked="true"></button>켜짐</label>
+        <button class="btn">취소</button>
+        <button class="btn primary" id="save">저장</button>
+      </div>
+    </div>
+  </div>
+  <h3>바뀐 곳</h3>
+  <div class="qa">
+    <div><span>1</span><span class="q">탭 기본값</span><span class="a">새 루프는 <b>「새 세션」</b>. 탭을 바꿔도 다른 탭의 입력값은 저장 전까지 남는다. 저장되는 것은 보이는 탭 하나뿐.</span></div>
+    <div><span>2</span><span class="q">세션 셀렉트</span><span class="a">네이티브 <span class="mono">&lt;select&gt;</span> + 워크스페이스별 <span class="mono">optgroup</span>. 옵션 글자 「세션 — 상태」. <span class="mono">@schedule-*</span> 탭은 빼고, 셸이 끝난 탭은 고를 수 없게 보인다.</span></div>
+    <div><span>3</span><span class="q">저장 값</span><span class="a"><b>탭 id</b>(서버 재시작·탭 다시 시작에도 그대로) + 표시용 「워크스페이스 : 세션」 이름.</span></div>
+    <div><span>4</span><span class="q">보내는 방식</span><span class="a">지금 단계 규칙과 같다. 명령·프롬프트는 글을 쓰고 600ms 뒤 Enter 를 따로. 대기는 적힌 ms.</span></div>
+  </div>
+</section>
+
+<!-- ② -->
+<section class="screen" id="s2">
+  <h2>② 세션 셀렉트를 펼친 모습</h2>
+  <p class="note">OS 가 그리는 목록이라 모양은 브라우저마다 조금 다르다. 순서는 <b>워크스페이스 화면 순서 → 그 안의 탭 순서</b>. 맨 위 「세션을 고르세요」는 고를 수 없는 안내 줄이다. 에이전트 상태는 옵션 끝에 글로 붙이고, 고른 뒤에는 아래 카드에 칩으로 그린다(Messenger 세션 고르기와 같은 칩).</p>
+  <div class="scrim" style="justify-content:flex-start;padding-left:40px">
+    <div class="native">
+      <div class="input" style="display:flex;align-items:center;justify-content:space-between;border-color:var(--accent)"><span>ProjectMaster : claude-리뷰</span><span class="faint">▾</span></div>
+      <div class="list" role="listbox" aria-label="세션">
+        <div class="opt dis">세션을 고르세요</div>
+        <div class="grp">ProjectMaster</div>
+        <div class="opt">api-server<span class="st">에이전트 없음</span></div>
+        <div class="opt sel">claude-리뷰<span class="st">Claude 작업 중</span></div>
+        <div class="opt">codex-테스트<span class="st">Codex 입력 대기</span></div>
+        <div class="grp">orbit-api</div>
+        <div class="opt">빌드 감시<span class="st">에이전트 없음</span></div>
+        <div class="opt">codex-마이그레이션<span class="st">Codex 입력 대기</span></div>
+        <div class="opt dis">오래된 셸<span class="st">셸 종료됨</span></div>
+        <div class="grp">market-lab</div>
+        <div class="opt">시황 분석<span class="st">Claude 입력 대기</span></div>
+      </div>
+    </div>
+    <div style="margin-left:24px;max-width:300px" class="note">
+      <p><b>빠지는 것</b> — <span class="mono">@schedule-0</span>, <span class="mono">@schedule-1</span> 의 탭. 루프가 만든 일회성 탭이라 다른 루프의 대상이 되면 꼬인다.</p>
+      <p><b>흐린 줄</b> — 「오래된 셸」은 셸이 끝나 입력을 받지 않는다. 보이지만 고를 수 없다. 탭을 다시 시작하면 고를 수 있다.</p>
+      <p><b>이름</b> — 탭 이름(별칭이 있으면 별칭). 같은 이름이 둘이면 뒤에 폴더 끝 이름을 붙인다: 「빌드 감시 (orbit-api)」.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ③ -->
+<section class="screen" id="s3">
+  <h2>③ 루프 관리 — 두 종류가 섞인 목록</h2>
+  <p class="note">기존 세션 루프는 두 번째 줄에 <b>파란 「→ 워크스페이스 : 세션」 칩</b>을 단다. 새 세션 루프는 지금처럼 셸 · 디렉터리. 세션이 사라져 꺼진 루프는 노란 「세션 없음」 표지와 줄 그은 칩. 기록이 있는 첫 줄을 누르면 펼친다(④).</p>
+  <div class="scrim">
+    <div class="dialog mgr" role="dialog" aria-label="루프">
+      <div class="dlg-head"><span style="color:var(--accent-text)">↻</span><h4>루프</h4><button class="x" aria-label="닫기">✕</button></div>
+      <div class="mgr-tools"><button class="btn primary" data-goto="s1">＋ 새 루프</button><span style="flex:1"></span><input class="input" style="width:200px" placeholder="이름·명령·세션 검색"></div>
+      <div class="loop-row head"><span>켜짐</span><span>이름 · 일정 · 보낼 곳</span><span class="c-next">다음 실행</span><span class="c-status">마지막 결과</span><span></span></div>
+      <div class="loop-row" data-hist="h3" style="cursor:pointer">
+        <button class="switch" role="switch" aria-checked="true" aria-label="켜기"></button>
+        <div><div class="loop-name">리뷰 진행 확인</div><div class="loop-sub">30분마다 · <span class="tgt">→ ProjectMaster : claude-리뷰</span> · 단계 1개</div></div>
+        <div class="c-next">오늘 14:30<div class="faint" style="font-size:11px">8분 뒤</div></div>
+        <div class="c-status"><span class="status s-skip"><span class="dot"></span>건너뜀 · 에이전트 작업 중</span></div>
+        <div class="row-acts"><button class="icon-btn" title="지금 실행">▶</button><button class="icon-btn" title="편집" data-goto="s1">✎</button><button class="icon-btn" title="더 보기">⋯</button></div>
+      </div>
+      <div class="hist" id="h3" hidden>
+        <table><tr><th>시각</th><th>결과</th><th>보낼 곳</th><th>단계</th><th></th></tr>
+          <tr><td>오늘 14:00</td><td><span class="status s-skip"><span class="dot"></span>건너뜀</span></td><td>ProjectMaster : claude-리뷰</td><td class="muted">에이전트가 작업 중이었습니다</td><td><a href="#">탭 열기</a></td></tr>
+          <tr><td>오늘 13:30</td><td><span class="status s-ok"><span class="dot"></span>성공</span></td><td>ProjectMaster : claude-리뷰</td><td class="muted">보냄 1/1</td><td><a href="#">탭 열기</a></td></tr>
+        </table>
+      </div>
+      <div class="loop-row">
+        <button class="switch" role="switch" aria-checked="true" aria-label="켜기"></button>
+        <div><div class="loop-name">아침 주식 시황</div><div class="loop-sub">월 화 수 목 금 · 08:30 · pwsh · <span class="mono">C:\work\market</span> · 단계 4개</div></div>
+        <div class="c-next">내일(월) 08:30<div class="faint" style="font-size:11px">18시간 뒤</div></div>
+        <div class="c-status"><span class="status s-ok"><span class="dot"></span>성공 · 오늘 08:30</span></div>
+        <div class="row-acts"><button class="icon-btn" title="지금 실행">▶</button><button class="icon-btn" title="편집">✎</button><button class="icon-btn" title="더 보기">⋯</button></div>
+      </div>
+      <div class="loop-row">
+        <button class="switch" role="switch" aria-checked="true" aria-label="켜기"></button>
+        <div><div class="loop-name">마이그레이션 계속</div><div class="loop-sub">1시간마다 · <span class="tgt">→ orbit-api : codex-마이그레이션</span> · 단계 2개</div></div>
+        <div class="c-next">오늘 15:00<div class="faint" style="font-size:11px">38분 뒤</div></div>
+        <div class="c-status"><span class="status s-run"><span class="dot"></span>보내는 중 · 1/2 단계</span></div>
+        <div class="row-acts"><button class="icon-btn" title="지금 실행" disabled>▶</button><button class="icon-btn" title="편집">✎</button><button class="icon-btn" title="더 보기">⋯</button></div>
+      </div>
+      <div class="loop-row dim">
+        <button class="switch" role="switch" aria-checked="false" aria-label="켜기"></button>
+        <div><div class="loop-name">시황 요약 요청 <span class="pill p-warn">세션 없음</span></div><div class="loop-sub">요일마다 · 17:00 · <span class="tgt gone">→ market-lab : 시황-old</span> · 단계 1개</div></div>
+        <div class="c-next faint">꺼짐</div>
+        <div class="c-status"><span class="status s-skip"><span class="dot"></span>건너뜀 · 세션 없음</span></div>
+        <div class="row-acts"><button class="icon-btn" title="지금 실행">▶</button><button class="icon-btn" title="편집" data-goto="s5">✎</button><button class="icon-btn" title="더 보기">⋯</button></div>
+      </div>
+      <div class="dlg-foot"><span class="muted" style="font-size:12px">루프는 서버에서 돈다. 브라우저를 닫아도 일정대로 실행된다.</span><span style="flex:1"></span><button class="btn">닫기</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ④ -->
+<section class="screen" id="s4">
+  <h2>④ 실행 기록 — 기존 세션 루프</h2>
+  <p class="note">새 세션 루프와 같은 표에 <b>「보낼 곳」</b>열이 「워크스페이스 : 세션」이 된다. 건너뜀에는 이유를 적는다. 「탭 열기」는 그 세션 탭으로 화면을 옮긴다(세션이 없으면 링크가 없다). 최근 50건.</p>
+  <div class="scrim">
+    <div class="dialog mgr" role="dialog" aria-label="루프">
+      <div class="dlg-head"><span style="color:var(--accent-text)">↻</span><h4>루프</h4><button class="x" aria-label="닫기">✕</button></div>
+      <div class="loop-row">
+        <button class="switch" role="switch" aria-checked="true" aria-label="켜기"></button>
+        <div><div class="loop-name">마이그레이션 계속</div><div class="loop-sub">1시간마다 · <span class="tgt">→ orbit-api : codex-마이그레이션</span> · 단계 2개</div></div>
+        <div class="c-next">오늘 15:00</div>
+        <div class="c-status"><span class="status s-run"><span class="dot"></span>보내는 중 · 1/2 단계</span></div>
+        <div class="row-acts"><button class="icon-btn" disabled>▶</button><button class="icon-btn">✎</button></div>
+      </div>
+      <div class="hist">
+        <table>
+          <tr><th>시각</th><th>결과</th><th>보낼 곳</th><th>단계 · 이유</th><th></th></tr>
+          <tr><td>오늘 14:00</td><td><span class="status s-run"><span class="dot"></span>보내는 중</span></td><td>orbit-api : codex-마이그레이션</td><td class="muted">1/2 · 대기 5초 중</td><td><a href="#">탭 열기</a></td></tr>
+          <tr><td>오늘 13:00</td><td><span class="status s-ok"><span class="dot"></span>성공</span></td><td>orbit-api : codex-마이그레이션</td><td class="muted">보냄 2/2</td><td><a href="#">탭 열기</a></td></tr>
+          <tr><td>오늘 12:00</td><td><span class="status s-skip"><span class="dot"></span>건너뜀</span></td><td>orbit-api : codex-마이그레이션</td><td class="muted">에이전트가 작업 중이었습니다</td><td><a href="#">탭 열기</a></td></tr>
+          <tr><td>오늘 11:00</td><td><span class="status s-skip"><span class="dot"></span>건너뜀</span></td><td>orbit-api : codex-마이그레이션</td><td class="muted">세션이 꺼져 있습니다 (셸 종료됨)</td><td><a href="#">탭 열기</a></td></tr>
+          <tr><td>오늘 10:30</td><td><span class="status s-ok"><span class="dot"></span>성공</span></td><td>orbit-api : codex-마이그레이션</td><td class="muted">보냄 2/2 · 지금 한 번 실행</td><td><a href="#">탭 열기</a></td></tr>
+          <tr><td>오늘 10:00</td><td><span class="status s-fail"><span class="dot"></span>중단</span></td><td>orbit-api : codex-마이그레이션</td><td class="muted">1/2 · 탭이 닫혔습니다</td><td></td></tr>
+          <tr><td>오늘 09:00</td><td><span class="status s-skip"><span class="dot"></span>건너뜀</span></td><td>orbit-api : codex-마이그레이션</td><td class="muted">앞 실행이 아직 진행 중이었습니다</td><td><a href="#">탭 열기</a></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <h3>결과와 이유</h3>
+  <div class="qa">
+    <div><span class="status s-ok"><span class="dot"></span></span><span class="q">성공</span><span class="a">모든 단계를 보냈다. 「보냄 n/n」.</span></div>
+    <div><span class="status s-skip"><span class="dot"></span></span><span class="q">건너뜀</span><span class="a">한 글자도 보내지 않았다. 이유: <b>세션이 없어 루프를 껐습니다</b> · <b>세션이 꺼져 있습니다</b> · <b>에이전트가 작업 중이었습니다</b> · 앞 실행이 아직 진행 중이었습니다(지금 규칙).</span></div>
+    <div><span class="status s-fail"><span class="dot"></span></span><span class="q">중단 · 실패</span><span class="a">보내던 중 멈췄다. 탭이 닫혔습니다 · 루프를 껐습니다 · 세션이 입력을 받지 않았습니다(지금 사유 재사용).</span></div>
+  </div>
+</section>
+
+<!-- ⑤ -->
+<section class="screen" id="s5">
+  <h2>⑤ 저장한 세션이 없어졌을 때</h2>
+  <p class="note">사용자가 그 탭을 지웠다. 지운 탭의 id 는 돌아오지 않으므로 <b>다음 실행 시각에 서버가 루프를 끄고</b> 「세션이 없어 루프를 껐습니다」를 남긴다(권장안, ⑦ Q1). 편집 창을 열면 셀렉트는 <b>「(없음) 워크스페이스 : 세션」</b>을 고른 채 보이고, 노란 띠가 다음 할 일을 알려 준다. 다른 세션을 고르거나 새 세션으로 바꾸고 켜서 저장하면 다시 돈다.</p>
+  <div class="scrim">
+    <div class="dialog" role="dialog" aria-label="루프 편집">
+      <div class="dlg-head"><span style="color:var(--accent-text)">↻</span><h4>루프 편집</h4><button class="x" aria-label="닫기">✕</button></div>
+      <div class="dlg-body">
+        <div class="banner warn"><span>⚠</span><span>이 루프가 보내던 세션이 없어졌습니다. 그래서 루프를 껐습니다(11/07 17:00).<br>다른 세션을 고르거나 새 세션으로 바꾼 뒤 켜서 저장하세요.</span></div>
+        <div class="field"><label>이름</label><input class="input" value="시황 요약 요청"></div>
+        <div class="section-label">어디서</div>
+        <div class="field"><span class="lbl">보낼 곳</span><div class="ttabs" role="tablist"><button role="tab" aria-selected="false"><span class="ti">＋</span>새 세션</button><button role="tab" aria-selected="true"><span class="ti">→</span>기존 세션</button></div></div>
+        <div class="field"><label for="ses5">세션</label>
+          <div>
+            <select id="ses5" class="input err" style="max-width:520px">
+              <option disabled selected>(없음) market-lab : 시황-old</option>
+              <optgroup label="market-lab"><option>시황 분석 — Claude 입력 대기</option></optgroup>
+              <optgroup label="ProjectMaster"><option>api-server — 에이전트 없음</option><option>claude-리뷰 — Claude 작업 중</option></optgroup>
+            </select>
+            <div class="errtext">세션을 고르세요.</div>
+          </div>
+        </div>
+        <h3 style="margin:4px 0 0">고를 세션이 하나도 없을 때</h3>
+        <div class="field"><span class="lbl">세션</span><div class="empty-box">보낼 수 있는 세션이 없습니다. 먼저 탭을 여세요.<div style="margin-top:8px"><button class="btn">「새 세션」으로 바꾸기</button></div></div></div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn danger">삭제</button><span style="flex:1"></span>
+        <label class="row" style="gap:6px;margin-right:8px"><button class="switch" role="switch" aria-checked="false"></button>꺼짐</label>
+        <button class="btn">취소</button><button class="btn primary" disabled>저장</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑥ -->
+<section class="screen" id="s6">
+  <h2>⑥ 좁은 화면(휴대폰, 375px)</h2>
+  <p class="note">라벨이 필드 위로 올라가고, 탭 두 개는 폭을 반씩 나눠 꽉 채운다. 셀렉트를 누르면 OS 피커가 뜨며 <span class="mono">optgroup</span> 머리글이 그대로 보인다. 카드의 상태 칩은 이름 아래로 내려간다. 「언제」는 기존 시안의 좁은 화면 규칙을 따르므로 여기서는 접었다.</p>
+  <div class="phone">
+    <div class="dialog" role="dialog" aria-label="루프 편집">
+      <div class="dlg-head"><span style="color:var(--accent-text)">↻</span><h4>루프 편집</h4><button class="x" aria-label="닫기">✕</button></div>
+      <div class="dlg-body" style="gap:14px">
+        <div class="field"><label>이름</label><input class="input" value="리뷰 진행 확인"></div>
+        <div class="preview">ⓘ 30분마다 · 다음 14:30</div>
+        <div class="section-label">어디서</div>
+        <div class="ttabs" role="tablist"><button role="tab" aria-selected="false"><span class="ti">＋</span>새 세션</button><button role="tab" aria-selected="true"><span class="ti">→</span>기존 세션</button></div>
+        <div class="field"><label>세션</label>
+          <div>
+            <select class="input"><optgroup label="ProjectMaster"><option>api-server — 에이전트 없음</option><option selected>claude-리뷰 — Claude 작업 중</option></optgroup><optgroup label="orbit-api"><option>codex-마이그레이션 — Codex 입력 대기</option></optgroup></select>
+            <div class="scard"><span class="ico">→</span><div><div class="ws">ProjectMaster</div><div class="nm">claude-리뷰</div></div><span class="pill p-ok">Claude 작업 중</span><div class="meta mono">C:\work\git\ProjectMaster · PowerShell</div></div>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" checked><span>에이전트가 작업 중이면 건너뜁니다</span></label>
+        <div class="section-label">무엇을</div>
+        <div class="step"><span class="grip">⋮⋮</span><span class="kind k-prompt">프롬프트</span><span><button class="icon-btn">✕</button></span><div class="body"><textarea class="input" rows="2">진행 상황을 세 줄로 요약하고, 막힌 곳이 있으면 알려 줘.</textarea></div></div>
+        <div class="adders"><button class="btn"><span class="k-cmd">●</span> 명령</button><button class="btn"><span class="k-prompt">●</span> 프롬프트</button><button class="btn"><span class="k-delay">●</span> 대기</button></div>
+      </div>
+      <div class="dlg-foot"><button class="btn">지금 실행</button><span class="grow"></span><button class="btn">취소</button><button class="btn primary">저장</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑦ -->
+<section class="screen" id="s7">
+  <h2>⑦ 정할 것 — 권장안</h2>
+  <p class="note">아래는 제품 책임자 결정이 필요한 항목과 권장안이다. 실행 규칙 전체는 계획 문서 §4 에 있다.</p>
+  <div class="qa">
+    <div><span>Q1</span><span class="q">저장한 탭이 지워지면</span><span class="a"><b>루프를 자동으로 끈다</b>(기록 「세션이 없어 루프를 껐습니다」, 관리 창 「세션 없음」). 대안: 켜 둔 채 매번 건너뜀 — 지운 탭은 돌아오지 않으므로 기록만 쌓인다.</span></div>
+    <div><span>Q2</span><span class="q">에이전트가 작업 중이면</span><span class="a"><b>기본은 건너뜀</b>, 체크박스로 끌 수 있다. 「끝날 때까지 기다렸다 보내기」는 이번 범위 밖.</span></div>
+    <div><span>Q3</span><span class="q">같은 세션을 여러 루프가 고르면</span><span class="a"><b>허용</b>. 같은 순간이면 서버가 하나씩 차례로 보낸다. 편집 창에 「이 세션에 보내는 루프가 1개 더 있습니다」 안내.</span></div>
+    <div><span>Q4</span><span class="q">Enter 없이 붙여 넣기만</span><span class="a"><b>넣지 않는다</b>. 지금 단계 규칙(글 → 600ms → Enter)을 그대로 쓴다.</span></div>
+    <div><span>Q5</span><span class="q">저장하는 id</span><span class="a"><b>탭 id</b>. 서버 재시작(orphan recovery)과 탭 다시 시작에도 그대로이고 탭을 지울 때만 사라진다. <span class="mono">sessionId</span> 는 재시작마다 바뀌고, <span class="mono">sessionKey</span> 는 중복 감지 때 재발급될 수 있다. Messenger 와 맞추려면 sessionKey 도 가능.</span></div>
+    <div><span>Q6</span><span class="q">사용자가 그 탭에 치던 중이면</span><span class="a"><b>감지하지 않고 보낸다</b>(입력이 섞일 수 있음). 편집 창 힌트로 알린다.</span></div>
+    <div><span>—</span><span class="q">바뀌지 않는 것</span><span class="a">「언제」 전부 · 단계 종류(세션 종료 제외) · 겹침 건너뜀 · 최근 50건 · 서버 현지 시각.</span></div>
+    <div><span>—</span><span class="q">기존 세션에서 안 하는 것</span><span class="a">새 탭 · <span class="mono">@schedule-{n}</span> · 탭 한도 32 · 남겨 둘 탭 · 디렉터리 확인 · 탭 이름 「#회차」 붙이기.</span></div>
+  </div>
+</section>
+
+<script>
+const show = id => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+  document.querySelectorAll('.nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.to === id));
+  window.scrollTo(0, 0);
+};
+document.querySelectorAll('.nav button').forEach(b => b.onclick = () => show(b.dataset.to));
+document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); show(b.dataset.goto); }));
+document.querySelectorAll('.switch').forEach(s => s.addEventListener('click', e => { e.stopPropagation(); s.setAttribute('aria-checked', s.getAttribute('aria-checked') !== 'true'); }));
+document.querySelectorAll('.loop-row[data-hist]').forEach(r => r.addEventListener('click', e => {
+  if (e.target.closest('button')) return;
+  const h = document.getElementById(r.dataset.hist); h.hidden = !h.hidden;
+}));
+
+// sessions: grouped by workspace, @schedule-* left out
+const SESSIONS = [
+  { ws: 'ProjectMaster', name: 'api-server', cwd: 'C:\\work\\git\\ProjectMaster\\server', shell: 'PowerShell', st: 'n', label: '에이전트 없음' },
+  { ws: 'ProjectMaster', name: 'claude-리뷰', cwd: 'C:\\work\\git\\ProjectMaster', shell: 'PowerShell', st: 'ok', label: 'Claude 작업 중' },
+  { ws: 'ProjectMaster', name: 'codex-테스트', cwd: 'C:\\work\\git\\ProjectMaster\\frontend', shell: 'WSL', st: 'wait', label: 'Codex 입력 대기' },
+  { ws: 'orbit-api', name: '빌드 감시', cwd: '~/work/orbit-api', shell: 'bash', st: 'n', label: '에이전트 없음' },
+  { ws: 'orbit-api', name: 'codex-마이그레이션', cwd: '~/work/orbit-api/db', shell: 'bash', st: 'wait', label: 'Codex 입력 대기' },
+  { ws: 'orbit-api', name: '오래된 셸', cwd: '~/work/orbit-api', shell: 'bash', st: 'off', label: '셸 종료됨', off: true },
+  { ws: 'market-lab', name: '시황 분석', cwd: 'C:\\work\\market', shell: 'PowerShell', st: 'wait', label: 'Claude 입력 대기' },
+  { ws: '@schedule-0', name: '아침 주식 시황 #12', cwd: 'C:\\work\\market', shell: 'PowerShell', st: 'n', label: '', schedule: true },
+];
+const sel = document.getElementById('ses');
+const ph = new Option('세션을 고르세요', ''); ph.disabled = true; sel.append(ph);
+const groups = {};
+SESSIONS.forEach((s, i) => {
+  if (s.schedule) return;
+  if (!groups[s.ws]) { groups[s.ws] = document.createElement('optgroup'); groups[s.ws].label = s.ws; sel.append(groups[s.ws]); }
+  const o = new Option(`${s.name} — ${s.label}`, String(i)); o.disabled = !!s.off; groups[s.ws].append(o);
+});
+sel.value = '1';
+const card = document.getElementById('scard');
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+function renderCard() {
+  const s = SESSIONS[Number(sel.value)];
+  sel.classList.toggle('err', !s);
+  if (!s) { card.innerHTML = '<span class="ico">→</span><div class="nm muted">아직 고르지 않았습니다</div>'; return; }
+  card.innerHTML = `<span class="ico">→</span><div><div class="ws">${esc(s.ws)}</div><div class="nm">${esc(s.name)}</div></div><span class="pill p-${s.st}">${esc(s.label)}</span><div class="meta mono">${esc(s.cwd)} · ${esc(s.shell)}</div>`;
+}
+sel.onchange = renderCard; renderCard();
+
+// target tabs
+let target = 'ses';
+const tabs = document.querySelectorAll('#ttabs button');
+function setTarget(t) {
+  target = t;
+  tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
+  document.getElementById('p-new').hidden = t !== 'new';
+  document.getElementById('p-ses').hidden = t !== 'ses';
+  renderSteps();
+}
+tabs.forEach(b => b.onclick = () => setTarget(b.dataset.t));
+document.getElementById('ttabs').addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const next = target === 'new' ? 'ses' : 'new'; setTarget(next);
+  document.querySelector(`#ttabs [data-t="${next}"]`).focus();
+});
+
+// steps
+const LABEL = { cmd: '명령', prompt: '프롬프트', delay: '대기', end: '세션 종료' };
+let steps = [{ k: 'prompt', v: '진행 상황을 세 줄로 요약하고, 막힌 곳이 있으면 알려 줘.' }];
+function renderSteps() {
+  const box = document.getElementById('steps'); box.innerHTML = '';
+  steps.forEach((s, i) => {
+    const el = document.createElement('div');
+    const bad = s.k === 'end' && target === 'ses';
+    el.className = 'step' + (bad ? ' bad' : '');
+    let body;
+    if (s.k === 'cmd') body = `<input class="input mono" value="${esc(s.v)}" placeholder="셸에 입력할 명령">`;
+    else if (s.k === 'prompt') body = `<textarea class="input" rows="2" placeholder="에이전트에 보낼 글">${esc(s.v)}</textarea>`;
+    else if (s.k === 'delay') body = `<div class="row"><input class="input mono" type="number" min="0" step="100" value="${esc(s.v)}" style="width:110px"><span class="muted">ms</span></div>`;
+    else body = `<div style="padding-top:6px;color:var(--danger-text)">탭을 닫고 셸을 끝냅니다.</div>`;
+    el.innerHTML = `<span class="grip">⋮⋮</span><span class="no">${i + 1}</span><span class="kind k-${s.k}">${LABEL[s.k]}</span><div class="body">${body}</div><span><button class="icon-btn del" title="삭제">✕</button></span>`;
+    const inp = el.querySelector('.body input, .body textarea');
+    if (inp) inp.oninput = () => { s.v = inp.value; };
+    el.querySelector('.del').onclick = () => { steps.splice(i, 1); renderSteps(); };
+    box.append(el);
+  });
+  const hasEnd = steps.some(s => s.k === 'end');
+  const ended = steps.at(-1)?.k === 'end';
+  document.getElementById('addEnd').hidden = target === 'ses' || ended;
+  document.querySelectorAll('[data-add]:not([data-add="end"])').forEach(b => b.disabled = ended);
+  const bad = hasEnd && target === 'ses';
+  document.getElementById('endwarn').hidden = !bad;
+  document.getElementById('save').disabled = bad;
+}
+document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+  const k = b.dataset.add;
+  steps.push({ k, v: k === 'delay' ? '5000' : '' });
+  renderSteps();
+});
+renderSteps();
+</script>
+</body>
+</html>

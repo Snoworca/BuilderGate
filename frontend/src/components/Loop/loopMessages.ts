@@ -7,6 +7,9 @@ const REJECTIONS = {
   shell: 'loop.error.shell',
   cwd: 'loop.error.cwd',
   keepTabs: 'loop.error.keepTabs',
+  target: 'loop.error.target',
+  session: 'loop.error.session',
+  sessionMissing: 'loop.error.sessionMissing',
   schedule: 'loop.error.schedule',
   interval: 'loop.error.interval',
   startsAt: 'loop.error.startsAt',
@@ -16,6 +19,7 @@ const REJECTIONS = {
   commandMultiline: 'loop.error.commandMultiline',
   delay: 'loop.error.delay',
   endNotLast: 'loop.error.endNotLast',
+  endNotAllowed: 'loop.error.endNotAllowed',
   step: 'loop.error.step',
 } as const satisfies Record<string, MessageKey>;
 
@@ -61,4 +65,7 @@ export const RUN_REASON_KEYS = {
   restart: 'loop.reason.restart',
   inputRejected: 'loop.reason.inputRejected',
   error: 'loop.reason.error',
+  sessionMissing: 'loop.reason.sessionMissing',
+  sessionStopped: 'loop.reason.sessionStopped',
+  agentBusy: 'loop.reason.agentBusy',
 } as const satisfies Record<LoopRunReason, MessageKey>;

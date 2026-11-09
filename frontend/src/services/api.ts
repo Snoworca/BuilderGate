@@ -2,7 +2,7 @@
  * API Service
  * Phase 7: Frontend Security - Auth API added
  */
-import type { LoopInput, LoopRun, LoopView } from '../components/Loop/loopTypes.ts';
+import type { LoopInput, LoopRun, LoopSessionOption, LoopView } from '../components/Loop/loopTypes.ts';
 import type { Contact, Invite, InvitePolicy, MessengerState, Room, RoomDetail, SearchResult, SendResult } from '../components/Messenger/messengerTypes.ts';
 import { messengerErrorKey, messengerErrorParams } from '../components/Messenger/messengerErrors.ts';
 import type { PeerLinksRejection, PeerLinksResponse } from '../components/McpControlManager/peerLinksModel.ts';
@@ -1045,6 +1045,12 @@ export const loopApi = {
     const res = await authFetch(`${API_BASE}/loops/${encodeURIComponent(id)}/runs`, { headers: getAuthHeaders() });
     if (!res.ok) throw await parseError(res);
     return (await res.json()).runs;
+  },
+  /** FR-LOOP-008 AC-7: the tabs an existing-session loop can send to. */
+  sessions: async (): Promise<LoopSessionOption[]> => {
+    const res = await authFetch(`${API_BASE}/loops/sessions`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).sessions;
   },
 };
 

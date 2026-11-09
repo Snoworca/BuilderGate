@@ -46,16 +46,14 @@ export function localDate(at: Date): string {
   return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
 }
 
-/** A new loop: weekdays at the next whole hour, no folder and no steps yet. */
+/** A new loop: weekdays at the next whole hour, a new session in no folder, and no steps yet. */
 export function newLoopDraft(now: Date): LoopInput {
   const hour = (now.getHours() + 1) % 24;
   return {
     name: '',
     enabled: true,
     schedule: { kind: 'weekly', days: [1, 2, 3, 4, 5], times: [`${pad(hour)}:00`] },
-    shell: 'auto',
-    cwd: '',
-    keepTabs: 1,
+    target: { kind: 'new', shell: 'auto', cwd: '', keepTabs: 1 },
     steps: [],
   };
 }

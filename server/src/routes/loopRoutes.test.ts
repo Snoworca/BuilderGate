@@ -17,11 +17,19 @@ const runtime: LoopRuntimePort = {
   createWorkspace: async () => 'ws',
   openTab: async () => ({ tabId: 't', sessionId: 's' }),
   closeTab: async () => undefined,
-  tabExists: () => true,
+  tabExists: (tabId) => tabId === 't' || liveTabs.has(tabId),
   submit: async () => true,
   sleep: async () => undefined,
   directoryExists: async () => true,
+  inspectTab: (tabId) => (liveTabs.has(tabId) ? userTab(tabId) : null),
+  listTabs: () => [...liveTabs].map(userTab),
 };
+
+// FR-LOOP-008: the user's tabs an existing-session loop may point at.
+const liveTabs = new Set<string>();
+function userTab(tabId: string) {
+  return { tabId, workspaceId: 'w1', workspaceName: 'ProjectMaster', tabName: `tab ${tabId}`, cwd: '/work', shell: 'bash', sessionId: `s-${tabId}`, agent: null };
+}
 
 const body = {
   name: '시황',
@@ -99,4 +107,51 @@ test('FR-LOOP-001 AC-2/AC-3: an invalid loop answers 400 with the reason; an unk
     assert.equal((await req('PUT', '/api/loops/nope', body)).status, 404);
     assert.equal((await req('POST', '/api/loops/nope/run')).json.error.code, 'LOOP_NOT_FOUND');
   });
+});
+
+test('FR-LOOP-008 AC-7: the list says whether a loop\'s tab is gone, and /sessions lists the tabs to choose from', async () => {
+  liveTabs.add('mine');
+  try {
+    await withRoutes(async (req) => {
+      const sessions = await req('GET', '/api/loops/sessions');
+      assert.equal(sessions.status, 200);
+      assert.deepEqual(sessions.json.sessions, [
+        { tabId: 'mine', workspaceId: 'w1', workspaceName: 'ProjectMaster', tabName: 'tab mine', cwd: '/work', shell: 'bash', alive: true, agent: null },
+      ]);
+      const { shell: _shell, cwd: _cwd, ...rest } = body;
+      const created = await req('POST', '/api/loops', { ...rest, target: { kind: 'session', tabId: 'mine' } });
+      assert.equal(created.status, 201);
+      assert.equal(created.json.loop.targetMissing, false);
+      assert.deepEqual(created.json.loop.target.label, { workspaceName: 'ProjectMaster', tabName: 'tab mine' });
+      assert.equal((await req('POST', '/api/loops', body)).json.loop.targetMissing, false);
+      liveTabs.delete('mine');
+      const listed = await req('GET', '/api/loops');
+      assert.deepEqual(listed.json.loops.map((loop: { targetMissing: boolean }) => loop.targetMissing), [true, false]);
+      const refused = await req('POST', '/api/loops', { ...rest, target: { kind: 'session', tabId: 'mine' } });
+      assert.equal(refused.json.error.details.reason, 'sessionMissing');
+    });
+  } finally {
+    liveTabs.clear();
+  }
+});
+
+test('FR-LOOP-008 AC-9: each run in the history says whether its tab is still open', async () => {
+  liveTabs.add('mine');
+  try {
+    await withRoutes(async (req) => {
+      const { shell: _shell, cwd: _cwd, ...rest } = body;
+      const id = (await req('POST', '/api/loops', { ...rest, target: { kind: 'session', tabId: 'mine' } })).json.loop.id;
+      await req('POST', `/api/loops/${id}/run`);
+      let runs = await req('GET', `/api/loops/${id}/runs`);
+      for (let i = 0; i < 100 && runs.json.runs[0]?.result === 'running'; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        runs = await req('GET', `/api/loops/${id}/runs`);
+      }
+      assert.equal(runs.json.runs[0].tabOpen, true);
+      liveTabs.delete('mine');
+      assert.equal((await req('GET', `/api/loops/${id}/runs`)).json.runs[0].tabOpen, false);
+    });
+  } finally {
+    liveTabs.clear();
+  }
 });

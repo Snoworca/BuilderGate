@@ -21,6 +21,10 @@ const runtime: LoopRuntimePort = {
   submit: async () => true,
   sleep: async () => undefined,
   directoryExists: async () => true,
+  inspectTab: (tabId) => (tabId === 'mine'
+    ? { tabId, workspaceId: 'w1', workspaceName: 'ProjectMaster', tabName: 'api-server', cwd: '/work', shell: 'bash', sessionId: 's-mine', agent: null }
+    : null),
+  listTabs: () => [],
 };
 
 const definition = {
@@ -101,8 +105,7 @@ test('FR-LOOP-007 AC-4: update changes only the fields given', async () => {
     assert.equal(updated.ok, true);
     const stored = loops.get(String(loop.loopId))!;
     assert.equal(stored.enabled, false);
-    assert.equal(stored.keepTabs, 3);
-    assert.equal(stored.cwd, '/work/market');
+    assert.deepEqual(stored.target, { kind: 'new', shell: 'bash', cwd: '/work/market', keepTabs: 3 });
     assert.equal(stored.steps.length, 3);
   });
 });
@@ -153,5 +156,54 @@ test('FR-LOOP-007 AC-1: the create schema spells out every schedule and step sha
     assert.deepEqual(kinds((properties.schedule as Rec).oneOf), ['interval', 'monthly', 'once', 'weekly']);
     assert.deepEqual(kinds(((properties.steps as Rec).items as Rec).oneOf), ['command', 'delay', 'end', 'prompt']);
     assert.equal(typeof (properties.shell as Rec).description, 'string');
+  });
+});
+
+test('FR-LOOP-008 AC-10: create and update take an existing-session target with the same checks', async () => {
+  await withTools(async (call, loops) => {
+    const { shell: _shell, cwd: _cwd, ...rest } = definition;
+    const target = { kind: 'session', tabId: 'mine' };
+    const created = await call('buildergate.loop.create', { ...rest, name: 'ping', target, steps: [{ kind: 'prompt', text: 'status?' }] });
+    assert.equal(created.ok, true);
+    const id = String((created.loop as Rec).loopId);
+    assert.deepEqual(loops.get(id)!.target, { kind: 'session', tabId: 'mine', label: { workspaceName: 'ProjectMaster', tabName: 'api-server' }, skipWhenBusy: true });
+    const refused = await call('buildergate.loop.create', { ...rest, target, steps: [{ kind: 'prompt', text: 'x' }, { kind: 'end' }] });
+    assert.equal((refused.fieldErrors as Rec).reason, 'endNotAllowed');
+    // shell alone only edits a new-session loop; on a session loop it is refused and nothing changes.
+    assert.equal((await call('buildergate.loop.update', { loopId: id, shell: 'zsh' })).code, 'VALIDATION_ERROR');
+    assert.equal(loops.get(id)!.target.kind, 'session');
+    // Switching the target back to a new session.
+    const back = await call('buildergate.loop.update', { loopId: id, target: { kind: 'new', shell: 'bash', cwd: '/w' } });
+    assert.equal(back.ok, true);
+    assert.deepEqual(loops.get(id)!.target, { kind: 'new', shell: 'bash', cwd: '/w', keepTabs: 1 });
+  });
+});
+
+test('FR-LOOP-008 AC-10: the create schema describes both target kinds and no longer requires shell and cwd', async () => {
+  await withTools(async (_call, _loops, listTools) => {
+    const create = (listTools().tools as Rec[]).find((tool) => tool.name === 'buildergate.loop.create')!;
+    const schema = create.inputSchema as Rec;
+    const kinds = ((schema.properties as Rec).target as Rec).oneOf as Rec[];
+    assert.deepEqual(kinds.map((variant) => ((variant.properties as Rec).kind as Rec).const).sort(), ['new', 'session']);
+    assert.deepEqual(schema.required, ['name', 'schedule', 'steps']);
+  });
+});
+
+test('FR-LOOP-007 AC-4: shell, cwd or keepTabs alone on an existing-session loop are refused, not dropped', async () => {
+  await withTools(async (call) => {
+    const { shell: _shell, cwd: _cwd, ...rest } = definition;
+    const created = await call('buildergate.loop.create', { ...rest, name: 'ping', target: { kind: 'session', tabId: 'mine' }, steps: [{ kind: 'prompt', text: 'x' }] });
+    const refused = await call('buildergate.loop.update', { loopId: String((created.loop as Rec).loopId), cwd: '/x' });
+    assert.equal(refused.code, 'VALIDATION_ERROR');
+    assert.equal((refused.fieldErrors as Rec).reason, 'session');
+  });
+});
+
+test('FR-LOOP-008 AC-10: an unknown target kind is refused with reason target', async () => {
+  await withTools(async (call) => {
+    const { shell: _shell, cwd: _cwd, ...rest } = definition;
+    const refused = await call('buildergate.loop.create', { ...rest, target: { kind: 'nwe', tabId: 'mine' } });
+    assert.equal(refused.code, 'VALIDATION_ERROR');
+    assert.equal((refused.fieldErrors as Rec).reason, 'target');
   });
 });

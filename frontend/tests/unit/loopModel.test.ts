@@ -48,7 +48,7 @@ test('FR-LOOP-006 AC-3: a new loop starts on weekdays at the next whole hour in 
   assert.equal(draft.schedule.kind, 'weekly');
   assert.deepEqual(draft.schedule.kind === 'weekly' && draft.schedule.days, [1, 2, 3, 4, 5]);
   assert.deepEqual(draft.schedule.kind === 'weekly' && draft.schedule.times, ['15:00']);
-  assert.equal(draft.keepTabs, 1);
+  assert.deepEqual(draft.target, { kind: 'new', shell: 'auto', cwd: '', keepTabs: 1 });
   assert.deepEqual(draft.steps, []);
 });
 

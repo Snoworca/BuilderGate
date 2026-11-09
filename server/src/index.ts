@@ -37,7 +37,8 @@ import { createFileJobRoutes } from './routes/fileJobRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createLoopRoutes } from './routes/loopRoutes.js';
-import { LoopService, type LoopRuntimePort } from './services/loop/LoopService.js';
+import { LoopService, type LoopRuntimePort, type LoopTabInfo } from './services/loop/LoopService.js';
+import { loopDirectoryExists } from './services/loop/loopDirectory.js';
 import { createUsageLimitsRoutes } from './routes/usageLimitsRoutes.js';
 import { UsageLimitsService } from './services/usage/UsageLimitsService.js';
 import { createUsageSources } from './services/usage/usageSources.js';
@@ -106,6 +107,7 @@ import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
 import { performGracefulShutdown } from './services/gracefulShutdown.js';
 import type { Config } from './types/config.types.js';
 import type { EditableSettingsKey } from './types/settings.types.js';
+import type { Workspace, WorkspaceTab } from './types/workspace.types.js';
 import {
   createSecurityHeadersMiddleware,
   createNoCacheMiddleware,
@@ -516,10 +518,40 @@ function createLoopRuntime(): LoopRuntimePort {
       return result.ok !== false;
     },
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    directoryExists: async (cwd) => {
-      const info = await stat(cwd).catch(() => null);
+    // FR-LOOP-003 AC-5: the folder rule session creation uses (a WSL /mnt/<drive> path is a Windows folder).
+    directoryExists: (cwd) => loopDirectoryExists(cwd, process.platform, async (folder) => {
+      const info = await stat(folder).catch(() => null);
       return info?.isDirectory() ?? false;
+    }),
+    // FR-LOOP-008: a tab's current session and agent, for loops that send into a tab the user opened.
+    inspectTab: (tabId) => {
+      const state = workspaceService.getState();
+      const tab = state.tabs.find((current) => current.id === tabId);
+      return tab ? loopTabInfo(tab, state.workspaces) : null;
     },
+    listTabs: () => {
+      const { workspaces, tabs } = workspaceService.getState();
+      const order = new Map(workspaces.map((workspace) => [workspace.id, workspace.sortOrder]));
+      return tabs
+        .filter((tab) => order.has(tab.workspaceId))
+        .sort((a, b) => (order.get(a.workspaceId)! - order.get(b.workspaceId)!) || (a.sortOrder - b.sortOrder))
+        .map((tab) => loopTabInfo(tab, workspaces));
+    },
+  };
+}
+
+function loopTabInfo(tab: WorkspaceTab, workspaces: readonly Workspace[]): LoopTabInfo {
+  const sessionId = tab.currentSessionId ?? tab.sessionId;
+  const alive = tab.lifecycleState !== 'stopped' && sessionManager.hasSession(sessionId);
+  return {
+    tabId: tab.id,
+    workspaceId: tab.workspaceId,
+    workspaceName: workspaces.find((workspace) => workspace.id === tab.workspaceId)?.name ?? '',
+    tabName: tab.name,
+    cwd: (alive ? sessionManager.getAgentRuntimeInfo(sessionId)?.cwd : null) ?? tab.lastCwd ?? '',
+    shell: tab.shellType,
+    sessionId: alive ? sessionId : null,
+    agent: alive ? messengerAgentOf(tab as unknown as StringRecord) : null,
   };
 }
 

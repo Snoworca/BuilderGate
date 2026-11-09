@@ -12,23 +12,49 @@ export type LoopStep =
   /** The server closes the tab. Always the last step. */
   | { kind: 'end' };
 
-/** What the editor sends. */
+/** FR-LOOP-008 AC-1: where a run sends its steps. */
+export type LoopTarget =
+  /** A new tab in a @schedule-{n} workspace (FR-LOOP-004). */
+  | {
+    kind: 'new';
+    shell: ShellType;
+    cwd: string;
+    /** Tabs of runs without a session-end step kept open; the oldest beyond this close. */
+    keepTabs: number;
+  }
+  /** The current session of a tab the user opened. */
+  | {
+    kind: 'session';
+    /** The tab id: it survives a server restart and a tab restart, unlike the session id. */
+    tabId: string;
+    /** The names last seen, shown once the tab is gone; never used to decide anything. */
+    label: { workspaceName: string; tabName: string };
+    skipWhenBusy: boolean;
+  };
+
+/** What the editor sends. A definition without target is a new session from shell, cwd and keepTabs. */
 export interface LoopInput {
   name: string;
   enabled: boolean;
   schedule: LoopSchedule;
-  shell: ShellType;
-  cwd: string;
-  /** Tabs of runs without a session-end step kept open; the oldest beyond this close. */
+  target?: unknown;
+  shell?: ShellType;
+  cwd?: string;
   keepTabs?: number;
   steps: LoopStep[];
 }
 
-export type ValidLoopInput = Required<LoopInput>;
+export interface ValidLoopInput {
+  name: string;
+  enabled: boolean;
+  schedule: LoopSchedule;
+  target: LoopTarget;
+  steps: LoopStep[];
+}
 
 export type LoopInputRejection =
-  | 'name' | 'shell' | 'cwd' | 'keepTabs' | 'schedule' | 'interval' | 'startsAt' | 'oncePassed'
-  | 'noSteps' | 'emptyText' | 'commandMultiline' | 'delay' | 'endNotLast' | 'step';
+  | 'name' | 'shell' | 'cwd' | 'keepTabs' | 'target' | 'session' | 'sessionMissing' | 'schedule' | 'interval' | 'startsAt' | 'oncePassed'
+  | 'noSteps' | 'emptyText' | 'commandMultiline' | 'delay' | 'endNotLast' | 'endNotAllowed' | 'step';
 
 export type LoopInputResult = { ok: true; value: ValidLoopInput } | { ok: false; reason: LoopInputRejection };
 
@@ -42,11 +68,8 @@ export function validateLoopInput(input: unknown, now: Date): LoopInputResult {
   const raw = isRecord(input) ? input : {};
   const name = typeof raw.name === 'string' ? raw.name.trim() : '';
   if (!name || name.length > LOOP_NAME_MAX) return reject('name');
-  if (!SHELLS.includes(raw.shell as ShellType)) return reject('shell');
-  const cwd = typeof raw.cwd === 'string' ? raw.cwd.trim() : '';
-  if (!cwd) return reject('cwd');
-  const keepTabs = raw.keepTabs === undefined ? 1 : raw.keepTabs;
-  if (!Number.isInteger(keepTabs) || (keepTabs as number) < 1 || (keepTabs as number) > LOOP_KEEP_TABS_MAX) return reject('keepTabs');
+  const target = readTarget(raw.target === undefined ? { kind: 'new', shell: raw.shell, cwd: raw.cwd, keepTabs: raw.keepTabs } : raw.target);
+  if (typeof target === 'string') return reject(target);
 
   const schedule = readSchedule(raw.schedule);
   if (typeof schedule === 'string') return reject(schedule);
@@ -59,14 +82,42 @@ export function validateLoopInput(input: unknown, now: Date): LoopInputResult {
   for (const [index, value] of raw.steps.entries()) {
     const step = readStep(value);
     if (typeof step === 'string') return reject(step);
+    // FR-LOOP-008 AC-2: a loop never closes a session the user opened.
+    if (step.kind === 'end' && target.kind === 'session') return reject('endNotAllowed');
     if (step.kind === 'end' && index !== raw.steps.length - 1) return reject('endNotLast');
     steps.push(step);
   }
 
   return {
     ok: true,
-    value: { name, enabled, schedule, shell: raw.shell as ShellType, cwd, keepTabs: keepTabs as number, steps },
+    value: { name, enabled, schedule, target, steps },
   };
+}
+
+/** FR-LOOP-008 AC-1. */
+function readTarget(value: unknown): LoopTarget | LoopInputRejection {
+  if (!isRecord(value)) return 'target';
+  if (value.kind === 'new') {
+    if (!SHELLS.includes(value.shell as ShellType)) return 'shell';
+    const cwd = typeof value.cwd === 'string' ? value.cwd.trim() : '';
+    if (!cwd) return 'cwd';
+    const keepTabs = value.keepTabs === undefined ? 1 : value.keepTabs;
+    if (!Number.isInteger(keepTabs) || (keepTabs as number) < 1 || (keepTabs as number) > LOOP_KEEP_TABS_MAX) return 'keepTabs';
+    return { kind: 'new', shell: value.shell as ShellType, cwd, keepTabs: keepTabs as number };
+  }
+  if (value.kind === 'session') {
+    const tabId = typeof value.tabId === 'string' ? value.tabId.trim() : '';
+    if (!tabId) return 'session';
+    const label = isRecord(value.label) ? value.label : {};
+    const text = (field: unknown) => (typeof field === 'string' ? field : '');
+    return {
+      kind: 'session',
+      tabId,
+      label: { workspaceName: text(label.workspaceName), tabName: text(label.tabName) },
+      skipWhenBusy: value.skipWhenBusy !== false,
+    };
+  }
+  return 'target';
 }
 
 function readStep(value: unknown): LoopStep | LoopInputRejection {

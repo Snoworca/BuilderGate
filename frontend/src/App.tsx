@@ -306,6 +306,15 @@ function AppContent() {
     if (isMobile) closeSidebar();
   }, [isMobile, closeSidebar]);
 
+  // FR-LOOP-008 AC-9: 「탭 열기」 in a loop's run history shows that tab.
+  const handleOpenLoopTab = useCallback((tabId: string) => {
+    const tab = wmRef.current.tabs.find(t => t.id === tabId);
+    if (!tab) return;
+    wmRef.current.setActiveWorkspaceId(tab.workspaceId);
+    void wmRef.current.setActiveTab(tab.workspaceId, tabId);
+    setShowLoopDialog(false);
+  }, []);
+
   const handleDeleteWorkspace = useCallback((id: string) => {
     const tabCount = wmRef.current.tabs.filter(t => t.workspaceId === id).length;
     if (tabCount > 0) {
@@ -1425,7 +1434,7 @@ function AppContent() {
       />
 
       {showLoopDialog && (
-        <LoopDialog onClose={() => setShowLoopDialog(false)} defaultCwd={activeTab?.cwd} onEnabledCountChange={setLoopEnabledCount} />
+        <LoopDialog onClose={() => setShowLoopDialog(false)} defaultCwd={activeTab?.cwd} onEnabledCountChange={setLoopEnabledCount} onOpenTab={handleOpenLoopTab} />
       )}
 
       {showMcpControlDialog && (

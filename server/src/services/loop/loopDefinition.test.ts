@@ -29,7 +29,7 @@ test('FR-LOOP-001 AC-1: a full definition is accepted as given, keepTabs default
   assert.equal(result.ok, true);
   const { keepTabs: _keep, ...withoutKeep } = valid();
   const defaulted = validateLoopInput(withoutKeep, NOW);
-  assert.ok(defaulted.ok && defaulted.value.keepTabs === 1);
+  assert.ok(defaulted.ok && defaulted.value.target.kind === 'new' && defaulted.value.target.keepTabs === 1);
 });
 
 test('FR-LOOP-001 AC-1: keepTabs outside 1..16 is refused', () => {
@@ -80,4 +80,49 @@ test('FR-LOOP-001: name, shell and directory are required', () => {
   assert.equal(reason({ ...valid(), shell: 'fish' }), 'shell');
   assert.equal(reason({ ...valid(), cwd: '' }), 'cwd');
   assert.equal(reason(null), 'name');
+});
+
+// FR-LOOP-008: the target — a new session, or an existing session tab.
+
+const sessionTarget = { kind: 'session', tabId: 'tab-7', label: { workspaceName: 'ProjectMaster', tabName: 'api-server' }, skipWhenBusy: false };
+
+const sessionLoop = () => {
+  const { shell: _s, cwd: _c, keepTabs: _k, ...rest } = valid();
+  return { ...rest, target: sessionTarget, steps: [{ kind: 'prompt', text: '진행 상황을 알려 주세요' }] };
+};
+
+test('FR-LOOP-008 AC-1: a definition without target reads as a new session from shell, cwd and keepTabs', () => {
+  const result = validateLoopInput(valid(), NOW);
+  assert.ok(result.ok);
+  assert.deepEqual(result.value.target, { kind: 'new', shell: 'powershell', cwd: 'C:\\work\\market', keepTabs: 1 });
+  assert.equal('shell' in result.value, false, 'the stored shape keeps the target only');
+});
+
+test('FR-LOOP-008 AC-1: an explicit new-session target is used as given', () => {
+  const { shell: _s, cwd: _c, keepTabs: _k, ...rest } = valid();
+  const result = validateLoopInput({ ...rest, target: { kind: 'new', shell: 'bash', cwd: '/work', keepTabs: 3 } }, NOW);
+  assert.ok(result.ok);
+  assert.deepEqual(result.value.target, { kind: 'new', shell: 'bash', cwd: '/work', keepTabs: 3 });
+  assert.equal(reason({ ...rest, target: { kind: 'new', shell: 'bash', cwd: '' } }), 'cwd');
+  assert.equal(reason({ ...rest, target: { kind: 'new', shell: 'fish', cwd: '/w' } }), 'shell');
+});
+
+test('FR-LOOP-008 AC-1: an existing-session target keeps the tab id and label; skipWhenBusy defaults to on', () => {
+  const result = validateLoopInput(sessionLoop(), NOW);
+  assert.ok(result.ok);
+  assert.deepEqual(result.value.target, sessionTarget);
+  const { skipWhenBusy: _skip, label: _label, ...bare } = sessionTarget;
+  const defaulted = validateLoopInput({ ...sessionLoop(), target: bare }, NOW);
+  assert.ok(defaulted.ok);
+  assert.deepEqual(defaulted.value.target, { kind: 'session', tabId: 'tab-7', label: { workspaceName: '', tabName: '' }, skipWhenBusy: true });
+});
+
+test('FR-LOOP-008 AC-1: an existing-session target needs a tab id; an unknown or malformed target is refused as target', () => {
+  assert.equal(reason({ ...sessionLoop(), target: { ...sessionTarget, tabId: ' ' } }), 'session');
+  assert.equal(reason({ ...sessionLoop(), target: { kind: 'elsewhere' } }), 'target', 'an unknown kind has its own reason');
+  assert.equal(reason({ ...sessionLoop(), target: 'mine' }), 'target');
+});
+
+test('FR-LOOP-008 AC-2: a session-end step is refused for an existing-session loop', () => {
+  assert.equal(reason({ ...sessionLoop(), steps: [{ kind: 'prompt', text: 'hi' }, { kind: 'end' }] }), 'endNotAllowed');
 });

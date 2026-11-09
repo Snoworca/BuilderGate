@@ -247,7 +247,7 @@ export interface PickableSession {
 const AGENT_AT_WORK = new Set(['busy', 'starting']);
 const AGENT_ASKING = new Set(['waiting_input']);
 
-const agentName = (kind: string) => kind.charAt(0).toUpperCase() + kind.slice(1);
+export const agentName = (kind: string) => kind.charAt(0).toUpperCase() + kind.slice(1);
 
 /** The status chip of a session row (mockup ③, ⑤): 「Claude 작업 중」 or 「대기」. */
 export function agentChip(session: { agentKind?: string; agentStatus?: string }): Label {

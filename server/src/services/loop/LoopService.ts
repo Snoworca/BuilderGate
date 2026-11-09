@@ -1,5 +1,5 @@
-// FR-LOOP-001..005: keeps the loops, decides when each is due, and runs it — a new tab in a
-// @schedule-{n} workspace that is sent the loop's steps in order.
+// FR-LOOP-001..005, 008: keeps the loops, decides when each is due, and runs it — a new tab in a
+// @schedule-{n} workspace, or the current session of a tab the user opened, sent the steps in order.
 //
 // Everything the run touches outside this module (workspaces, tabs, the PTY, the clock's
 // sleeps, the file system) is behind LoopRuntimePort, which index.ts implements.
@@ -8,7 +8,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { ShellType } from '../../types/index.js';
 import { publishStoreAtomically } from '../../utils/atomicStoreWrite.js';
-import { validateLoopInput, type LoopStep, type ValidLoopInput } from './loopDefinition.js';
+import { validateLoopInput, type LoopStep, type LoopTarget, type ValidLoopInput } from './loopDefinition.js';
 import { nextRunAfter } from './loopSchedule.js';
 
 export interface LoopRuntimePort {
@@ -26,7 +26,39 @@ export interface LoopRuntimePort {
   submit(sessionId: string, text: string): Promise<boolean>;
   sleep(ms: number): Promise<void>;
   directoryExists(cwd: string): Promise<boolean>;
+  /** FR-LOOP-008: where a tab is now and what runs in it; null when the tab is gone. */
+  inspectTab(tabId: string): LoopTabInfo | null;
+  /** FR-LOOP-008 AC-7: every tab, in workspace screen order then tab order. */
+  listTabs(): LoopTabInfo[];
 }
+
+export interface LoopTabInfo {
+  tabId: string;
+  workspaceId: string;
+  workspaceName: string;
+  tabName: string;
+  cwd: string;
+  shell: string;
+  /** The session running in the tab now; null when its shell has ended. */
+  sessionId: string | null;
+  /** The AI agent detected in it (the messenger's detection), or null for a plain terminal. */
+  agent: { kind: string; status: string } | null;
+}
+
+/** FR-LOOP-008 AC-7: a tab an existing-session loop can be pointed at. */
+export interface LoopSessionOption extends Omit<LoopTabInfo, 'sessionId'> {
+  alive: boolean;
+}
+
+/** FR-LOOP-008 AC-5: agent states that count as working. */
+const AGENT_WORKING = new Set(['busy', 'starting', 'running']);
+/**
+ * The detector's status drops to idle for a moment between an agent's steps (Claude Code shows ✳
+ * for a few ms and idleDelayMs is 200 ms, SessionManager FR-AITUI-010; its busy grace is 1.5 s), so
+ * one look can land in that gap. Two more looks across this window must also read not-working.
+ */
+export const LOOP_BUSY_CONFIRM_MS = 1500;
+const BUSY_CONFIRM_LOOKS = 2;
 
 export interface LoopDefinition extends ValidLoopInput {
   id: string;
@@ -40,7 +72,8 @@ export type LoopRunResult = 'running' | 'success' | 'failed' | 'skipped' | 'abor
 
 /** Why a run did not succeed; the screen words it (FR-LOOP-006 AC-5). */
 export type LoopRunReason =
-  | 'previousRunning' | 'tabCap' | 'directoryMissing' | 'cancelled' | 'tabClosed' | 'restart' | 'inputRejected' | 'error';
+  | 'previousRunning' | 'tabCap' | 'directoryMissing' | 'cancelled' | 'tabClosed' | 'restart' | 'inputRejected' | 'error'
+  | 'sessionMissing' | 'sessionStopped' | 'agentBusy';
 
 export interface LoopRun {
   id: string;
@@ -80,6 +113,8 @@ export interface LoopServiceOptions {
   now?: () => Date;
   /** Off in tests, which call tick() themselves. */
   startTimer?: boolean;
+  /** FR-LOOP-008 AC-5: how long an agent must read not-working before a skipWhenBusy run sends. */
+  busyConfirmMs?: number;
 }
 
 /** FR-LOOP-004 AC-5. */
@@ -97,12 +132,15 @@ export class LoopService {
   private readonly runtime: LoopRuntimePort;
   private readonly now: () => Date;
   private readonly startTimer: boolean;
+  private readonly busyConfirmMs: number;
   private file: LoopFile = emptyFile();
   private readonly running = new Set<string>();
   /** Loops turned off or deleted while a run of theirs is sending (FR-LOOP-003 AC-4). */
   private readonly cancelled = new Set<string>();
   /** One tab is created at a time (FR-LOOP-005 AC-3). */
   private placementChain: Promise<unknown> = Promise.resolve();
+  /** FR-LOOP-008 AC-6: runs into one tab go one after the other. */
+  private readonly tabChains = new Map<string, Promise<unknown>>();
   private writeChain: Promise<void> = Promise.resolve();
   private timer: NodeJS.Timeout | null = null;
   private disposed = false;
@@ -112,10 +150,13 @@ export class LoopService {
     this.runtime = options.runtime;
     this.now = options.now ?? (() => new Date());
     this.startTimer = options.startTimer ?? true;
+    this.busyConfirmMs = options.busyConfirmMs ?? LOOP_BUSY_CONFIRM_MS;
   }
 
   async initialize(): Promise<void> {
     this.file = await this.load();
+    // FR-LOOP-008 AC-1: loops saved before targets existed are new-session loops.
+    this.file.loops = this.file.loops.map(withTarget);
     // FR-LOOP-005 AC-2: a run cut off by a restart is not left "running".
     for (const runs of Object.values(this.file.runs)) {
       for (const run of runs) {
@@ -149,6 +190,23 @@ export class LoopService {
 
   isScheduleWorkspace(workspaceId: string): boolean {
     return this.file.scheduleWorkspaces.some((ws) => ws.id === workspaceId);
+  }
+
+  /** FR-LOOP-008 AC-7: tabs an existing-session loop can send to; the loops' own tabs are left out. */
+  sessions(): LoopSessionOption[] {
+    return this.runtime.listTabs()
+      .filter((tab) => !this.isScheduleWorkspace(tab.workspaceId))
+      .map(({ sessionId, ...tab }) => ({ ...tab, alive: sessionId !== null }));
+  }
+
+  /** FR-LOOP-008 AC-9: whether a run's tab is still open, so the history can offer 「탭 열기」. */
+  tabOpen(run: Pick<LoopRun, 'tabId'>): boolean {
+    return run.tabId !== null && this.runtime.tabExists(run.tabId);
+  }
+
+  /** FR-LOOP-008 AC-7: whether an existing-session loop's tab is gone. */
+  targetMissing(loop: Pick<LoopDefinition, 'target'>): boolean {
+    return loop.target.kind === 'session' && this.runtime.inspectTab(loop.target.tabId) === null;
   }
 
   async create(input: unknown): Promise<LoopDefinition> {
@@ -227,6 +285,7 @@ export class LoopService {
     }
     this.running.add(loop.id);
     this.addRun(record);
+    const startedAsNew = loop.target.kind === 'new';
     const done = this.execute(loop, record)
       .catch((error: unknown) => (error instanceof InputRejectedError
         ? this.finish(record, 'failed', 'inputRejected')
@@ -234,7 +293,8 @@ export class LoopService {
       .then(async (finished) => {
         // FR-LOOP-004 AC-4: a tab left open — by a run without a session end, or one that was
         // stopped or failed after it opened — counts toward the tabs this loop keeps.
-        if (record.tabId && this.runtime.tabExists(record.tabId)) await this.keepTab(loop.id, record.tabId);
+        // The kind the run started with decides: a user's tab is never counted, whatever the loop is now.
+        if (startedAsNew && record.tabId && this.runtime.tabExists(record.tabId)) await this.keepTab(loop.id, record.tabId);
         await this.persist();
         return finished;
       })
@@ -246,58 +306,98 @@ export class LoopService {
   }
 
   private async execute(loop: LoopDefinition, record: LoopRun): Promise<LoopRun> {
-    if (!(await this.runtime.directoryExists(loop.cwd))) {
-      return this.finish(record, 'failed', 'directoryMissing', loop.cwd);
+    const target = loop.target;
+    if (target.kind === 'session') return this.serializeTab(target.tabId, () => this.executeInSession(loop, target, record));
+    if (!(await this.runtime.directoryExists(target.cwd))) {
+      return this.finish(record, 'failed', 'directoryMissing', target.cwd);
     }
-    const opened = await this.serializePlacement(() => this.openRunTab(loop, record));
+    const opened = await this.serializePlacement(() => this.openRunTab(loop, target, record));
     if (!opened) return this.finish(record, 'skipped', 'tabCap');
     await this.persist();
+    return this.sendSteps(loop, record, opened.tabId, () => opened.sessionId);
+  }
 
+  /** FR-LOOP-008 AC-3..5. */
+  private async executeInSession(loop: LoopDefinition, target: Extract<LoopTarget, { kind: 'session' }>, record: LoopRun): Promise<LoopRun> {
+    Object.assign(record, { workspaceName: target.label.workspaceName, tabId: target.tabId, tabName: target.label.tabName });
+    const tab = this.runtime.inspectTab(target.tabId);
+    if (!tab) {
+      // AC-4 (Q1): a deleted tab's id never comes back, so the loop is turned off.
+      const current = this.file.loops.find((entry) => entry.id === loop.id);
+      if (current?.enabled) {
+        current.enabled = false;
+        this.reschedule(current);
+      }
+      return this.finish(record, 'skipped', 'sessionMissing');
+    }
+    Object.assign(record, { workspaceId: tab.workspaceId, workspaceName: tab.workspaceName, tabName: tab.tabName });
+    if (tab.sessionId === null) return this.finish(record, 'skipped', 'sessionStopped');
+    if (target.skipWhenBusy && (await this.agentWorking(target.tabId, tab))) return this.finish(record, 'skipped', 'agentBusy');
+    await this.persist();
+    // AC-3: found again for every step, so a restarted tab's new session is followed.
+    return this.sendSteps(loop, record, target.tabId, () => this.runtime.inspectTab(target.tabId)?.sessionId ?? null);
+  }
+
+  /** AC-5: working on the first look, or on any of the later looks across busyConfirmMs. */
+  private async agentWorking(tabId: string, first: LoopTabInfo): Promise<boolean> {
+    const working = (tab: LoopTabInfo | null) => Boolean(tab?.agent && AGENT_WORKING.has(tab.agent.status));
+    if (working(first)) return true;
+    if (this.busyConfirmMs <= 0) return false;
+    for (let look = 0; look < BUSY_CONFIRM_LOOKS; look += 1) {
+      await this.runtime.sleep(this.busyConfirmMs / BUSY_CONFIRM_LOOKS);
+      if (working(this.runtime.inspectTab(tabId))) return true;
+    }
+    return false;
+  }
+
+  private async sendSteps(loop: LoopDefinition, record: LoopRun, tabId: string, sessionOf: () => string | null): Promise<LoopRun> {
     for (const step of loop.steps) {
       if (this.cancelled.has(loop.id)) return this.finish(record, 'aborted', 'cancelled');
-      if (!this.runtime.tabExists(opened.tabId)) return this.finish(record, 'aborted', 'tabClosed');
-      await this.send(step, opened);
+      if (!this.runtime.tabExists(tabId)) return this.finish(record, 'aborted', 'tabClosed');
+      await this.send(step, tabId, sessionOf);
       record.stepsSent += 1;
     }
     return this.finish(record, 'success', null);
   }
 
-  private async send(step: LoopStep, tab: { tabId: string; sessionId: string }): Promise<void> {
+  private async send(step: LoopStep, tabId: string, sessionOf: () => string | null): Promise<void> {
     switch (step.kind) {
       case 'command':
-      case 'prompt':
-        if (!(await this.runtime.submit(tab.sessionId, step.text))) throw new InputRejectedError();
+      case 'prompt': {
+        const sessionId = sessionOf();
+        if (sessionId === null || !(await this.runtime.submit(sessionId, step.text))) throw new InputRejectedError();
         return;
+      }
       case 'delay':
         await this.runtime.sleep(step.ms);
         return;
       case 'end':
-        await this.runtime.closeTab(tab.tabId);
+        await this.runtime.closeTab(tabId);
     }
   }
 
   /** FR-LOOP-004 AC-1..3, AC-5. Null when the tab cap is reached. */
-  private async openRunTab(loop: LoopDefinition, record: LoopRun) {
+  private async openRunTab(loop: LoopDefinition, target: Extract<LoopTarget, { kind: 'new' }>, record: LoopRun) {
     this.file.scheduleWorkspaces = this.file.scheduleWorkspaces.filter((ws) => this.runtime.workspaceExists(ws.id));
     const total = this.file.scheduleWorkspaces.reduce((sum, ws) => sum + this.runtime.countTabs(ws.id), 0);
     if (total >= SCHEDULE_TAB_CAP) return null;
 
     const max = this.runtime.maxTabsPerWorkspace();
-    let target = [...this.file.scheduleWorkspaces]
+    let workspace = [...this.file.scheduleWorkspaces]
       .sort((a, b) => a.n - b.n)
       .find((ws) => this.runtime.countTabs(ws.id) < max);
-    if (!target) {
+    if (!workspace) {
       const n = this.file.scheduleWorkspaces.reduce((top, ws) => Math.max(top, ws.n), -1) + 1;
-      target = { id: await this.runtime.createWorkspace(`@schedule-${n}`), n };
-      this.file.scheduleWorkspaces.push(target);
+      workspace = { id: await this.runtime.createWorkspace(`@schedule-${n}`), n };
+      this.file.scheduleWorkspaces.push(workspace);
     }
 
     const count = (this.file.counters[loop.id] ?? 0) + 1;
     this.file.counters[loop.id] = count;
     const suffix = ` #${count}`;
     const tabName = `${loop.name.slice(0, TAB_NAME_MAX - suffix.length).trim()}${suffix}`;
-    const tab = await this.runtime.openTab(target.id, { name: tabName, shell: loop.shell, cwd: loop.cwd });
-    Object.assign(record, { workspaceId: target.id, workspaceName: `@schedule-${target.n}`, tabId: tab.tabId, tabName });
+    const tab = await this.runtime.openTab(workspace.id, { name: tabName, shell: target.shell, cwd: target.cwd });
+    Object.assign(record, { workspaceId: workspace.id, workspaceName: `@schedule-${workspace.n}`, tabId: tab.tabId, tabName });
     return tab;
   }
 
@@ -305,9 +405,11 @@ export class LoopService {
   private async keepTab(loopId: string, tabId: string): Promise<void> {
     const loop = this.file.loops.find((current) => current.id === loopId);
     if (!loop) return;
+    // A loop switched to an existing session mid-run keeps one tab: the last run's.
+    const keepTabs = loop.target.kind === 'new' ? loop.target.keepTabs : 1;
     const kept = (this.file.keptTabs[loopId] ?? []).filter((entry) => this.runtime.tabExists(entry.tabId));
     kept.push({ tabId });
-    while (kept.length > loop.keepTabs) {
+    while (kept.length > keepTabs) {
       const oldest = kept.shift()!;
       await this.runtime.closeTab(oldest.tabId).catch((error: unknown) => {
         console.warn('[LoopService] could not close a kept tab:', error);
@@ -319,6 +421,17 @@ export class LoopService {
   private serializePlacement<T>(work: () => Promise<T>): Promise<T> {
     const next = this.placementChain.then(work, work);
     this.placementChain = next.catch(() => undefined);
+    return next;
+  }
+
+  private serializeTab<T>(tabId: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.tabChains.get(tabId) ?? Promise.resolve();
+    const next = previous.then(work, work);
+    const settled = next.catch(() => undefined);
+    this.tabChains.set(tabId, settled);
+    void settled.then(() => {
+      if (this.tabChains.get(tabId) === settled) this.tabChains.delete(tabId);
+    });
     return next;
   }
 
@@ -366,7 +479,15 @@ export class LoopService {
   private validate(input: unknown): ValidLoopInput {
     const result = validateLoopInput(input, this.now());
     if (!result.ok) throw new LoopValidationError(result.reason);
-    return result.value;
+    const value = result.value;
+    // FR-LOOP-008 AC-2: the tab must be one the user opened, and there while the loop is on.
+    if (value.target.kind === 'session') {
+      const tab = this.runtime.inspectTab(value.target.tabId);
+      if (tab && this.isScheduleWorkspace(tab.workspaceId)) throw new LoopValidationError('session');
+      if (!tab && value.enabled) throw new LoopValidationError('sessionMissing');
+      if (tab) value.target.label = { workspaceName: tab.workspaceName, tabName: tab.tabName };
+    }
+    return value;
   }
 
   private require(id: string): LoopDefinition {
@@ -394,6 +515,14 @@ export class LoopService {
       .then(() => publishStoreAtomically(this.dataFilePath, contents, { ensureDirectory: true }));
     return this.writeChain;
   }
+}
+
+/** FR-LOOP-008 AC-1: a loop stored with top-level shell, cwd and keepTabs becomes a new-session loop. */
+function withTarget(stored: LoopDefinition): LoopDefinition {
+  const legacy = stored as LoopDefinition & { shell?: ShellType; cwd?: string; keepTabs?: number };
+  if (legacy.target) return stored;
+  const { shell, cwd, keepTabs, ...rest } = legacy;
+  return { ...rest, target: { kind: 'new', shell: shell ?? 'auto', cwd: cwd ?? '', keepTabs: keepTabs ?? 1 } };
 }
 
 class InputRejectedError extends Error {

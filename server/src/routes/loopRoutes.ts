@@ -1,4 +1,4 @@
-// FR-LOOP-001 AC-5: Tools › Loop over REST.
+// FR-LOOP-001 AC-5, FR-LOOP-008 AC-7: Tools › Loop over REST.
 import { Router, Request, Response } from 'express';
 import { LoopNotFoundError, LoopValidationError, type LoopService } from '../services/loop/LoopService.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -19,10 +19,18 @@ function handleError(res: Response, error: unknown): void {
 
 export function createLoopRoutes(service: LoopService): Router {
   const router = Router();
-  const withLastRun = (loop: ReturnType<LoopService['list']>[number]) => ({ ...loop, lastRun: service.history(loop.id)[0] ?? null });
+  const withLastRun = (loop: ReturnType<LoopService['list']>[number]) => ({
+    ...loop,
+    lastRun: service.history(loop.id)[0] ?? null,
+    targetMissing: service.targetMissing(loop),
+  });
 
   router.get('/', (_req: Request, res: Response) => {
     res.json({ loops: service.list().map(withLastRun) });
+  });
+
+  router.get('/sessions', (_req: Request, res: Response) => {
+    res.json({ sessions: service.sessions() });
   });
 
   router.post('/', async (req: Request, res: Response) => {
@@ -53,7 +61,7 @@ export function createLoopRoutes(service: LoopService): Router {
   router.get('/:id/runs', (req: Request, res: Response) => {
     try {
       if (!service.get(req.params.id)) throw new LoopNotFoundError(req.params.id);
-      res.json({ runs: service.history(req.params.id) });
+      res.json({ runs: service.history(req.params.id).map((run) => ({ ...run, tabOpen: service.tabOpen(run) })) });
     } catch (error) {
       handleError(res, error);
     }

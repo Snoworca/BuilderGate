@@ -74,17 +74,46 @@ const step = {
   ],
 };
 
+// FR-LOOP-008 AC-10: where the steps go. Without target, shell + cwd (+ keepTabs) mean a new session.
+const target = {
+  description: 'Where each run sends its steps. Omit it and give shell and cwd for a new session.',
+  oneOf: [
+    {
+      type: 'object',
+      properties: {
+        kind: { const: 'new' },
+        shell: { type: 'string', enum: SHELLS },
+        cwd: { type: 'string' },
+        keepTabs: { type: 'integer', minimum: 1, maximum: 16 },
+      },
+      required: ['kind', 'shell', 'cwd'],
+      description: 'A new tab in a @schedule-{n} workspace for every run.',
+    },
+    {
+      type: 'object',
+      properties: {
+        kind: { const: 'session' },
+        tabId: { type: 'string', description: 'Workspace tab id of a tab the user opened (not a @schedule tab).' },
+        skipWhenBusy: { type: 'boolean', description: 'Skip a run while the tab\'s agent is working. Default true.' },
+      },
+      required: ['kind', 'tabId'],
+      description: 'Types into that tab\'s current session. No tab is opened; a session-end step is not allowed.',
+    },
+  ],
+};
+
 const loopFields = {
   name: { type: 'string', description: 'Loop name (1-64 characters).' },
   enabled: { type: 'boolean', description: 'Whether the schedule runs it. Default true.' },
   schedule,
-  shell: { type: 'string', enum: SHELLS, description: 'Shell for the new tab; auto is the server\'s default shell.' },
-  cwd: { type: 'string', description: 'Folder the new tab opens in.' },
-  keepTabs: { type: 'integer', minimum: 1, maximum: 16, description: 'Tabs of runs without a session end kept open (default 1); the oldest beyond this close.' },
+  target,
+  shell: { type: 'string', enum: SHELLS, description: 'New-session loops: shell for the new tab; auto is the server\'s default shell.' },
+  cwd: { type: 'string', description: 'New-session loops: folder the new tab opens in.' },
+  keepTabs: { type: 'integer', minimum: 1, maximum: 16, description: 'New-session loops: tabs of runs without a session end kept open (default 1); the oldest beyond this close.' },
   steps: {
     type: 'array',
     minItems: 1,
-    description: 'Sent top to bottom in a new tab of a @schedule-{n} workspace. Commands do not wait for the one before; use a delay. '
+    description: 'Sent top to bottom into the target. Commands do not wait for the one before; use a delay. '
       + 'Example: [{"kind":"command","text":"codex"},{"kind":"delay","ms":2000},{"kind":"prompt","text":"..."}].',
     items: step,
   },
@@ -100,7 +129,7 @@ export const MCP_LOOP_TOOL_SCHEMAS: Record<McpLoopToolName, Rec> = {
   'buildergate.loop.create': {
     type: 'object',
     properties: loopFields,
-    required: ['name', 'schedule', 'shell', 'cwd', 'steps'],
+    required: ['name', 'schedule', 'steps'],
     additionalProperties: false,
   },
   'buildergate.loop.update': {
@@ -120,7 +149,7 @@ export const MCP_LOOP_TOOL_SCHEMAS: Record<McpLoopToolName, Rec> = {
 export const MCP_LOOP_TOOL_DESCRIPTIONS: Record<McpLoopToolName, string> = {
   'buildergate.loop.list': 'List BuilderGate loops (scheduled shell sessions) with their next run and last result.',
   'buildergate.loop.history': 'Return the recent runs of a loop given by loopId or loopName.',
-  'buildergate.loop.create': 'Register a loop: on a schedule it opens a new tab with the given shell and folder and sends its steps in order.',
+  'buildergate.loop.create': 'Register a loop: on a schedule it sends its steps in order, into a new tab with the given shell and folder or into an existing session tab (target).',
   'buildergate.loop.update': 'Change a loop given by loopId or loopName. Only the fields given change.',
   'buildergate.loop.delete': 'Delete a loop. Requires confirm: true. Tabs it opened stay open.',
   'buildergate.loop.run': 'Run a loop once now, whatever its schedule. Answers as soon as the run starts.',
@@ -166,7 +195,7 @@ async function dispatch(control: McpLoopControl, name: McpLoopToolName, args: Re
     }
     case 'buildergate.loop.update': {
       const { id: _id, nextRunAt: _next, createdAt: _created, updatedAt: _updated, ...current } = loop;
-      return { ok: true, loop: loopView(control, await control.update(loop.id, { ...current, ...definitionOf(args) })) };
+      return { ok: true, loop: loopView(control, await control.update(loop.id, mergeUpdate(current, definitionOf(args)))) };
     }
     case 'buildergate.loop.delete':
       if (args.confirm !== true) return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: { confirm: 'must be true' } };
@@ -184,6 +213,23 @@ function definitionOf(args: Rec): Rec {
     if (args[key] !== undefined) fields[key] = args[key];
   }
   return fields;
+}
+
+/** FR-LOOP-007 AC-4: a target replaces the whole target; shell, cwd or keepTabs alone edit a new-session target. */
+function mergeUpdate(current: Omit<LoopDefinition, 'id' | 'nextRunAt' | 'createdAt' | 'updatedAt'>, given: Rec): Rec {
+  const { shell, cwd, keepTabs, ...rest } = given;
+  const merged: Rec = { ...current, ...rest };
+  const legacy = shell !== undefined || cwd !== undefined || keepTabs !== undefined;
+  if (given.target === undefined && legacy && current.target.kind === 'session') throw new LoopValidationError('session');
+  if (given.target === undefined && current.target.kind === 'new') {
+    merged.target = {
+      ...current.target,
+      ...(shell !== undefined ? { shell } : {}),
+      ...(cwd !== undefined ? { cwd } : {}),
+      ...(keepTabs !== undefined ? { keepTabs } : {}),
+    };
+  }
+  return merged;
 }
 
 type Resolved = { ok: true; loop: LoopDefinition } | { ok: false; error: Rec };
