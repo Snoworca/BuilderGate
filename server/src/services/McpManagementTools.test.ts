@@ -302,6 +302,8 @@ test('SEC-MCP-004 AC-2: session actors get read-only management scopes', () => {
     'mcp:sessions.list',
     'mcp:sessions.search',
     'mcp:status.write',
+    // FR-MCP-023 (user decision 2026-11-09): a session agent may type commands and Enter with terminal.input.
+    'mcp:terminal.input',
     'mcp:terminals.read',
     'mcp:workspaces.read',
   ]);

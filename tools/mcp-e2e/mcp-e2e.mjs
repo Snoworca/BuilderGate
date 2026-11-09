@@ -261,18 +261,18 @@ async function run() {
     // FR-MCP-015 AC-3: the bytes of an arrow key, in normal and in application cursor mode.
     await mcp.call('buildergate.terminal.exec', { ...ref, command: 'cat -v' });
     await sleep(800);
-    await mcp.call('buildergate.message.send', { sessionId, keys: ['up', 'shift+up'] });
-    await mcp.call('buildergate.message.send', { sessionId, keys: ['enter'] });
+    await mcp.call('buildergate.terminal.input', { sessionId, keys: ['up', 'shift+up'] });
+    await mcp.call('buildergate.terminal.input', { sessionId, keys: ['enter'] });
     const normal = await waitScreen(mcp, ref, /\^\[\[A\^\[\[1;2A/);
     check('keys: up and shift+up arrive as ESC [ A and ESC [ 1;2 A', normal.ok, normal.ok ? '' : normal.screen.slice(-200));
-    await mcp.call('buildergate.message.send', { sessionId, keys: ['ctrl+c'] });
+    await mcp.call('buildergate.terminal.input', { sessionId, keys: ['ctrl+c'] });
     await sleep(500);
     await mcp.call('buildergate.terminal.exec', { ...ref, command: "printf '\\033[?1h'; cat -v" });
     await sleep(800);
-    await mcp.call('buildergate.message.send', { sessionId, keys: ['up', 'enter'] });
+    await mcp.call('buildergate.terminal.input', { sessionId, keys: ['up', 'enter'] });
     const app = await waitScreen(mcp, ref, /\^\[OA/);
     check('keys: in application cursor mode up arrives as ESC O A (FR-MCP-015 AC-3)', app.ok, app.ok ? '' : app.screen.slice(-200));
-    await mcp.call('buildergate.message.send', { sessionId, keys: ['ctrl+c'] });
+    await mcp.call('buildergate.terminal.input', { sessionId, keys: ['ctrl+c'] });
     await mcp.call('buildergate.terminal.exec', { ...ref, command: "printf '\\033[?1l'; clear" });
 
     // FR-MCP-021: a one-use upload URL into the folder of the moment it was opened.
@@ -340,14 +340,20 @@ async function peerChecks(mcp, sessionId, ref) {
     const listed = await mcp.call('buildergate.peer.call', { peer: SELF_LINK, tool: 'buildergate.session.list' });
     check('peer: peer.call session.list over the link', Array.isArray(listed.sessions), `${listed.sessions?.length ?? listed.code}`);
     const marker = `peer-e2e-${Date.now()}`;
-    const sent = await mcp.call('buildergate.message.send', { target: `${SELF_LINK}/${sessionId}`, prompt: `echo ${marker}`, deliveryMode: 'submit' });
-    check('peer: message.send to "<link>/<sessionId>" is delivered', sent.status === 'delivered', JSON.stringify(sent).slice(0, 200));
+    const sent = await mcp.call('buildergate.terminal.input', { target: `${SELF_LINK}/${sessionId}`, command: `echo ${marker}` });
+    check('peer: terminal.input to "<link>/<sessionId>" is delivered', sent.status === 'delivered', JSON.stringify(sent).slice(0, 200));
     const seen = await waitScreen(mcp, ref, new RegExp(marker));
     check('peer: the text arrives in the terminal', seen.ok);
     const status = await mcp.call('buildergate.peer.message.status', { messageId: sent.messageId });
     check('peer: message.status says delivered', status.status === 'delivered', status.status);
-    const keys = await mcp.call('buildergate.message.send', { target: `${SELF_LINK}/${sessionId}`, keys: ['ctrl+c'] });
+    const keys = await mcp.call('buildergate.terminal.input', { target: `${SELF_LINK}/${sessionId}`, keys: ['ctrl+c'] });
     check('peer: keys go over the link too', keys.status === 'delivered', keys.status ?? keys.code);
+    // FR-MCP-011 AC-8: a message over the link arrives tagged "[from: <link>/<alias> ..." by the receiver.
+    const note = await mcp.call('buildergate.message.send', { target: `${SELF_LINK}/${sessionId}`, prompt: `note ${marker}`, deliveryMode: 'paste', fromSessionId: sessionId });
+    check('peer: message.send over the link is delivered', note.status === 'delivered', JSON.stringify(note).slice(0, 200));
+    const tagged = await waitScreen(mcp, ref, new RegExp(`\\[from: ${SELF_LINK}/`));
+    check('peer: the message carries the sender tag', tagged.ok);
+    await mcp.call('buildergate.terminal.input', { target: `${SELF_LINK}/${sessionId}`, keys: ['ctrl+c'] });
     await federationChecks(mcp, sessionId, ref);
   } finally {
     await rest('PUT', '/api/mcp-control/peers', { links: keep }, token);
@@ -380,10 +386,10 @@ async function federationChecks(mcp, sessionId, ref) {
   console.log(`   search over the link took ${elapsed} ms (total ${found.total})`);
   const remote = found.candidates?.find((m) => m.server === SELF_LINK);
   const marker = `fed-e2e-${Date.now()}`;
-  const sent = await mcp.call('buildergate.message.send', { target: remote?.target, prompt: `echo ${marker}`, deliveryMode: 'submit' });
+  const sent = await mcp.call('buildergate.terminal.input', { target: remote?.target, command: `echo ${marker}` });
   check('send: the remote candidate target goes over the link', sent.status === 'delivered', JSON.stringify(sent).slice(0, 160));
   check('send: the text arrives', (await waitScreen(mcp, ref, new RegExp(marker))).ok);
-  const viaServer = await mcp.call('buildergate.message.send', { server: SELF_LINK, sessionKey, prompt: `echo s-${marker}`, deliveryMode: 'submit' });
+  const viaServer = await mcp.call('buildergate.terminal.input', { server: SELF_LINK, sessionKey, command: `echo s-${marker}` });
   check('send: server with sessionKey goes over the link', viaServer.status === 'delivered', JSON.stringify(viaServer).slice(0, 160));
   const terminals = await mcp.call('buildergate.terminal.list', { server: SELF_LINK });
   check('server argument: terminal.list runs on the linked server', Array.isArray(terminals.terminals) && terminals.terminals.every((t) => t.server === SELF_LINK),

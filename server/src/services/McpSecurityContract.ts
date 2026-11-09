@@ -83,6 +83,9 @@ type McpClaims = {
   exp: number;
 };
 
+/** FR-MCP-023 AC-2: commands and Enter through buildergate.terminal.input. */
+export const MCP_TERMINAL_INPUT_SCOPE = 'mcp:terminal.input';
+
 const DEFAULT_MCP_SCOPES = [
   'mcp:self.read',
   'mcp:sessions.list',
@@ -97,13 +100,17 @@ const DEFAULT_MCP_SCOPES = [
   // FR-LOOP-007 AC-7 (user decision 2026-10-30): a session agent may register and run loops.
   'mcp:loops.read',
   'mcp:loops.write',
+  // FR-MCP-023 AC-2 (user decision 2026-11-09): a session agent may type commands and Enter with
+  // buildergate.terminal.input. message.send submit still needs mcp:message.submit.
+  MCP_TERMINAL_INPUT_SCOPE,
 ] as const;
 const FIXED_MCP_ACCESS_KEY_SCOPES = [
   'mcp:sessions.list',
   'mcp:sessions.search',
   'mcp:message.paste',
   'mcp:message.submit',
-  // SEC-MCP-004: workspace/terminal management and command execution are fixed-key only.
+  // SEC-MCP-004: workspace/terminal management, terminal.exec and message.submit are fixed-key only.
+  // A session agent may type commands and Enter only through terminal.input (mcp:terminal.input, FR-MCP-023).
   'mcp:workspaces.read',
   'mcp:workspaces.write',
   'mcp:terminals.read',

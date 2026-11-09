@@ -1,5 +1,5 @@
-// FR-MCP-015 (#232): buildergate.message.send takes keys -- named keys and key combinations sent to
-// the target session after the prompt, or alone.
+// FR-MCP-015 (#232): keys -- named keys and key combinations sent to the target session. Since
+// FR-MCP-023 they go through buildergate.terminal.input, never with text and never with a sender tag.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createMcpToolService } from './McpToolService.js';
@@ -18,7 +18,7 @@ function setup() {
     deliverMessage: (delivery: Rec) => { delivered.push(delivery); return { ok: true, status: 'delivered' }; },
   }) as { callTool: (r: unknown) => Promise<Rec>; listTools: () => Rec };
   const send = (scopes: string[], args: Rec) => service.callTool({
-    name: 'buildergate.message.send',
+    name: 'buildergate.terminal.input',
     arguments: { target: 'worker', ...args },
     actor: { type: 'mcp', sessionKey: 'k-lead', scopes },
   });
@@ -38,15 +38,6 @@ test('FR-MCP-015 AC-1: keys alone are sent, with no prompt and no sender tag', a
   assert.deepEqual(keyNames(delivered[0]), ['down', 'down', 'enter']);
 });
 
-test('FR-MCP-015 AC-1: a prompt and keys go together, the prompt first', async () => {
-  const { delivered, send } = setup();
-  const result = await send(FULL, { prompt: 'git sta', deliveryMode: 'paste', keys: ['tab'] });
-  assert.equal(result.ok, true, JSON.stringify(result));
-  assert.equal(delivered[0]!.prompt, 'git sta');
-  assert.equal(delivered[0]!.deliveryMode, 'paste');
-  assert.deepEqual(keyNames(delivered[0]), ['tab']);
-});
-
 test('FR-MCP-015 AC-1: neither a prompt nor keys is a validation error', async () => {
   const { delivered, send } = setup();
   const result = await send(FULL, {});
@@ -56,7 +47,7 @@ test('FR-MCP-015 AC-1: neither a prompt nor keys is a validation error', async (
 
 test('FR-MCP-015 AC-4: an unknown or ambiguous key sends nothing and names a replacement', async () => {
   const { delivered, send } = setup();
-  const result = await send(FULL, { prompt: 'hello', keys: ['down', 'shift+enter'] });
+  const result = await send(FULL, { keys: ['down', 'shift+enter'] });
   assert.equal(result.code, 'VALIDATION_ERROR');
   assert.match(JSON.stringify(result.fieldErrors), /newline/);
   assert.equal(delivered.length, 0);
@@ -74,9 +65,9 @@ test('FR-MCP-015 AC-5: a key that submits needs the submit scope; other keys do 
   assert.deepEqual(keyNames(delivered[0]), ['down', 'esc', 'ctrl+c', 'shift+tab']);
 });
 
-test('FR-MCP-015: the tool schema offers keys and no longer requires a prompt', () => {
+test('FR-MCP-015: the terminal.input schema offers keys and requires no prompt', () => {
   const { service } = setup();
-  const tool = (service.listTools().tools as Rec[]).find((entry) => entry.name === 'buildergate.message.send')!;
+  const tool = (service.listTools().tools as Rec[]).find((entry) => entry.name === 'buildergate.terminal.input')!;
   const schema = tool.inputSchema as Rec;
   assert.equal(((schema.properties as Rec).keys as Rec).type, 'array');
   assert.match(String(((schema.properties as Rec).keys as Rec).description), /shift\+tab|newline/);

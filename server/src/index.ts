@@ -179,7 +179,7 @@ import {
 } from './services/WebhookInvocationService.js';
 import {
   createSessionInputGateway,
-  submitMcpMessageInput,
+  submitMcpDeliveryInput,
 } from './services/SessionInputGateway.js';
 import {
   DEFAULT_SUBMIT_ENTER_DELAY,
@@ -600,9 +600,8 @@ function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringR
         promptPreviewMaxChars: 24,
       },
     };
-    const submit = (request: StringRecord) => (delivery.source === 'mcp-reply-to-leader'
-      ? gateway.submitInput({ ...request, source: 'mcp-reply-to-leader' })
-      : submitMcpMessageInput(gateway, request));
+    // FR-MCP-023: each MCP tool keeps its own gateway source (message.send, terminal.input, reply_to_leader).
+    const submit = (request: StringRecord) => submitMcpDeliveryInput(gateway, request, delivery.source);
     const keys = Array.isArray(delivery.keys) ? delivery.keys as ParsedMcpKey[] : [];
     // FR-MCP-002 AC-7: a submit writes the prompt, then Enter on its own.
     let result: StringRecord = { accepted: true };

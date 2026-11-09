@@ -3,6 +3,7 @@ import net from 'node:net';
 import {
   createDefaultMcpSecurityConfig,
   getDefaultMcpSessionScopes,
+  MCP_TERMINAL_INPUT_SCOPE,
   matchesAnyCidr,
   matchesWhitelist,
   mintMcpCapabilityToken,
@@ -12,6 +13,7 @@ import {
 } from './McpSecurityContract.js';
 import { MCP_KEYS_MAX, parseMcpKeys, type ParsedMcpKey } from './terminalKeys.js';
 import {
+  MCP_MESSAGE_SEND_TOOL,
   MCP_PEER_TOOL_DESCRIPTIONS,
   MCP_PEER_TOOL_NAMES,
   MCP_PEER_TOOL_SCHEMAS,
@@ -19,8 +21,10 @@ import {
   callMcpPeerTool,
   isMcpPeerTool,
   isPeerRelay,
+  MCP_TERMINAL_INPUT_TOOL,
   splitPeerTarget,
   type McpPeerLinks,
+  type McpQueuedTool,
 } from './McpPeerTools.js';
 import {
   MCP_FILE_UPLOAD_TOOL,
@@ -146,14 +150,16 @@ const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and w
   + 'buildergate.editor.open_html shows the user an HTML file or HTML text (saved to a file first) as a sandboxed rendered page, or as source with view: source. '
   // FR-MCP-002 AC-9
   + 'Use these tools to orchestrate other sessions: open terminals, start coding agents, send them prompts and read their screens. '
-  + 'A submit (buildergate.terminal.exec, or buildergate.message.send with deliveryMode submit) already presses Enter, '
+  + 'A submit (buildergate.terminal.exec, buildergate.terminal.input command, or buildergate.message.send with deliveryMode submit) already presses Enter, '
   + 'so do not send a separate message just to submit. '
   // FR-MCP-011 AC-5
   + 'Input that starts with [from: <alias> · sessionKey <key> · sessionId <id>] was sent by another BuilderGate session (the server writes this tag); '
-  + 'answer with buildergate.message.send to that sessionKey. When you write to another agent, always pass includeSender: true '
-  + '(FR-MCP-011 AC-7): a message without the tag leaves the receiver no session to answer. Leave it out only for a shell command. '
-  + 'If your MCP connection is not tied to a session (a fixed access key), also pass your own session as fromSessionKey or '
-  + 'fromSessionId; without it no tag is written.';
+  + 'answer with buildergate.message.send to that sessionKey. buildergate.message.send always carries your session in that tag '
+  + '(FR-MCP-011 AC-7); if your MCP connection is not tied to a session (a fixed access key), pass your own session as '
+  + 'fromSessionKey or fromSessionId, or the message is refused. '
+  // FR-MCP-023 AC-6
+  + 'Shell commands and keys (arrows, esc, tab, enter, ctrl+c) go through buildergate.terminal.input, which adds nothing; '
+  + 'text for another agent goes through buildergate.message.send.';
 // FR-MCP-010: the user's agent launch aliases, e.g. "claudep (Claude Code), codexp (Codex)".
 function describeAgentAliases(deps: McpToolServiceDeps): string | undefined {
   let aliases: ReturnType<NonNullable<McpToolServiceDeps['getAgentAliases']>>;
@@ -208,6 +214,8 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   'buildergate.session.list',
   'buildergate.session.search',
   'buildergate.message.send',
+  // FR-MCP-023
+  MCP_TERMINAL_INPUT_TOOL,
   'buildergate.session.set_alias',
   'buildergate.session.open_agent',
   'buildergate.session.close',
@@ -277,15 +285,30 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
       target: { type: 'string' },
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
-      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key> · sessionId <id>] tag before the text. Always pass true when writing to another agent, so it knows which session to answer; false (default) only for a shell command.' },
-      fromSessionKey: { type: 'string', description: 'Your own session. Always pass it (or fromSessionId) when this MCP connection is not tied to a session (a fixed access key): without it no tag is written and the receiver cannot answer. The server checks that it is a live session and writes its real ids in the tag; it turns the tag on unless includeSender is false.' },
+      // FR-MCP-011 AC-2/AC-6/AC-7
+      fromSessionKey: { type: 'string', description: 'Your own session. Required when this MCP connection is not tied to a session (a fixed access key): '
+        + 'without it the message is refused with SENDER_REQUIRED. The server checks that it is a live session and writes its real ids in the tag. '
+        + 'A session-bound connection is always tagged as its own session.' },
       fromSessionId: { type: 'string', description: 'Like fromSessionKey, by session id.' },
+    },
+    required: ['prompt'],
+    additionalProperties: false,
+  },
+  // FR-MCP-023: commands and keys, never a sender tag.
+  [MCP_TERMINAL_INPUT_TOOL]: {
+    type: 'object',
+    properties: {
+      sessionKey: { type: 'string' },
+      sessionId: { type: 'string' },
+      alias: { type: 'string' },
+      target: { type: 'string' },
+      command: { type: 'string', description: 'One shell command line, typed and submitted with Enter. Use this or keys, not both.' },
       // FR-MCP-015
       keys: {
         type: 'array',
         maxItems: MCP_KEYS_MAX,
         items: { type: 'string' },
-        description: 'Keys to press after the prompt, or alone without one, in order. A key is a name, optionally '
+        description: 'Keys to press, in order. Use this or command, not both. A key is a name, optionally '
           + 'with modifiers joined by +: up, down, left, right, home, end, pageup, pagedown, insert, delete, f1-f12, '
           + 'esc, tab, enter, backspace, space, newline (a line break inside an input, Ctrl+J), or one character; '
           + 'modifiers shift, alt, ctrl. Examples: ["down","down","enter"], ["shift+tab"], ["ctrl+c"], ["esc"]. '
@@ -843,6 +866,8 @@ async function callLocalTool(
       }, await handleSetAlias(deps, actor, args));
     case 'buildergate.message.send':
       return handleMessageSend(deps, state, actor, args, context);
+    case MCP_TERMINAL_INPUT_TOOL:
+      return handleTerminalInput(deps, state, actor, args, context);
     case 'buildergate.session.update_status':
       return withAudit(deps, state, 'buildergate.session.update_status', actor, context, {}, await handleUpdateStatus(deps, actor, args));
     case 'buildergate.session.open_agent':
@@ -1109,6 +1134,14 @@ function mapAliasProviderError(error: unknown): StringRecord {
   };
 }
 
+/** FR-MCP-011 AC-3: message.send carries text for an agent; commands and keys go to terminal.input. */
+const USE_TERMINAL_INPUT: StringRecord = Object.freeze({
+  ok: false,
+  code: 'USE_TERMINAL_INPUT',
+  message: 'buildergate.message.send sends text to another agent and always names your session. '
+    + 'Send a shell command or keys with buildergate.terminal.input.',
+});
+
 // @req IR-MCP-001
 // @req OBS-MCP-001
 async function handleMessageSend(
@@ -1118,69 +1151,151 @@ async function handleMessageSend(
   args: StringRecord,
   context: StringRecord,
 ): Promise<StringRecord> {
-  const prompt = asString(args.prompt)?.trim() ?? '';
-  // FR-MCP-015 AC-1/AC-4: keys after the prompt or alone; a refused key sends nothing.
-  let keys: ParsedMcpKey[] = [];
-  if (args.keys !== undefined) {
-    const parsed = parseMcpKeys(args.keys);
-    if (!parsed.ok) {
-      return validationError(parsed.errors);
-    }
-    keys = parsed.keys;
+  if (args.keys !== undefined || args.includeSender === false) {
+    return { ...USE_TERMINAL_INPUT };
   }
-  if (!prompt && keys.length === 0) {
+  const prompt = asString(args.prompt)?.trim() ?? '';
+  if (!prompt) {
     return validationError({ prompt: 'required' });
   }
   const deliveryMode = resolveDeliveryMode(args);
-  // FR-MCP-015 AC-5: a key that writes CR or LF needs the submit scope, like a submit.
-  const scopeError = validateMessageScopes(actor, keys.some((key) => key.submits) ? 'submit' : deliveryMode);
+  const scopeError = validateMessageScopes(actor, deliveryMode);
   if (scopeError) {
     return scopeError;
   }
-  // FR-MCP-019 AC-1: "peer/target" goes to the remote's queue; the tag names the sender here.
   const remote = splitPeerTarget(deps.peerLinks, asString(args.target));
+  if (remote && isPeerRelay(actor)) return { ...PEER_RELAY_REFUSED };
+  // FR-MCP-011 AC-2/AC-6/AC-8: every message names its sender, or nothing is sent.
+  const resolved = await resolveSender(deps, actor, args);
+  if ('error' in resolved) return resolved.error;
+  const { sender } = resolved;
   if (remote) {
-    if (isPeerRelay(actor)) return { ...PEER_RELAY_REFUSED };
-    const resolved = prompt ? await resolveSender(deps, actor, args) : {};
-    if ('error' in resolved) return resolved.error;
-    const sender = resolved.sender;
-    const result = await deps.peerLinks!.sendMessage({
-      peer: remote.peer,
-      args: {
-        target: remote.target,
-        ...(prompt ? { prompt } : {}),
-        ...(sender ? {
-          peerSender: {
-            alias: asString(sender.alias) ?? asString(sender.sessionKey),
-            sessionKey: asString(sender.sessionKey),
-            ...(getCurrentSessionId(sender) ? { sessionId: getCurrentSessionId(sender) } : {}),
-          },
-        } : {}),
-        ...(keys.length > 0 ? { keys: keys.map((key) => key.name) } : {}),
-        ...(args.deliveryMode !== undefined ? { deliveryMode: deliveryMode } : {}),
+    // FR-MCP-019 AC-1: the receiving server writes the tag from the sender named here.
+    return sendToPeer(deps, state, actor, context, MCP_MESSAGE_SEND_TOOL, remote, {
+      prompt,
+      peerSender: {
+        alias: asString(sender.alias) ?? asString(sender.sessionKey),
+        sessionKey: asString(sender.sessionKey),
+        ...(getCurrentSessionId(sender) ? { sessionId: getCurrentSessionId(sender) } : {}),
       },
-      scopes: Array.isArray(actor.scopes) ? actor.scopes.map(String) : [],
-      hasKeys: keys.length > 0,
-    });
-    return withAudit(deps, state, 'buildergate.message.send', actor, context, { targetBinding: { peer: remote.peer, target: remote.target } }, result);
+      ...(args.deliveryMode !== undefined ? { deliveryMode } : {}),
+    }, false);
   }
   const targetResult = await resolveMessageTarget(deps, actor, args);
   if (targetResult.ok === false) {
     return targetResult;
   }
-  const sender = prompt ? await withSenderTag(deps, actor, prompt, args) : { prompt: '' };
-  if ('error' in sender) return sender.error;
   return deliverMcpMessage(deps, state, {
     actor,
     context,
-    action: 'buildergate.message.send',
+    action: MCP_MESSAGE_SEND_TOOL,
     deliverySource: 'mcp-message-send',
     deliveryMode,
-    prompt: sender.prompt,
-    keys,
+    prompt: senderTagged(prompt, senderTag(sender)),
     targetSessionKey: asString(targetResult.sessionKey) ?? '',
     target: asRecord(targetResult.target),
   });
+}
+
+// FR-MCP-023: one shell command line (with Enter) or keys only, never a sender tag.
+async function handleTerminalInput(
+  deps: McpToolServiceDeps,
+  state: McpToolServiceState,
+  actor: StringRecord,
+  args: StringRecord,
+  context: StringRecord,
+): Promise<StringRecord> {
+  if (args.prompt !== undefined) {
+    return {
+      ...validationError({ prompt: 'not accepted' }),
+      message: 'buildergate.terminal.input sends a command or keys only. Write to another agent with buildergate.message.send.',
+    };
+  }
+  const hasCommand = args.command !== undefined;
+  if (hasCommand === (args.keys !== undefined)) {
+    return validationError(hasCommand
+      ? { command: 'use command or keys, not both', keys: 'use command or keys, not both' }
+      : { command: 'command or keys required' });
+  }
+  let command = '';
+  let keys: ParsedMcpKey[] = [];
+  if (hasCommand) {
+    command = (asString(args.command) ?? '').replace(/[\r\n]+$/u, '');
+    if (!command.trim()) return validationError({ command: 'required' });
+    if (/[\r\n]/u.test(command)) return validationError({ command: 'one line only' });
+    // Security review L4: no control characters (ESC sequences, Ctrl+C, DEL ...) inside a command; a tab is fine.
+    if (/[\u0000-\u0008\u000b-\u001f\u007f]/u.test(command)) return validationError({ command: 'no control characters (use keys)' });
+    // FR-MCP-011 AC-4: only the server writes "[from:". Rewriting it would leave a shell inside an
+    // unclosed "(", so the command is refused instead.
+    if (startsWithSenderTag(command)) return { ...SENDER_TAG_RESERVED };
+  } else {
+    // FR-MCP-015 AC-4: a refused key sends nothing.
+    const parsed = parseMcpKeys(args.keys);
+    if (!parsed.ok) return validationError(parsed.errors);
+    keys = parsed.keys;
+  }
+  // FR-MCP-023 AC-2: a command, or a key that writes CR or LF, needs mcp:terminal.input (session
+  // default) or mcp:message.submit (fixed key, links); other keys need the paste scope.
+  const submits = hasCommand || keys.some((key) => key.submits);
+  const scopeError = requireScope(actor, 'mcp:message.paste')
+    ?? (submits && requireScope(actor, MCP_TERMINAL_INPUT_SCOPE) ? requireScope(actor, 'mcp:message.submit') : null);
+  if (scopeError) {
+    return scopeError;
+  }
+  const remote = splitPeerTarget(deps.peerLinks, asString(args.target));
+  if (remote) {
+    if (isPeerRelay(actor)) return { ...PEER_RELAY_REFUSED };
+    // Control input is stale fast: it expires on the short key TTL either way.
+    return sendToPeer(deps, state, actor, context, MCP_TERMINAL_INPUT_TOOL, remote,
+      hasCommand ? { command } : { keys: keys.map((key) => key.name) }, true);
+  }
+  const targetResult = await resolveMessageTarget(deps, actor, args);
+  if (targetResult.ok === false) {
+    return targetResult;
+  }
+  return deliverMcpMessage(deps, state, {
+    actor,
+    context,
+    action: MCP_TERMINAL_INPUT_TOOL,
+    // FR-MCP-023: its own gateway source, so the gateway audit tells the two tools apart.
+    deliverySource: 'mcp-terminal-input',
+    deliveryMode: hasCommand ? 'submit' : 'paste',
+    prompt: command,
+    keys,
+    // The input gateway admits Enter by mcp:message.submit; this tool has already authorized it.
+    ...(submits ? { deliveryActor: withScope(actor, 'mcp:message.submit') } : {}),
+    targetSessionKey: asString(targetResult.sessionKey) ?? '',
+    target: asRecord(targetResult.target),
+  });
+}
+
+/** FR-MCP-019 AC-1, FR-MCP-023 AC-5: "<peer>/<target>" goes into the remote's queue. */
+async function sendToPeer(
+  deps: McpToolServiceDeps,
+  state: McpToolServiceState,
+  actor: StringRecord,
+  context: StringRecord,
+  tool: McpQueuedTool,
+  remote: { peer: string; target: string },
+  args: StringRecord,
+  hasKeys: boolean,
+): Promise<StringRecord> {
+  const result = await deps.peerLinks!.sendMessage({
+    peer: remote.peer,
+    tool,
+    args: { target: remote.target, ...args },
+    scopes: Array.isArray(actor.scopes) ? actor.scopes.map(String) : [],
+    hasKeys,
+  });
+  return withAudit(deps, state, tool, actor, context, { targetBinding: { peer: remote.peer, target: remote.target } }, withVersionHint(tool, result));
+}
+
+/** FR-MCP-023 AC-7: a server older than the split runs terminal.input frames as message.send and asks for a prompt. */
+function withVersionHint(tool: McpQueuedTool, result: StringRecord): StringRecord {
+  const remote = asRecord(result.result);
+  const askedForPrompt = asRecord(remote.fieldErrors).prompt !== undefined;
+  if (tool !== MCP_TERMINAL_INPUT_TOOL || result.ok !== false || !askedForPrompt) return result;
+  return { ...result, message: `The linked server asked for a prompt, so it is probably older. ${SAME_VERSION_HINT}` };
 }
 
 async function handleReplyToLeader(
@@ -1250,6 +1365,8 @@ async function deliverMcpMessage(
     prompt: string;
     /** FR-MCP-015: pressed after the prompt; encoded at delivery, where the cursor mode is known. */
     keys?: ParsedMcpKey[];
+    /** The actor the input gateway sees, when the tool grants more than the caller's scopes say (FR-MCP-023 AC-2). Audit keeps actor. */
+    deliveryActor?: StringRecord;
     targetSessionKey: string;
     target: StringRecord;
   },
@@ -1283,7 +1400,7 @@ async function deliverMcpMessage(
       deliveryMode: input.deliveryMode,
       keys: input.keys ?? [],
       target: sanitizeSession(input.target),
-      actor: sanitizeActor(input.actor),
+      actor: sanitizeActor(input.deliveryActor ?? input.actor),
       context: input.context,
       auditId,
     }))
@@ -1346,57 +1463,78 @@ function senderTag(session: StringRecord): string {
 }
 
 function senderTagged(prompt: string, tag: string | undefined): string {
-  const defused = prompt.replace(/^\[(from:)/i, '($1');
+  const defused = defuseSenderTag(prompt);
   return tag ? `${tag} ${defused}` : defused;
 }
+
+const SENDER_TAG = /^(\s*)\[(from:)/i;
+
+/** FR-MCP-011 AC-4: only the server writes "[from:"; a leading one in message text becomes "(from:". */
+function defuseSenderTag(text: string): string {
+  return text.replace(SENDER_TAG, '$1($2');
+}
+
+function startsWithSenderTag(text: string): boolean {
+  return SENDER_TAG.test(text);
+}
+
+/** FR-MCP-011 AC-4: a terminal.input command may not start with a sender tag. */
+const SENDER_TAG_RESERVED: StringRecord = Object.freeze({
+  ok: false,
+  code: 'SENDER_TAG_RESERVED',
+  message: 'A command cannot start with "[from:": only the server writes that tag. '
+    + 'To write to another agent use buildergate.message.send; nothing was sent.',
+});
 
 async function findLiveSession(deps: McpToolServiceDeps, match: (session: StringRecord) => boolean): Promise<StringRecord | undefined> {
   const sessions = await resolveSessions(deps, undefined, true);
   return Array.isArray(sessions) ? sessions.find(match) : undefined;
 }
 
-/** message.send: the sender is the caller's own session, else the one it names (checked live). */
-async function withSenderTag(
-  deps: McpToolServiceDeps,
-  actor: StringRecord,
-  prompt: string,
-  args: StringRecord,
-): Promise<{ prompt: string } | { error: StringRecord }> {
-  // FR-MCP-019 AC-1: a message from a peer is tagged here, by the receiving server, from the
-  // sender the peer named; the peer's name goes in front so the reply target is "<peer>/<alias>".
-  const peerSender = isPeerRelay(actor) ? asRecord(args.peerSender) : {};
-  if (asString(peerSender.sessionKey)) {
-    const alias = asString(peerSender.alias) ?? asString(peerSender.sessionKey)!;
-    return { prompt: senderTagged(prompt, senderTag({ ...peerSender, alias: `${asString(actor.peer) ?? 'peer'}/${alias}` })) };
-  }
-  const resolved = await resolveSender(deps, actor, args);
-  if ('error' in resolved) return resolved;
-  return { prompt: senderTagged(prompt, resolved.sender ? senderTag(resolved.sender) : undefined) };
-}
+/** FR-MCP-023 AC-7: both ends of a link need the same version since the message/control split. */
+const SAME_VERSION_HINT = 'Both linked servers need the same BuilderGate version (message.send and terminal.input were split).';
+const PEER_SENDER_MISSING_MESSAGE = 'A message from a linked server must name its sender. '
+  + `The sending server is probably older: ${SAME_VERSION_HINT}`;
 
-/** The session a message.send names as its sender: the caller's own, else the one it names (checked live). */
+/** FR-MCP-011 AC-2/AC-8: a message that names no session to answer is not sent. */
+const SENDER_REQUIRED: StringRecord = Object.freeze({
+  ok: false,
+  code: 'SENDER_REQUIRED',
+  message: 'buildergate.message.send always names the sending session. This connection is not tied to a session: '
+    + 'pass your own session as fromSessionKey or fromSessionId.',
+  fieldErrors: { fromSessionKey: 'required (or fromSessionId)', fromSessionId: 'required (or fromSessionKey)' },
+});
+
+/**
+ * The session a message.send names as its sender: the caller's own, else the one it names (checked
+ * live). A message from a peer names its sender in peerSender (FR-MCP-019 AC-1); the peer's name
+ * goes in front so the reply target is "<peer>/<alias>".
+ */
 async function resolveSender(
   deps: McpToolServiceDeps,
   actor: StringRecord,
   args: StringRecord,
-): Promise<{ sender?: StringRecord } | { error: StringRecord }> {
+): Promise<{ sender: StringRecord } | { error: StringRecord }> {
+  if (isPeerRelay(actor)) {
+    const peerSender = asRecord(args.peerSender);
+    const sessionKey = asString(peerSender.sessionKey);
+    if (!sessionKey) return { error: { ...SENDER_REQUIRED, message: PEER_SENDER_MISSING_MESSAGE } };
+    const alias = asString(peerSender.alias) ?? sessionKey;
+    return { sender: { ...peerSender, alias: `${asString(actor.peer) ?? 'peer'}/${alias}` } };
+  }
+  const actorKey = asString(actor.sessionKey);
+  if (actorKey) {
+    return { sender: (await findLiveSession(deps, (session) => asString(session.sessionKey) === actorKey)) ?? { sessionKey: actorKey } };
+  }
   const fromKey = asString(args.fromSessionKey);
   const fromId = asString(args.fromSessionId);
-  const named = fromKey !== undefined || fromId !== undefined;
-  const include = args.includeSender === true || (args.includeSender !== false && named);
-  if (!include) return {};
-  const actorKey = asString(actor.sessionKey);
-  let sender: StringRecord | undefined;
-  if (actorKey) {
-    sender = (await findLiveSession(deps, (session) => asString(session.sessionKey) === actorKey)) ?? { sessionKey: actorKey };
-  } else if (named) {
-    sender = await findLiveSession(deps, (session) => (fromKey !== undefined
-      ? asString(session.sessionKey) === fromKey
-      : sessionMatchesSessionId(session, fromId!)));
-    if (!sender) {
-      const field = fromKey !== undefined ? 'fromSessionKey' : 'fromSessionId';
-      return { error: { ...validationError({ [field]: 'not found' }), message: `${field} is not a live session` } };
-    }
+  if (fromKey === undefined && fromId === undefined) return { error: { ...SENDER_REQUIRED } };
+  const sender = await findLiveSession(deps, (session) => (fromKey !== undefined
+    ? asString(session.sessionKey) === fromKey
+    : sessionMatchesSessionId(session, fromId!)));
+  if (!sender) {
+    const field = fromKey !== undefined ? 'fromSessionKey' : 'fromSessionId';
+    return { error: { ...validationError({ [field]: 'not found' }), message: `${field} is not a live session` } };
   }
   return { sender };
 }
@@ -2315,6 +2453,11 @@ function isMcpToolFailure(result: StringRecord): boolean {
 }
 
 // @req IR-MCP-001
+function withScope(actor: StringRecord, scope: string): StringRecord {
+  const scopes = Array.isArray(actor.scopes) ? actor.scopes.map(String) : [];
+  return { ...actor, scopes: [...new Set([...scopes, scope])] };
+}
+
 function requireScope(actor: StringRecord, scope: string): StringRecord | null {
   const scopes = Array.isArray(actor.scopes) ? actor.scopes.map(String) : [];
   return scopes.includes(scope) ? null : { ok: false, code: 'INVALID_SCOPE' };
@@ -2589,9 +2732,14 @@ function toolDescription(name: string): string {
       + 'its name (any order; drop particles like 에게). Matches the session name, terminal title, workspace name and folder. '
       + 'When allowed is true, send to matches[0].target with buildergate.message.send; when AMBIGUOUS_TARGET, pick from candidates '
       + 'or ask the user. limit: default 10, at most 20.',
-    'buildergate.message.send': 'Send a paste or submit request to a session, and press keys (arrows, esc, tab, shift+tab, ctrl+c, ...) with keys. '
-      + 'When writing to another agent, always pass includeSender: true (and fromSessionKey or fromSessionId if your connection '
-      + 'is not tied to a session) so the receiver gets your session id and knows where to reply.',
+    // FR-MCP-011 AC-7
+    'buildergate.message.send': 'Send a message to another agent\'s session, pasted or submitted. The server always puts your session '
+      + '([from: <alias> · sessionKey <key> · sessionId <id>]) in front so the receiver knows where to reply; if your connection is not '
+      + 'tied to a session (a fixed access key), pass fromSessionKey or fromSessionId or the message is refused. '
+      + 'For a shell command or keys (arrows, esc, tab, ctrl+c, ...) use buildergate.terminal.input.',
+    // FR-MCP-023 AC-6
+    [MCP_TERMINAL_INPUT_TOOL]: 'Control a session: type one shell command line and press Enter (command), or press keys only '
+      + '(keys: arrows, esc, tab, shift+tab, enter, ctrl+c, ...). Nothing else is added. To write to another agent use buildergate.message.send.',
     'buildergate.session.set_alias': 'Set a user alias for a session.',
     'buildergate.session.open_agent': 'Launch a follower agent session from an agent profile.',
     'buildergate.session.close': 'Close another session. Requires confirmation fields.',

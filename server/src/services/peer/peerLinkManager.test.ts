@@ -277,9 +277,47 @@ test('FR-MCP-018 AC-1/AC-3, FR-MCP-019 AC-2: a message runs on the other side an
   assert.equal(msg.seq, 1);
   assert.equal(msg.epoch, 'corp-e1');
   assert.equal(azure.calls[0]!.tool, 'buildergate.message.send');
-  assert.deepEqual(azure.calls[0]!.args, { target: 'worker', prompt: 'hi', includeSender: false });
+  assert.deepEqual(azure.calls[0]!.args, { target: 'worker', prompt: 'hi' }, 'the receiver tags it from peerSender (FR-MCP-011 AC-8)');
   assert.equal(azure.calls[0]!.actor.type, 'mcp-peer');
   assert.equal(azure.calls[0]!.actor.peer, 'corp');
+});
+
+test('FR-MCP-023 AC-5: a terminal.input message runs terminal.input on the other side; other tools are not run', async () => {
+  const clock = new FakeClock();
+  const { corp, azure, wires } = pair(clock);
+  corp.manager.start();
+  await clock.advance(0);
+  const result = await corp.manager.sendMessage({ peer: 'azure', tool: 'buildergate.terminal.input', args: { target: 'w', keys: ['down'] }, scopes: ALL, hasKeys: true });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(wires[0]!.fromDialer.find((f) => f.t === 'msg')!.tool, 'buildergate.terminal.input');
+  assert.equal(azure.calls[0]!.tool, 'buildergate.terminal.input');
+  assert.deepEqual(azure.calls[0]!.args, { target: 'w', keys: ['down'] });
+  const unknown = await corp.manager.sendMessage({ peer: 'azure', tool: 'buildergate.session.close' as never, args: { target: 'w', prompt: 'x' }, scopes: ALL, hasKeys: false });
+  assert.equal(unknown.ok, false, 'review L1: an unknown tool in a frame is refused, not run as message.send');
+  assert.equal((unknown.result as Rec | undefined)?.code ?? unknown.code, 'PEER_UNKNOWN_TOOL', JSON.stringify(unknown));
+  assert.equal(azure.calls.length, 1);
+});
+
+test('FR-MCP-023 AC-5 (review M1): a frame from an older server with keys and no tool runs terminal.input', async () => {
+  const clock = new FakeClock();
+  const { corp, azure } = pair(clock);
+  corp.manager.start();
+  await clock.advance(0);
+  await corp.manager.sendMessage({ peer: 'azure', args: { target: 'w', keys: ['ctrl+c'] }, scopes: ALL, hasKeys: true });
+  assert.equal(azure.calls[0]!.tool, 'buildergate.terminal.input');
+  assert.deepEqual(azure.calls[0]!.args, { target: 'w', keys: ['ctrl+c'] });
+});
+
+test('FR-MCP-011 AC-8 (review H2): a call over a link cannot run message.send or terminal.input', async () => {
+  const clock = new FakeClock();
+  const { corp, azure } = pair(clock);
+  corp.manager.start();
+  await clock.advance(0);
+  for (const tool of ['buildergate.message.send', 'buildergate.terminal.input']) {
+    const result = await corp.manager.call({ peer: 'azure', tool, arguments: { target: 'w', prompt: 'x', peerSender: { sessionKey: 'k-lead' } }, scopes: ALL });
+    assert.equal(result.code, 'PEER_QUEUED_TOOL', JSON.stringify(result));
+  }
+  assert.equal(azure.calls.length, 0);
 });
 
 test('FR-MCP-018 AC-2/AC-7, FR-MCP-019 AC-2/AC-3: while disconnected a message is queued, then sent in order on reconnect', async () => {

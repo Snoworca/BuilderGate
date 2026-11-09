@@ -1,8 +1,8 @@
 // FR-MCP-022 (#235): the linked servers act as one. On the master, list tools merge the results of
 // every connected server, each item naming its server and a target "<server>/<sessionKey>" that
-// message.send takes as is; every other tool takes a server argument that picks where it runs.
+// message.send (and terminal.input) take as is; every other tool takes a server argument that picks where it runs.
 // A request that arrived over a link is answered by this server alone (no relay, FR-MCP-019 AC-6).
-import { isMcpPeerTool, isPeerRelay, PEER_RELAY_REFUSED, type McpPeerLinks } from './McpPeerTools.js';
+import { isMcpPeerTool, isMcpQueuedTool, isPeerRelay, PEER_RELAY_REFUSED, type McpPeerLinks } from './McpPeerTools.js';
 
 type Rec = Record<string, unknown>;
 
@@ -13,7 +13,6 @@ export const SEARCH_LIMIT_DEFAULT = 10;
 export const SEARCH_LIMIT_MAX = 20;
 
 const SEARCH_TOOL = 'buildergate.session.search';
-const SEND_TOOL = 'buildergate.message.send';
 
 /** The list tools that merge, and the arrays of items they answer with. */
 const MERGED_LISTS: Readonly<Record<string, readonly string[]>> = {
@@ -68,7 +67,8 @@ export async function callFederated(input: FederatedCall): Promise<Rec> {
   if (!links) return input.runLocal(input.args);
   const self = links.nodeName();
 
-  if (name === SEND_TOOL) {
+  // FR-MCP-023 AC-5: terminal.input picks its session the same way.
+  if (isMcpQueuedTool(name)) {
     const routed = sendArguments(links, self, server, rest);
     return 'refused' in routed ? routed.refused : input.runLocal(routed.args);
   }

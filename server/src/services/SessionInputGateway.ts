@@ -34,6 +34,8 @@ export const SESSION_INPUT_GATEWAY_INGRESS_SOURCES = [
   'websocket',
   'restore',
   'mcp-message-send',
+  // FR-MCP-023: buildergate.terminal.input, told apart from message.send in the gateway audit.
+  'mcp-terminal-input',
   'mcp-reply-to-leader',
   'open-agent-command',
   'open-agent-kickoff',
@@ -92,6 +94,20 @@ export async function submitMcpMessageInput(
   request: unknown,
 ): Promise<SubmitInputResult> {
   return gateway.submitInput({ ...asRecord(request), source: 'mcp-message-send' });
+}
+
+/** The gateway source of an MCP tool delivery (McpToolService deliverySource). */
+const MCP_DELIVERY_SOURCES = new Set(['mcp-message-send', 'mcp-terminal-input', 'mcp-reply-to-leader']);
+
+// @req FR-MCP-002
+// FR-MCP-023: an MCP tool delivery keeps its own source; anything else counts as message.send.
+export async function submitMcpDeliveryInput(
+  gateway: { submitInput: (request: unknown) => SubmitInputResult | Promise<SubmitInputResult> },
+  request: unknown,
+  deliverySource: unknown,
+): Promise<SubmitInputResult> {
+  const source = typeof deliverySource === 'string' && MCP_DELIVERY_SOURCES.has(deliverySource) ? deliverySource : 'mcp-message-send';
+  return gateway.submitInput({ ...asRecord(request), source });
 }
 
 // @req FR-MCP-002
@@ -195,7 +211,7 @@ function resolveGatewayTarget(
 // @req IR-MCP-005
 function evaluateEnterPolicy(request: StringRecord): InputGatewayDenialCode | null {
   const source = asString(request.source) ?? 'mcp-message-send';
-  if (!['mcp-message-send', 'mcp-reply-to-leader', 'open-agent-command', 'open-agent-kickoff'].includes(source)) {
+  if (!['mcp-message-send', 'mcp-terminal-input', 'mcp-reply-to-leader', 'open-agent-command', 'open-agent-kickoff'].includes(source)) {
     return null;
   }
 

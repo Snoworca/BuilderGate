@@ -19,6 +19,7 @@ import {
   buildMcpControlConfigPatch,
   createMcpSecurityDraft,
   formatMcpAuditAction,
+  formatMcpAuditTarget,
   formatMcpAuditOutcome,
   formatMcpAgentStatus,
   formatMcpBindingLifecycle,
@@ -1638,7 +1639,8 @@ function formatMcpControlValue(value: string | undefined, labels: Record<string,
 function summarizeAuditEvent(event: McpRecentAuditEvent): string {
   const label = formatMcpAuditAction(event.action ?? event.category);
   const outcome = formatMcpAuditOutcome(event.result ?? event.code ?? event.reason);
-  const target = summarizeUnknown(event.targetBinding ?? event.target);
+  const binding = event.targetBinding ?? event.target;
+  const target = formatMcpAuditTarget(binding) ?? summarizeUnknown(binding);
   return t('mcp.audit.summary', { time: event.timestamp ?? t('mcp.audit.noTime'), label, outcome, target });
 }
 

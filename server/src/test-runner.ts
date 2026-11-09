@@ -6345,6 +6345,8 @@ const expectedDefaultMcpScopes = [
   // FR-LOOP-007 AC-7
   'mcp:loops.read',
   'mcp:loops.write',
+  // FR-MCP-023 AC-2 (user decision 2026-11-09): commands and Enter through terminal.input only.
+  'mcp:terminal.input',
 ];
 
 const requiredMcpDenialCodes = [

@@ -10,6 +10,7 @@ import {
   buildMcpControlConfigPatch,
   createMcpSecurityDraft,
   formatMcpAuditAction,
+  formatMcpAuditTarget,
   formatMcpAuditOutcome,
   formatMcpAgentStatus,
   formatMcpBindingLifecycle,
@@ -644,4 +645,23 @@ test('SEC-MCP-001 AC-9: the transport and bind mode options say what they do', (
   assert.equal(koCatalog['mcp.transport.directTls'], 'HTTPS (직접 TLS)');
   assert.equal(koCatalog['mcp.transport.trustedTlsProxy'], 'HTTPS (신뢰 프록시)');
   assert.equal(koCatalog['mcp.bindMode.whitelist'], '외부 접근 허용(IP 목록)');
+});
+
+test('FR-MCP-023: the audit log labels terminal.input', () => {
+  assert.equal(formatMcpAuditAction('buildergate.terminal.input'), '터미널에 명령·키 입력');
+});
+
+test('FR-MCP-023: the audit log names the target session, not "object"', () => {
+  assert.equal(formatMcpAuditTarget({ alias: 'worker', sessionKey: 'sess_0123456789abcdef', agentKind: 'terminal' }), 'worker · sess_0123456…');
+  assert.equal(formatMcpAuditTarget({ alias: 'sess_short', sessionKey: 'sess_short' }), 'sess_short');
+  assert.equal(formatMcpAuditTarget({ peer: 'pc-a', target: 'worker' }), 'pc-a/worker');
+  assert.equal(formatMcpAuditTarget({ sessionKey: 'k-1' }), 'k-1');
+  assert.equal(formatMcpAuditTarget({ ok: true }), undefined, 'other records keep the generic summary');
+  assert.equal(formatMcpAuditTarget(undefined), undefined);
+});
+
+test('FR-MCP-019: the audit log labels the peer tools', () => {
+  assert.equal(formatMcpAuditAction('buildergate.peer.list'), '연결된 서버 목록');
+  assert.equal(formatMcpAuditAction('buildergate.peer.call'), '연결된 서버의 도구 호출');
+  assert.equal(formatMcpAuditAction('buildergate.peer.message.status'), '원격 메시지 상태 확인');
 });

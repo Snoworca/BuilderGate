@@ -5,6 +5,13 @@
 // The WebSocket transport is peerWsTransport.ts.
 import { randomUUID } from 'node:crypto';
 import {
+  isMcpQueuedTool,
+  MCP_MESSAGE_SEND_TOOL,
+  MCP_TERMINAL_INPUT_TOOL,
+  PEER_QUEUED_TOOL_REFUSED,
+  type McpQueuedTool,
+} from '../McpPeerTools.js';
+import {
   effectivePeerTimeoutMs,
   PEER_NAME_PATTERN,
   type PeerLinkEntry,
@@ -99,7 +106,8 @@ export interface PeerLinkManager {
   hasPeer(name: string): boolean;
   /** FR-MCP-022: this server's name. */
   nodeName(): string;
-  sendMessage(input: { peer: string; args: Record<string, unknown>; scopes: string[]; hasKeys: boolean }): Promise<PeerResult>;
+  /** tool: the queued tool to run on the remote (FR-MCP-023 AC-5); message.send when left out. */
+  sendMessage(input: { peer: string; tool?: McpQueuedTool; args: Record<string, unknown>; scopes: string[]; hasKeys: boolean }): Promise<PeerResult>;
   call(input: { peer: string; tool: string; arguments: Record<string, unknown>; scopes: string[] }): Promise<PeerResult>;
   list(): PeerStatus[];
   messageStatus(messageId: string): PeerMessageView | undefined;
@@ -150,6 +158,7 @@ interface OutboxEntry {
   messageId: string;
   peer: string;
   seq: number;
+  tool: McpQueuedTool;
   args: Record<string, unknown>;
   scopes: string[];
   bytes: number;
@@ -554,7 +563,10 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
       if (entry.sentOn === conn) continue;
       entry.sentOn = conn;
       entry.status = 'sent';
-      send(conn, { t: 'msg', epoch: peer.epoch, seq: entry.seq, args: entry.args, scopes: entry.scopes });
+      send(conn, {
+        t: 'msg', epoch: peer.epoch, seq: entry.seq, args: entry.args, scopes: entry.scopes,
+        ...(entry.tool === MCP_MESSAGE_SEND_TOOL ? {} : { tool: entry.tool }),
+      });
     }
   };
 
@@ -599,6 +611,7 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
       messageId: randomUUID(),
       peer: peer.name,
       seq: peer.nextSeq++,
+      tool: input.tool ?? MCP_MESSAGE_SEND_TOOL,
       args: input.args,
       scopes: [...input.scopes],
       bytes,
@@ -657,12 +670,26 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     }
     box.last = seq;
     const actor: PeerActor = { type: 'mcp-peer', peer: peer.name, scopes: intersect(conn.linkScopes(), frame.scopes), linkScopes: conn.linkScopes() };
-    const args = { ...(frame.args as Record<string, unknown>), includeSender: false };
-    const run = peer.runChain.then(() => runTool('buildergate.message.send', args, actor));
+    // FR-MCP-011 AC-8: message.send tags the text from the peerSender it carries. FR-MCP-023 AC-5: a
+    // frame may name terminal.input; nothing else runs from the queue.
+    const args = frame.args as Record<string, unknown>;
+    const tool = queuedToolOf(frame.tool, args);
+    const run = tool
+      ? peer.runChain.then(() => runTool(tool, args, actor))
+      : Promise.resolve<PeerResult>({ ok: false, code: 'PEER_UNKNOWN_TOOL', tool: String(frame.tool) });
     peer.runChain = run;
     box.results.set(seq, run);
     while (box.results.size > INBOX_RESULTS) box.results.delete(box.results.keys().next().value!);
     void run.then(reply);
+  };
+
+  /**
+   * The queued tool a msg frame runs. A frame with no tool comes from a server older than
+   * FR-MCP-023: its keys-only messages now belong to terminal.input. An unknown tool runs nothing.
+   */
+  const queuedToolOf = (tool: unknown, args: Record<string, unknown>): McpQueuedTool | undefined => {
+    if (tool === undefined) return args.keys !== undefined && args.prompt === undefined ? MCP_TERMINAL_INPUT_TOOL : MCP_MESSAGE_SEND_TOOL;
+    return isMcpQueuedTool(tool) ? tool : undefined;
   };
 
   const inboxFor = (peerName: string, senderEpoch: string): InboxBox => {
@@ -711,6 +738,8 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     }
     const result = frame.tool.startsWith(PEER_TOOL_PREFIX)
       ? { ok: false, code: 'PEER_RELAY_REFUSED', message: 'buildergate.peer.* cannot be called over a link' }
+      // FR-MCP-011 AC-8: the queued tools arrive only as msg frames.
+      : isMcpQueuedTool(frame.tool) ? { ...PEER_QUEUED_TOOL_REFUSED }
       : await runTool(frame.tool, asRecord(frame.arguments), {
         type: 'mcp-peer',
         peer: peer.name,

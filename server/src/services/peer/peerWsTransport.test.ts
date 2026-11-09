@@ -76,7 +76,7 @@ test('FR-MCP-016: two managers talk over a real WebSocket; other paths are left 
     await waitFor(() => dialer.list()[0]?.state === 'connected');
     const result = await dialer.sendMessage({ peer: 'azure', args: { target: 'w', prompt: 'hello' }, scopes: ['mcp:message.paste'], hasKeys: false });
     assert.equal(result.status, 'delivered', JSON.stringify(result));
-    assert.deepEqual(calls[0], { tool: 'buildergate.message.send', args: { target: 'w', prompt: 'hello', includeSender: false } });
+    assert.deepEqual(calls[0], { tool: 'buildergate.message.send', args: { target: 'w', prompt: 'hello' } });
     const other = new WebSocket(`ws://127.0.0.1:${port}/elsewhere`);
     await new Promise((resolve) => { other.on('error', resolve); other.on('close', resolve); });
     assert.equal(otherPath, true);

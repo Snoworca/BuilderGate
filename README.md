@@ -344,7 +344,8 @@ The prompt is delivered to the target (paste, send only, or send and press Enter
 |---|---|
 | `buildergate.session.whoami` / `buildergate.session.claim` | Identify the calling session (claim with a connection code) |
 | `buildergate.session.list` / `buildergate.session.search` | Find sessions by name, alias or status |
-| `buildergate.message.send` | Deliver a message into another session's terminal (`includeSender` adds a sender tag) |
+| `buildergate.message.send` | Send a message to another agent's session; the server always adds the sender tag |
+| `buildergate.terminal.input` | Type one shell command (with Enter) or press keys (arrows, Esc, Ctrl+C) in a session, with no tag |
 | `buildergate.message.reply_to_leader` | Report back to the leader session |
 | `buildergate.session.open_agent` | Launch a follower agent from a profile |
 | `buildergate.session.set_alias` / `buildergate.session.update_status` | Name a session, publish progress |
@@ -784,7 +785,8 @@ curl -k -X POST "https://localhost:2002/webhook/agent?key=<webhook-key>" \
 |---|---|
 | `buildergate.session.whoami` / `buildergate.session.claim` | 호출한 세션 확인(연결 코드로 claim) |
 | `buildergate.session.list` / `buildergate.session.search` | 이름·별칭·상태로 세션 찾기 |
-| `buildergate.message.send` | 다른 세션의 터미널로 메시지 전달(`includeSender` 로 보낸 쪽 표시) |
+| `buildergate.message.send` | 다른 에이전트 세션에 메시지 보내기(서버가 항상 보낸 세션을 붙인다) |
+| `buildergate.terminal.input` | 세션에 셸 명령 한 줄(Enter 포함)을 입력하거나 키(방향키·Esc·Ctrl+C)만 보내기(표시 없음) |
 | `buildergate.message.reply_to_leader` | 리더 세션에 회신 |
 | `buildergate.session.open_agent` | 프로필로 팔로워 에이전트 실행 |
 | `buildergate.session.set_alias` / `buildergate.session.update_status` | 세션 이름 붙이기, 진행 상태 알리기 |

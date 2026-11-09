@@ -81,6 +81,12 @@ const MCP_AUDIT_ACTION_LABELS: Record<string, MessageKey> = {
   'buildergate.terminal.delete': 'mcp.auditAction.buildergateTerminalDelete',
   'buildergate.terminal.exec': 'mcp.auditAction.buildergateTerminalExec',
   'buildergate.terminal.read': 'mcp.auditAction.buildergateTerminalRead',
+  // FR-MCP-023
+  'buildergate.terminal.input': 'mcp.auditAction.buildergateTerminalInput',
+  // FR-MCP-019
+  'buildergate.peer.list': 'mcp.auditAction.buildergatePeerList',
+  'buildergate.peer.call': 'mcp.auditAction.buildergatePeerCall',
+  'buildergate.peer.message.status': 'mcp.auditAction.buildergatePeerMessageStatus',
   'buildergate.editor.open_markdown': 'mcp.auditAction.buildergateEditorOpenMarkdown',
   'buildergate.editor.open_code': 'mcp.auditAction.buildergateEditorOpenCode',
   'buildergate.editor.open_image': 'mcp.auditAction.buildergateEditorOpenImage',
@@ -161,6 +167,27 @@ export function formatMcpAuditAction(value: unknown): string {
   }
   const normalized = value.trim();
   return MCP_AUDIT_ACTION_LABELS[normalized] ? t(MCP_AUDIT_ACTION_LABELS[normalized]) : t('mcp.auditAction.code', { value: normalized });
+}
+
+const AUDIT_SESSION_KEY_SHOWN = 12;
+
+/**
+ * The target of a message.send / terminal.input audit row: the server records the session it
+ * delivered to (alias, sessionKey) or, over a link, the peer and its target. Undefined for any
+ * other record, which keeps the generic summary.
+ */
+export function formatMcpAuditTarget(value: unknown): string | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const text = (field: unknown) => (typeof field === 'string' && field.trim() ? field.trim() : undefined);
+  const peer = text(record.peer);
+  const target = text(record.target);
+  if (peer && target) return `${peer}/${target}`;
+  const sessionKey = text(record.sessionKey);
+  if (!sessionKey) return undefined;
+  const shortKey = sessionKey.length > AUDIT_SESSION_KEY_SHOWN ? `${sessionKey.slice(0, AUDIT_SESSION_KEY_SHOWN)}…` : sessionKey;
+  const alias = text(record.alias);
+  return alias && alias !== sessionKey ? `${alias} · ${shortKey}` : shortKey;
 }
 
 export function formatMcpAuditOutcome(value: unknown): string {

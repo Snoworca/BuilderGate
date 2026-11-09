@@ -66,7 +66,7 @@ test('FR-MCP-019: corp sends to azure/worker, azure lists corp sessions back, an
 
     const sent = await corp.service.callTool({
       name: 'buildergate.message.send',
-      arguments: { target: 'azure/worker', prompt: 'run the tests', deliveryMode: 'submit', includeSender: true },
+      arguments: { target: 'azure/worker', prompt: 'run the tests', deliveryMode: 'submit' },
       actor: { type: 'mcp', sessionKey: 'k-l', scopes: FULL },
     });
     assert.equal(sent.status, 'delivered', JSON.stringify(sent));
@@ -84,18 +84,29 @@ test('FR-MCP-019: corp sends to azure/worker, azure lists corp sessions back, an
     assert.deepEqual((listed.sessions as Rec[]).map((s) => s.alias), ['leader'], JSON.stringify(listed));
     const submit = await azure.service.callTool({
       name: 'buildergate.message.send',
-      arguments: { target: 'corp/leader', prompt: 'done', deliveryMode: 'submit' },
+      arguments: { target: 'corp/leader', prompt: 'done', deliveryMode: 'submit', fromSessionKey: 'k-w' },
       actor: { type: 'mcp-fixed-access-key', scopes: FULL },
     });
     assert.equal(submit.ok, false, JSON.stringify(submit));
     assert.equal(corp.delivered.length, 0);
     const paste = await azure.service.callTool({
       name: 'buildergate.message.send',
-      arguments: { target: 'corp/leader', prompt: 'done', deliveryMode: 'paste' },
+      arguments: { target: 'corp/leader', prompt: 'done', deliveryMode: 'paste', fromSessionKey: 'k-w' },
       actor: { type: 'mcp-fixed-access-key', scopes: FULL },
     });
     assert.equal(paste.status, 'delivered', JSON.stringify(paste));
     assert.equal(corp.delivered.length, 1);
+    assert.match(String(corp.delivered[0]!.prompt), /^\[from: azure\/worker · sessionKey k-w/);
+
+    // FR-MCP-023 AC-5: a shell command goes over the link to terminal.input, untagged.
+    const command = await corp.service.callTool({
+      name: 'buildergate.terminal.input',
+      arguments: { target: 'azure/worker', command: 'npm test' },
+      actor: { type: 'mcp', sessionKey: 'k-l', scopes: FULL },
+    });
+    assert.equal(command.status, 'delivered', JSON.stringify(command));
+    assert.equal(azure.delivered.length, 2);
+    assert.equal(azure.delivered[1]!.prompt, 'npm test');
 
     // A paste-only caller on corp cannot submit on azure, though the link key could.
     const narrowed = await corp.service.callTool({
@@ -104,7 +115,7 @@ test('FR-MCP-019: corp sends to azure/worker, azure lists corp sessions back, an
       actor: { type: 'mcp', sessionKey: 'k-l', scopes: ['mcp:message.paste'] },
     });
     assert.equal(narrowed.ok, false, JSON.stringify(narrowed));
-    assert.equal(azure.delivered.length, 1);
+    assert.equal(azure.delivered.length, 2);
   } finally {
     corpLinks.stop();
     azureLinks.stop();

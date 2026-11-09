@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-04T15:29:10.535Z",
+  "generatedAt": "2026-11-09T02:24:11.715Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "9e5cf2ad223c62d84d73fb80820425269214057f61d4666192bb5939924654b7",
+    "value": "49bf83bedda152b439fc9e0c1d99042fd59cdc911dd21ed48d9ee75039cbef17",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "35f1e33c6c4cb4463ef55e71fb4817dfb6d0625482d6704699ea4abe1bd35971",
-        "size": 16255,
-        "mtimeMs": 1793407716154.8635
+        "sha256": "80528a20f8364603df3c435f274894e388d139c1adee3899912c7c3de9d76146",
+        "size": 16696,
+        "mtimeMs": 1794104554039.273
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -32,9 +32,9 @@
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "4e5b6b78ac89bad6537947c029113916f8aba8970609682a24f34fe166b5bb58",
-        "size": 190804,
-        "mtimeMs": 1793806106194.8865
+        "sha256": "ab4a55ecc3cbd0d0d9cde7c413b68470beae71766f9d20a77c7982b79f36e975",
+        "size": 205150,
+        "mtimeMs": 1794191045184.5417
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
@@ -80,15 +80,21 @@
       },
       {
         "path": "docs/spec/48.loop-scheduler.srs.md",
-        "sha256": "a2a74683e6bb36560c750631b8e481503addd62f25a5ba0ed69011d5ceb38a72",
-        "size": 15597,
-        "mtimeMs": 1793341471445.3774
+        "sha256": "3ef5110ce579a60a90778015b89ee3ecd14e2cbfecdc29aab8161133d0cdac04",
+        "size": 29900,
+        "mtimeMs": 1794187859339.0327
       },
       {
         "path": "docs/spec/49.usage-limits.srs.md",
         "sha256": "c3e080017b4fa9de9c064f633048752f7ec13ca4c76a962fcb0fe932d779b6f6",
         "size": 22586,
         "mtimeMs": 1793683456512.131
+      },
+      {
+        "path": "docs/spec/50.messenger.srs.md",
+        "sha256": "98dcb2d894798e48c920313b4a6b29e1a921d2794e02fd16eff0b468dce2cc68",
+        "size": 40032,
+        "mtimeMs": 1794098742676.865
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -103,15 +109,16 @@
       "ARCH": 17,
       "AITUI": 23,
       "BGSTAB": 38,
-      "MCP": 22,
+      "MCP": 23,
       "MDE": 33,
       "FEX": 33,
       "FOP": 8,
       "UIDS": 15,
       "MKB": 15,
       "GIT": 13,
-      "LOOP": 7,
-      "USAGE": 8
+      "LOOP": 8,
+      "USAGE": 8,
+      "MSG": 15
     },
     "constraint": {
       "ARCH": 1,
