@@ -40,6 +40,8 @@ export interface PeerSocket {
 }
 
 export interface PeerDialHandlers {
+  /** FR-MCP-024 AC-3: the certificate of an unpinned link, reported before onOpen. */
+  onCertificate?(fingerprint: string): void;
   onOpen(): void;
   onText(text: string): void;
   onClose(reason?: string): void;
@@ -75,6 +77,8 @@ export interface PeerLinkManagerDeps {
   onConnected?: (info: { name: string; direction: 'outbound' | 'inbound'; remoteNode: string }) => void;
   /** Runs an MCP tool for a request that arrived over a link. */
   callTool: (tool: string, args: Record<string, unknown>, actor: PeerActor) => Promise<PeerResult>;
+  /** FR-MCP-024 AC-3: an unpinned link met its certificate at `url`; the caller saves it on the link. */
+  onFingerprintLearned?: (name: string, url: string, fingerprint: string) => void;
   audit?: (event: Record<string, unknown>) => void;
 }
 
@@ -183,6 +187,8 @@ interface Peer {
   epoch: string;
   direction: 'outbound' | 'inbound';
   link?: PeerLinkEntry;
+  /** FR-MCP-024 AC-3: a certificate remembered in memory and not yet saved with the settings. */
+  unsavedFingerprint?: string;
   conn?: Connection;
   dialing?: Connection;
   state: PeerLinkState;
@@ -237,11 +243,12 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     const wanted = new Map(settings.links.filter((link) => link.enabled).map((link) => [link.name, link]));
     for (const peer of [...peers.values()]) {
       if (peer.direction !== 'outbound') continue;
-      const link = wanted.get(peer.name);
+      const link = withUnsavedFingerprint(peer, wanted.get(peer.name));
       if (!link) {
         removePeer(peer);
       } else if (!sameLink(peer.link!, link)) {
         peer.link = link;
+        peer.unsavedFingerprint = undefined;
         restartOutbound(peer);
       }
     }
@@ -257,6 +264,21 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
       peers.set(link.name, peer);
       if (started) dial(peer);
     }
+  };
+
+  /**
+   * FR-MCP-024 AC-3 (review M3): a save made before the learned fingerprint reached the file carries
+   * none, yet it is the same link -- keep the fingerprint rather than restart. Once a save carries
+   * it, it is no longer pending, and a later save without it means "trust the new certificate".
+   */
+  const withUnsavedFingerprint = (peer: Peer, link: PeerLinkEntry | undefined): PeerLinkEntry | undefined => {
+    const pending = peer.unsavedFingerprint;
+    if (!link || pending === undefined) return link;
+    if (link.tlsFingerprintSha256 === pending) {
+      peer.unsavedFingerprint = undefined;
+      return link;
+    }
+    return link.tlsFingerprintSha256 === undefined && link.url === peer.link?.url ? { ...link, tlsFingerprintSha256: pending } : link;
   };
 
   const removePeer = (peer: Peer) => {
@@ -400,6 +422,14 @@ export function createPeerLinkManager(deps: PeerLinkManagerDeps, initial: PeerLi
     peer.dialing = conn;
     peer.state = 'connecting';
     const handlers: PeerDialHandlers = {
+      onCertificate: (fingerprint) => {
+        if (conn.closed || peer.link?.tlsFingerprintSha256 !== undefined) return;
+        // Remembered here first, so the save that follows is not a change of the link (no reconnect).
+        peer.link = { ...peer.link!, tlsFingerprintSha256: fingerprint };
+        peer.unsavedFingerprint = fingerprint;
+        audit({ event: 'peer.certificate.remembered', peer: peer.name });
+        deps.onFingerprintLearned?.(peer.name, link.url, fingerprint);
+      },
       onOpen: () => {
         if (conn.closed) return;
         send(conn, { t: 'hello', v: PROTOCOL_VERSION, node: settings.nodeName, epoch: peer.epoch, heartbeatMs: settings.heartbeatMs, key: link.accessKey });

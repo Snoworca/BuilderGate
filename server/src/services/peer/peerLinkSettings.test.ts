@@ -55,7 +55,8 @@ test('FR-MCP-020 AC-3: bad values are refused field by field', () => {
     [{ keyQueueTtlMs: -1 }, 'keyQueueTtlMs'],
     [{ maxQueuedMessages: 0 }, 'maxQueuedMessages'],
     [{ inboundScopes: ['mcp:everything'] }, 'inboundScopes'],
-    [{ links: [{ ...link, url: 'https://x/mcp/peer' }] }, 'links.0.url'],
+    // FR-MCP-024 AC-1: https:// is now an MCP address and is accepted; another scheme is not.
+    [{ links: [{ ...link, url: 'ftp://x/mcp/peer' }] }, 'links.0.url'],
     [{ links: [{ ...link, name: 'a/b' }] }, 'links.0.name'],
     [{ links: [link, { ...link }] }, 'links.1.name'],
     [{ links: [{ ...link, tlsFingerprintSha256: 'zz' }] }, 'links.0.tlsFingerprintSha256'],

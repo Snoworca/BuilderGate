@@ -99,6 +99,8 @@ export function sanitizeMcpControlConfig(value: unknown): StringRecord {
   if (Array.isArray(record.externalWhitelist)) config.externalWhitelist = asStringArray(record.externalWhitelist);
   if (Array.isArray(record.allowedOrigins)) config.allowedOrigins = asStringArray(record.allowedOrigins);
   if (asString(record.fixedAccessKeyHash)) config.fixedAccessKeyHash = asString(record.fixedAccessKeyHash);
+  // FR-MCP-024 AC-6: the key itself, encrypted with this machine's key, so it can be shown again.
+  if (asString(record.fixedAccessKeyEncrypted)) config.fixedAccessKeyEncrypted = asString(record.fixedAccessKeyEncrypted);
   // FR-MCP-014 AC-2: a webhookKeyHeaderName left by an older version is dropped here.
   if (webhookRateLimit) config.webhookRateLimit = webhookRateLimit;
   // FR-MCP-002 AC-8: an out-of-range wait is dropped, so the default applies.

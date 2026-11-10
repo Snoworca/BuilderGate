@@ -693,6 +693,16 @@ export const mcpControlApi = {
     return res.json();
   },
 
+  // FR-MCP-024 AC-4: forget the remembered certificate of a link so it reconnects and remembers the new one.
+  trustPeerCertificate: async (name: string): Promise<PeerLinksResponse> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/peers/${encodeURIComponent(name)}/trust-certificate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
   getConfig: async (): Promise<McpControlConfig> => {
     const res = await authFetch(`${API_BASE}/mcp-control/config`, {
       headers: getAuthHeaders(),
@@ -709,6 +719,17 @@ export const mcpControlApi = {
         ...getAuthHeaders(),
       },
       body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  // FR-MCP-024 AC-6: the MCP key again, to show it on request.
+  revealFixedAccessKey: async (signal?: AbortSignal): Promise<McpFixedAccessKeyRotation> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/access-key`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store',
+      signal,
     });
     if (!res.ok) throw await parseError(res);
     return res.json();

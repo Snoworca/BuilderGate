@@ -143,6 +143,8 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
   const [webhookDraft, setWebhookDraft] = useState<WebhookDraft>(createDefaultWebhookDraft);
   const [webhookCredential, setWebhookCredential] = useState<McpWebhookCreateResponse | null>(null);
   const [fixedAccessKey, setFixedAccessKey] = useState<McpFixedAccessKeyRotation | null>(null);
+  // FR-MCP-024 AC-7: the MCP key field is masked until 보기.
+  const [fixedAccessKeyShown, setFixedAccessKeyShown] = useState(false);
   const [fixedAccessKeyOperation, setFixedAccessKeyOperation] = useState<FixedAccessKeyOperation>('generate');
   const [fixedAccessKeyRotationConfirmOpen, setFixedAccessKeyRotationConfirmOpen] = useState(false);
   // SEC-MCP-001 AC-8: a save that opens MCP without protection is confirmed once.
@@ -165,6 +167,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     fixedAccessKeyAbortRef.current?.abort();
     fixedAccessKeyAbortRef.current = null;
     setFixedAccessKey(null);
+    setFixedAccessKeyShown(false);
     setFixedAccessKeyRotationConfirmOpen(false);
     setFixedAccessKeyRotationError(null);
     if (fixedAccessKeyInFlightRef.current) {
@@ -214,6 +217,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     setWebhookCredential(null);
     setSessionClaimCode(null);
     setFixedAccessKey(null);
+    setFixedAccessKeyShown(false);
     setFixedAccessKeyRotationConfirmOpen(false);
     setFixedAccessKeyRotationError(null);
     try {
@@ -315,6 +319,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     setError(null);
     setStatusMessage(null);
     setFixedAccessKey(null);
+    setFixedAccessKeyShown(false);
     setFixedAccessKeyRotationError(null);
     setFixedAccessKeyOperation(config?.fixedAccessKeyConfigured === true ? 'regenerate' : 'generate');
     setFixedAccessKeyRotationConfirmOpen(true);
@@ -330,6 +335,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     setError(null);
     setStatusMessage(null);
     setFixedAccessKey(null);
+    setFixedAccessKeyShown(false);
     setFixedAccessKeyRotationError(null);
     try {
       const response = await mcpControlApi.rotateFixedAccessKey(abortController.signal);
@@ -337,6 +343,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
         return;
       }
       setFixedAccessKey(response);
+      setFixedAccessKeyShown(true);
       setConfig(current => current ? { ...current, fixedAccessKeyConfigured: true } : current);
       setFixedAccessKeyRotationConfirmOpen(false);
       setStatusMessage(fixedAccessKeyOperation === 'regenerate'
@@ -381,16 +388,41 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     }
   }, [endpointUrl]);
 
-  const handleCopyFixedAccessKey = useCallback(async () => {
-    if (!fixedAccessKey) return;
+  // FR-MCP-024 AC-6: read back from the server each time, so a key rotated in another tab is not
+  // shown or copied stale (review L5).
+  const loadFixedAccessKey = useCallback(async (): Promise<string | null> => {
+    const operationEpoch = fixedAccessKeyEpochRef.current;
     setError(null);
     try {
-      await copyTextToClipboard(fixedAccessKey.accessKey);
+      const response = await mcpControlApi.revealFixedAccessKey();
+      if (operationEpoch !== fixedAccessKeyEpochRef.current) return null;
+      setFixedAccessKey(response);
+      return response.accessKey;
+    } catch (nextError) {
+      if (operationEpoch === fixedAccessKeyEpochRef.current) setError(getErrorMessage(nextError));
+      return null;
+    }
+  }, []);
+
+  const handleToggleFixedAccessKey = useCallback(async () => {
+    if (fixedAccessKeyShown) {
+      setFixedAccessKeyShown(false);
+      return;
+    }
+    if (await loadFixedAccessKey()) setFixedAccessKeyShown(true);
+  }, [fixedAccessKeyShown, loadFixedAccessKey]);
+
+  const handleCopyFixedAccessKey = useCallback(async () => {
+    const accessKey = await loadFixedAccessKey();
+    if (!accessKey) return;
+    setError(null);
+    try {
+      await copyTextToClipboard(accessKey);
       setStatusMessage(t('mcp.fixedKey.copied'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     }
-  }, [fixedAccessKey]);
+  }, [loadFixedAccessKey]);
 
   const handleSaveAgent = useCallback(async () => {
     const validationError = validateMcpAgentDraft(agentDraft);
@@ -724,12 +756,14 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
             config,
             draft: securityDraft,
             fixedAccessKey,
+            fixedAccessKeyShown,
             saving,
             onDraftChange: updateSecurityDraft,
             onSave: handleSaveSecurity,
             onReload: loadConfig,
             onRequestFixedAccessKeyRotation: handleRequestFixedAccessKeyRotation,
             onCopyFixedAccessKey: handleCopyFixedAccessKey,
+            onToggleFixedAccessKey: handleToggleFixedAccessKey,
           })}
         </section>
 
@@ -893,6 +927,8 @@ function renderSecurityPanel({
   onReload,
   onRequestFixedAccessKeyRotation,
   onCopyFixedAccessKey,
+  onToggleFixedAccessKey,
+  fixedAccessKeyShown,
 }: {
   config: McpControlConfig | null;
   draft: McpSecurityDraft | null;
@@ -903,6 +939,8 @@ function renderSecurityPanel({
   onReload: () => void;
   onRequestFixedAccessKeyRotation: () => void;
   onCopyFixedAccessKey: () => void;
+  onToggleFixedAccessKey: () => void;
+  fixedAccessKeyShown: boolean;
 }) {
   if (!draft) {
     return <div className="mcp-control-empty">{t('mcp.security.loadFailed')}</div>;
@@ -1086,18 +1124,17 @@ function renderSecurityPanel({
             {config?.fixedAccessKeyConfigured ? t('mcp.fixedKey.regenerate') : t('mcp.fixedKey.generate')}
           </Button>
         </div>
-        {fixedAccessKey && (
+        {(config?.fixedAccessKeyConfigured || fixedAccessKey) && (
           <Field
-            label={t('mcp.fixedKey.newKey')}
-            htmlFor="mcp-security-new-access-key"
-            help={t('mcp.fixedKey.newKeyHelp')}
+            label={t('mcp.fixedKey.heading')}
+            htmlFor="mcp-security-access-key"
             className="mcp-control-field"
           >
             <div className="mcp-control-secret-value">
               <TextInput
-                id="mcp-security-new-access-key"
+                id="mcp-security-access-key"
                 mono
-                value={fixedAccessKey.accessKey}
+                value={fixedAccessKeyShown && fixedAccessKey ? fixedAccessKey.accessKey : '•'.repeat(24)}
                 readOnly
                 autoComplete="off"
                 spellCheck={false}
@@ -1105,9 +1142,20 @@ function renderSecurityPanel({
               <Button
                 variant="secondary"
                 size="md"
+                className="mcp-control-secondary-button"
+                aria-pressed={fixedAccessKeyShown}
+                onClick={onToggleFixedAccessKey}
+                disabled={saving}
+              >
+                {fixedAccessKeyShown ? t('mcp.fixedKey.hide') : t('mcp.fixedKey.show')}
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
                 icon="copy"
                 className="mcp-control-secondary-button"
                 onClick={onCopyFixedAccessKey}
+                disabled={saving}
               >
                 {t('common.copy')}
               </Button>

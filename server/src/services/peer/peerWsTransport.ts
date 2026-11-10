@@ -1,5 +1,5 @@
 // FR-MCP-016 (#233): the WebSocket transport of the MCP peer link. The dialer side opens
-// wss://.../mcp/peer and checks a pinned certificate fingerprint before anything is sent; the
+// wss://.../mcp/peer and checks the certificate fingerprint before anything is sent; the
 // acceptor side takes upgrades on the MCP listener. The protocol itself is peerLinkManager.ts.
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
@@ -14,9 +14,11 @@ export const PEER_MAX_FRAME_BYTES = 1024 * 1024;
 const HANDSHAKE_TIMEOUT_MS = 10_000;
 
 /**
- * FR-MCP-016 AC-1/AC-2: opens the link. With a pinned fingerprint ordinary verification is off and
- * the certificate is compared on the upgrade response, before onOpen -- so before hello carries the
- * key. Throws PEER_URL_NOT_ALLOWED for ws:// to a host that is not loopback.
+ * FR-MCP-016 AC-1/AC-2, FR-MCP-024 AC-3/AC-4: opens the link. Ordinary CA verification is off; the
+ * certificate is judged on the upgrade response, before onOpen -- so before hello carries the key.
+ * A pinned link is closed when the certificate differs; an unpinned one reports the certificate
+ * through onCertificate so it is remembered (trust on first use). Throws PEER_URL_NOT_ALLOWED for
+ * ws:// to a host that is not loopback.
  */
 export function dialPeerWebSocket(link: PeerLinkEntry, handlers: PeerDialHandlers): PeerSocket {
   if (!isAllowedPeerUrl(link.url)) {
@@ -26,7 +28,7 @@ export function dialPeerWebSocket(link: PeerLinkEntry, handlers: PeerDialHandler
   const ws = new WebSocket(link.url, {
     maxPayload: PEER_MAX_FRAME_BYTES,
     handshakeTimeout: HANDSHAKE_TIMEOUT_MS,
-    rejectUnauthorized: pinned === undefined,
+    rejectUnauthorized: false,
   });
   let reported = false;
   let lastError: string | undefined;
@@ -36,13 +38,16 @@ export function dialPeerWebSocket(link: PeerLinkEntry, handlers: PeerDialHandler
     handlers.onClose(reason);
   };
   ws.on('upgrade', (response) => {
-    if (pinned === undefined) return;
     const socket = response.socket as Partial<TLSSocket>;
-    const presented = socket.getPeerCertificate?.()?.fingerprint256;
-    if (!presented || normalizeFingerprint(presented) !== pinned) {
+    if (typeof socket.getPeerCertificate !== 'function') return; // ws:// to loopback: no certificate
+    const presentedRaw = socket.getPeerCertificate()?.fingerprint256;
+    const presented = presentedRaw ? normalizeFingerprint(presentedRaw) : undefined;
+    if (!presented || (pinned !== undefined && presented !== pinned)) {
       reportClose('PEER_TLS_FINGERPRINT_MISMATCH');
       ws.terminate();
+      return;
     }
+    if (pinned === undefined) handlers.onCertificate?.(presented);
   });
   ws.on('open', () => {
     if (!reported) handlers.onOpen();

@@ -181,12 +181,24 @@ test('MCP security panel rotates a fixed access key only after confirmation and 
   expectSource(dialogSource, /MessageBox/, 'Fixed access-key rotation must use the shared confirmation dialog');
   expectSource(dialogSource, /handleRequestFixedAccessKeyRotation/, 'Security panel must request fixed access-key rotation');
   expectSource(dialogSource, /mcpControlApi\.rotateFixedAccessKey/, 'Security panel must call the fixed access-key API');
-  expectKoLabel(dialogSource, '고정 인증키 재생성', 'Security panel must label fixed access-key regeneration in Korean');
-  expectKoLabel(dialogSource, '정말로 재생성하시겠습니까? 현재 고정 인증키는 즉시 사용할 수 없게 됩니다.', 'Fixed access-key regeneration must require explicit confirmation');
+  // FR-MCP-024 AC-7: the fixed access key is called the MCP key on screen.
+  expectKoLabel(dialogSource, 'MCP 키 재생성', 'Security panel must label fixed access-key regeneration in Korean');
+  expectKoLabel(dialogSource, '정말로 재생성하시겠습니까? 현재 MCP 키는 즉시 사용할 수 없게 되고, 이 키로 연결된 원격이 끊깁니다.', 'Fixed access-key regeneration must require explicit confirmation');
   expectKoLabel(dialogSource, '복사', 'Generated fixed access key must expose a Korean copy action');
   expectSource(dialogSource, /navigator\.clipboard\.writeText/, 'Fixed access key copy action must use the clipboard API');
   expectSource(apiSource, /rotateFixedAccessKey[\s\S]*\/access-key\/rotate/, 'MCP control API must call the fixed access-key rotation route');
   expectSource(typeSource, /McpFixedAccessKeyRotation/, 'MCP control types must expose the one-time fixed access-key response');
+});
+
+test('FR-MCP-024 AC-6/AC-7: the MCP key is masked and can be shown, hidden and copied again', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+  const apiSource = readSource('src/services/api.ts');
+  expectSource(apiSource, /revealFixedAccessKey[\s\S]*?\/mcp-control\/access-key`/, 'MCP control API must read the key back from GET /api/mcp-control/access-key');
+  expectSource(dialogSource, /mcpControlApi\.revealFixedAccessKey/, 'Security panel must read the key back to show it');
+  expectKoLabel(dialogSource, '보기', 'The MCP key must have a show action');
+  expectKoLabel(dialogSource, '숨기기', 'The MCP key must have a hide action');
+  expectKoLabel(dialogSource, 'MCP 키', 'The key section is called the MCP key');
+  assert.equal(koCatalog['apiError.MCP_FIXED_ACCESS_KEY_NOT_REVEALABLE'] !== undefined, true, 'a hash-only key explains why it cannot be shown');
 });
 
 test('T-PH007-01 FR-MCP-002 reply test defaults to Hello World and submits with enter', () => {

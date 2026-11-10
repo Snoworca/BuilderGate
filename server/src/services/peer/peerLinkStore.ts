@@ -9,6 +9,7 @@ import {
   PEER_TIMEOUT_RATIO,
   peerNodeNameFrom,
   validatePeerLinkSettings,
+  type PeerLinkEntry,
   type PeerLinkSettings,
 } from './peerLinkSettings.js';
 
@@ -110,6 +111,13 @@ export interface PeerLinkControl {
   /** The current settings with their keys, for the messenger (never sent to the browser). */
   settings(): PeerLinkSettings;
   update(patch: Record<string, unknown>): Promise<Record<string, unknown>>;
+  /**
+   * FR-MCP-024 AC-3: saves the certificate an unpinned link met first at `url`; a pinned link, or
+   * one whose address changed meanwhile (review M2), is left alone.
+   */
+  learnFingerprint(name: string, url: string, fingerprint: string): Promise<Record<string, unknown>>;
+  /** FR-MCP-024 AC-4: "trust the new certificate" -- forgets the remembered one, so the link reconnects. */
+  forgetFingerprint(name: string): Promise<Record<string, unknown>>;
 }
 
 export function createPeerLinkControl(deps: {
@@ -130,21 +138,38 @@ export function createPeerLinkControl(deps: {
       inboundScopeChoices: [...PEER_INBOUND_SCOPE_CHOICES],
     },
   });
+  // Saves run one after another, so each works on the settings the one before it left.
+  const serially = (step: () => Promise<Record<string, unknown>>): Promise<Record<string, unknown>> => {
+    const run = saving.then(step);
+    saving = run.then(() => undefined, () => undefined);
+    return run;
+  };
+  const commit = async (next: PeerLinkSettings) => {
+    await deps.store.save(next);
+    current = next;
+    deps.apply(current);
+    return get();
+  };
+  const withLink = (name: string, change: (link: PeerLinkEntry) => PeerLinkEntry): PeerLinkSettings => ({
+    ...current,
+    links: current.links.map((link) => (link.name === name ? change(link) : link)),
+  });
   return {
     get,
     settings: () => current,
-    update: (patch) => {
-      // Saves run one after another, so each merges onto the one before it.
-      const run = saving.then(async () => {
-        const checked = validatePeerLinkSettings(patch, current);
-        if (!checked.ok) return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: checked.fieldErrors };
-        await deps.store.save(checked.settings);
-        current = checked.settings;
-        deps.apply(current);
-        return get();
-      });
-      saving = run.then(() => undefined, () => undefined);
-      return run;
-    },
+    update: (patch) => serially(async () => {
+      const checked = validatePeerLinkSettings(patch, current);
+      if (!checked.ok) return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: checked.fieldErrors };
+      return commit(checked.settings);
+    }),
+    learnFingerprint: (name, url, fingerprint) => serially(async () => {
+      const link = current.links.find((entry) => entry.name === name);
+      if (!link || link.url !== url || link.tlsFingerprintSha256 !== undefined) return get();
+      return commit(withLink(name, (entry) => ({ ...entry, tlsFingerprintSha256: fingerprint })));
+    }),
+    forgetFingerprint: (name) => serially(async () => {
+      if (!current.links.some((entry) => entry.name === name)) return { ok: false, code: 'PEER_LINK_NOT_FOUND' };
+      return commit(withLink(name, ({ tlsFingerprintSha256: _forgotten, ...entry }) => entry));
+    }),
   };
 }

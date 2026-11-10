@@ -151,6 +151,7 @@ import { createMessengerRoutes } from './routes/messengerRoutes.js';
 import { buildRoomPaste, ROOM_PASTE_SOURCE } from './services/messenger/pasteFrame.js';
 import { detectSessionAgent } from './services/messenger/agentDetection.js';
 import { createPeerUpgradeHandler, dialPeerWebSocket, peerUpgradeAllowed } from './services/peer/peerWsTransport.js';
+import { createMcpFixedAccessKeyVault, type McpFixedAccessKeyVault } from './services/McpFixedAccessKeyVault.js';
 import {
   buildMcpGatewayDeliveryResponse,
 } from './services/McpGatewayDeliveryResult.js';
@@ -194,10 +195,8 @@ import {
 } from './services/submitDelivery.js';
 import { encodeTerminalKey, type ParsedMcpKey } from './services/terminalKeys.js';
 import {
-  createMcpFixedAccessKey,
   getFixedMcpAccessKeyScopes,
   validateMcpSecurityConfig,
-  verifyMcpFixedAccessKey,
 } from './services/McpSecurityContract.js';
 
 type McpHttpHandler = {
@@ -253,6 +252,7 @@ let mcpControlService: StringRecord | null = null;
 // FR-MCP-016..FR-MCP-020 (#233): the MCP peer link.
 let peerLinkControl: PeerLinkControl | null = null;
 let peerLinkManagerRef: PeerLinkManager | null = null;
+let mcpFixedAccessKeyVaultRef: McpFixedAccessKeyVault | null = null;
 // FR-MSG-008/009/014: contacts, messenger keys and LAN receiving (services/messenger/contacts.ts).
 let messengerNetRef: MessengerNet | null = null;
 // FR-MSG-014: the dedicated LAN listener for peer links and contact requests (lanListener.ts).
@@ -1101,6 +1101,31 @@ function setupRoutes(): void {
     }
   });
 
+  // FR-MCP-024 AC-4: "trust the new certificate" forgets the remembered one; the link reconnects.
+  app.post('/api/mcp-control/peers/:name/trust-certificate', authMiddleware, async (req, res) => {
+    if (!peerLinkControl) {
+      res.status(503).json({ ok: false, code: 'MCP_PEER_UNAVAILABLE' });
+      return;
+    }
+    try {
+      const result = await peerLinkControl.forgetFingerprint(String(req.params.name));
+      res.status(result.ok === false ? 404 : 200).json(result);
+    } catch (error) {
+      sendMcpControlRouteError(res, error);
+    }
+  });
+
+  // FR-MCP-024 AC-6: the MCP key again, for a signed-in user. Never logged.
+  app.get('/api/mcp-control/access-key', authMiddleware, (_req, res) => {
+    if (!mcpFixedAccessKeyVaultRef) {
+      res.status(503).json({ ok: false, code: 'MCP_CONTROL_UNAVAILABLE' });
+      return;
+    }
+    const result = mcpFixedAccessKeyVaultRef.reveal();
+    res.set('Cache-Control', 'no-store');
+    res.status(result.ok ? 200 : 404).json(result);
+  });
+
   app.post('/api/mcp-control/access-key/rotate', authMiddleware, async (_req, res) => {
     try {
       const result = asRecord(await callMcpControlRoute(mcpControlService, 'rotateFixedAccessKey', {
@@ -1711,7 +1736,20 @@ async function startServer(): Promise<void> {
       warn: event => console.warn('[McpControlConfigStore] Ignoring invalid persisted MCP control config:', event),
     });
     const mcpPort = Number(initialMcpControlConfig.port ?? defaultMcpPort) || defaultMcpPort;
-    let fixedAccessKeyHash = asString(initialMcpControlConfig.fixedAccessKeyHash);
+    // FR-MCP-024 AC-6: the MCP key is checked by hash and kept encrypted so it can be shown again.
+    const mcpFixedAccessKeyVault = createMcpFixedAccessKeyVault({
+      cipher: cryptoService,
+      initial: {
+        fixedAccessKeyHash: asString(initialMcpControlConfig.fixedAccessKeyHash),
+        fixedAccessKeyEncrypted: asString(initialMcpControlConfig.fixedAccessKeyEncrypted),
+      },
+      persist: async (fields) => {
+        const saveConfig = mcpControlConfigStore?.saveConfig as ((payload: unknown) => Promise<unknown>) | undefined;
+        if (!saveConfig) return { ok: false, code: 'MCP_CONTROL_CONFIG_PERSIST_FAILED' };
+        return asRecord(await saveConfig({ ...mcpControlSecurityConfig, ...fields }));
+      },
+    });
+    mcpFixedAccessKeyVaultRef = mcpFixedAccessKeyVault;
     let mcpAgentLifecycleService: Record<string, unknown>;
     let mcpHandlerForListener: McpHttpHandler | null = null;
     // FR-MCP-016..FR-MCP-019: the peer link. Requests that arrive over it run as MCP tool calls of
@@ -1762,6 +1800,12 @@ async function startServer(): Promise<void> {
         const callTool = peerToolService?.callTool as ((request: unknown) => Promise<unknown>) | undefined;
         if (!callTool) return { ok: false, code: 'MCP_PEER_UNAVAILABLE' };
         return asRecord(await callTool({ name: tool, arguments: args, actor }));
+      },
+      // FR-MCP-024 AC-3: the certificate an unpinned link met first is saved on the link.
+      onFingerprintLearned: (name, url, fingerprint) => {
+        void peerLinkControl?.learnFingerprint(name, url, fingerprint).catch((error) => {
+          console.warn('[MCP Peer]', JSON.stringify({ event: 'peer.certificate.save_failed', peer: name, message: error instanceof Error ? error.message : String(error) }));
+        });
       },
       onConnected: (info) => {
         messengerNetRef?.onPeerConnected(info);
@@ -1880,7 +1924,7 @@ async function startServer(): Promise<void> {
       closeListener: (handle) => closeMcpNodeHttpListener(handle),
       isCredentialRevoked: agentTokenStore.isRevoked,
       resolveSession: (sessionKey) => workspaceService.getMcpSessionByKey(sessionKey),
-      resolveFixedAccessKeyActor: (token) => fixedAccessKeyHash && verifyMcpFixedAccessKey(token, fixedAccessKeyHash)
+      resolveFixedAccessKeyActor: (token) => mcpFixedAccessKeyVault.verify(token)
         ? { type: 'mcp-fixed-access-key', scopes: getFixedMcpAccessKeyScopes() }
         : undefined,
     });
@@ -1991,7 +2035,8 @@ async function startServer(): Promise<void> {
       transportSecurity: asString(initialMcpControlConfig.transportSecurity) ?? 'none',
       trustedProxies: stringArray(initialMcpControlConfig.trustedProxies),
       allowedOrigins: stringArray(initialMcpControlConfig.allowedOrigins),
-      fixedAccessKeyHash,
+      fixedAccessKeyHash: asString(initialMcpControlConfig.fixedAccessKeyHash),
+      fixedAccessKeyEncrypted: asString(initialMcpControlConfig.fixedAccessKeyEncrypted),
     };
     const webhookRecordStore = createWebhookRecordFileStore();
     const existingWebhookRecords = typeof webhookRecordStore.loadRecords === 'function'
@@ -2053,7 +2098,7 @@ async function startServer(): Promise<void> {
         trustedProxies: stringArray(initialMcpControlConfig.trustedProxies),
         externalWhitelist: stringArray(initialMcpControlConfig.externalWhitelist),
         allowedOrigins: stringArray(initialMcpControlConfig.allowedOrigins),
-        fixedAccessKeyConfigured: Boolean(fixedAccessKeyHash),
+        fixedAccessKeyConfigured: mcpFixedAccessKeyVault.configured(),
         status: initialMcpControlConfig.enabled === false ? 'stopped' : 'listening',
         lastError: null,
         lastRebindResult: null,
@@ -2123,26 +2168,10 @@ async function startServer(): Promise<void> {
       },
       createSessionClaimCode: createMcpClaimCode,
       rotateFixedAccessKey: async () => {
-        const generated = asRecord(createMcpFixedAccessKey());
-        const accessKey = asString(generated.accessKey);
-        const keyHash = asString(generated.keyHash);
-        if (!accessKey || !keyHash) {
-          return { ok: false, code: 'MCP_FIXED_ACCESS_KEY_ROTATION_FAILED' };
-        }
-        const saveConfig = mcpControlConfigStore?.saveConfig as ((payload: unknown) => Promise<unknown>) | undefined;
-        if (!saveConfig) {
-          return { ok: false, code: 'MCP_CONTROL_CONFIG_PERSIST_FAILED' };
-        }
-        const persisted = asRecord(await saveConfig({
-          ...mcpControlSecurityConfig,
-          fixedAccessKeyHash: keyHash,
-        }));
-        if (persisted.ok === false) {
-          return persisted;
-        }
-        fixedAccessKeyHash = keyHash;
-        mcpControlSecurityConfig.fixedAccessKeyHash = keyHash;
-        return { ok: true, accessKey };
+        const rotated = await mcpFixedAccessKeyVault.rotate();
+        if (!rotated.ok) return rotated;
+        Object.assign(mcpControlSecurityConfig, rotated.fields);
+        return { ok: true, accessKey: rotated.accessKey };
       },
       setAlias: (request) => {
         const input = asRecord(request);

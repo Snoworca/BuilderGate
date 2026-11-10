@@ -8,6 +8,7 @@ import {
   createPeerLinksDraft,
   effectivePeerTimeoutSeconds,
   emptyPeerLinkRow,
+  needsCertificateTrust,
   peerStateLabelKey,
   type PeerLinksSettingsView,
 } from '../../src/components/McpControlManager/peerLinksModel.ts';
@@ -46,9 +47,10 @@ test('FR-MCP-020 AC-1/AC-2: the patch goes back in ms, keeps an empty key empty,
   assert.equal(result.patch.heartbeatMs, 20_000);
   assert.equal(result.patch.timeoutMs, null);
   assert.equal(result.patch.queueTtlMs, 60_000);
+  // FR-MCP-024 AC-5: the fingerprint is never sent; the server keeps the one it remembered.
   assert.deepEqual(result.patch.links, [
-    { name: 'azure', url: 'wss://a/mcp/peer', accessKey: '', tlsFingerprintSha256: 'ab'.repeat(32), enabled: true },
-    { name: 'lab', url: 'wss://b/mcp/peer', accessKey: 'k2', tlsFingerprintSha256: '', enabled: true },
+    { name: 'azure', url: 'wss://a/mcp/peer', accessKey: '', enabled: true },
+    { name: 'lab', url: 'wss://b/mcp/peer', accessKey: 'k2', enabled: true },
   ]);
 });
 
@@ -86,7 +88,7 @@ test('FR-MCP-020: a link added elsewhere after the panel loaded is kept, not dro
   const result = buildPeerLinksPatch(draft, fresh([...view.links, room]));
   assert.ok(result.ok);
   assert.deepEqual(result.patch.links.map((link) => link.name), ['azure', 'park']);
-  assert.deepEqual(result.patch.links[1], { name: 'park', url: 'wss://c/mcp/peer', accessKey: '', tlsFingerprintSha256: '', enabled: true });
+  assert.deepEqual(result.patch.links[1], { name: 'park', url: 'wss://c/mcp/peer', accessKey: '', enabled: true });
 });
 
 test('FR-MCP-020: a link renamed elsewhere is not reverted by an untouched row', () => {
@@ -118,4 +120,18 @@ test('FR-MCP-020: my name changed elsewhere is kept unless the panel changed it'
   const touched = buildPeerLinksPatch({ ...draft, nodeName: 'mine' }, fresh(view.links, 'hong'));
   assert.ok(touched.ok);
   assert.equal(touched.patch.nodeName, 'mine');
+});
+
+test('FR-MCP-024 AC-4: only an outbound link refused for a changed certificate offers "trust the new certificate"', () => {
+  const base = { name: 'azure', state: 'disconnected' as const, queued: 0 };
+  assert.equal(needsCertificateTrust({ ...base, direction: 'outbound', lastError: 'PEER_TLS_FINGERPRINT_MISMATCH' }), true);
+  assert.equal(needsCertificateTrust({ ...base, direction: 'inbound', lastError: 'PEER_TLS_FINGERPRINT_MISMATCH' }), false);
+  assert.equal(needsCertificateTrust({ ...base, direction: 'outbound', lastError: 'ECONNREFUSED' }), false);
+  assert.equal(needsCertificateTrust({ ...base, direction: 'outbound' }), false);
+});
+
+test('FR-MCP-024 AC-1/AC-7: the address field asks for the MCP address and the key field is the MCP key', () => {
+  assert.equal(koCatalog['mcp.peers.link.url'], 'MCP 주소');
+  assert.equal(koCatalog['mcp.peers.link.accessKey'], 'MCP 키');
+  assert.equal('mcp.peers.link.fingerprint' in koCatalog, false);
 });

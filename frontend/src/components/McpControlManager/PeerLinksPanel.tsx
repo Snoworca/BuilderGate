@@ -1,5 +1,6 @@
-// FR-MCP-020 (#233): Tools > MCP settings > Remote links. Shows the link state (refreshed while the
-// tab is open) and edits this server's name, the remotes it connects to, and heartbeat/queue limits.
+// FR-MCP-020 (#233), FR-MCP-024: Tools > MCP settings > Remote links. Shows the link state (refreshed
+// while the tab is open) and edits this server's name, the remotes it connects to (MCP address and
+// MCP key; the certificate is remembered on first use), and heartbeat/queue limits.
 import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '../common/Icon';
 import { Button, Checkbox, Field, Switch, TextInput } from '../ui';
@@ -12,6 +13,7 @@ import {
   describePeerFieldErrors,
   effectivePeerTimeoutSeconds,
   emptyPeerLinkRow,
+  needsCertificateTrust,
   peerStateLabelKey,
   type PeerLinkRow,
   type PeerLinksDraft,
@@ -104,6 +106,17 @@ export function PeerLinksPanel({ active }: { active: boolean }) {
     }
   };
 
+  // FR-MCP-024 AC-4: forget the remembered certificate; the link reconnects and remembers the new one.
+  const trustCertificate = async (name: string) => {
+    setMessage(null);
+    try {
+      setData(await mcpControlApi.trustPeerCertificate(name));
+      setMessage({ kind: 'ok', text: t('mcp.peers.certificateTrusted') });
+    } catch (error) {
+      setMessage({ kind: 'error', text: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
   if (!draft || !data) {
     return <div className="mcp-control-empty">{loaded ? (message?.text ?? t('mcp.peers.loadFailed')) : t('mcp.peers.loading')}</div>;
   }
@@ -143,7 +156,15 @@ export function PeerLinksPanel({ active }: { active: boolean }) {
                 {t(peer.direction === 'outbound' ? 'mcp.peers.direction.outbound' : 'mcp.peers.direction.inbound')}
                 {' · '}
                 {t('mcp.peers.col.queued')} {peer.queued}
-                {peer.lastError && <span className="mcp-peers-error"> · {t('mcp.peers.col.lastError')} {peer.lastError}</span>}
+                {peer.lastError && !needsCertificateTrust(peer) && <span className="mcp-peers-error"> · {t('mcp.peers.col.lastError')} {peer.lastError}</span>}
+                {needsCertificateTrust(peer) && (
+                  <span className="mcp-peers-trust">
+                    <span className="mcp-peers-error">{t('mcp.peers.certificateChanged')}</span>
+                    <Button variant="secondary" size="sm" onClick={() => void trustCertificate(peer.name)}>
+                      {t('mcp.peers.trustCertificate')}
+                    </Button>
+                  </span>
+                )}
               </dd>
             </div>
           ))}
@@ -164,8 +185,8 @@ export function PeerLinksPanel({ active }: { active: boolean }) {
             <Field label={t('mcp.peers.link.name')} htmlFor={`mcp-peers-link-name-${index}`} className="mcp-control-field">
               <TextInput id={`mcp-peers-link-name-${index}`} mono value={row.name} spellCheck={false} onChange={(event) => updateRow(index, { name: event.target.value })} />
             </Field>
-            <Field label={t('mcp.peers.link.url')} htmlFor={`mcp-peers-link-url-${index}`} className="mcp-control-field mcp-peers-wide">
-              <TextInput id={`mcp-peers-link-url-${index}`} mono value={row.url} placeholder="wss://host:port/mcp/peer" spellCheck={false} onChange={(event) => updateRow(index, { url: event.target.value })} />
+            <Field label={t('mcp.peers.link.url')} htmlFor={`mcp-peers-link-url-${index}`} className="mcp-control-field mcp-peers-wide" help={t('mcp.peers.link.urlHelp')}>
+              <TextInput id={`mcp-peers-link-url-${index}`} mono value={row.url} placeholder="https://10.0.1.13:3333/mcp" spellCheck={false} onChange={(event) => updateRow(index, { url: event.target.value })} />
             </Field>
             <Field
               label={t('mcp.peers.link.accessKey')}
@@ -174,9 +195,6 @@ export function PeerLinksPanel({ active }: { active: boolean }) {
               help={row.hasAccessKey ? t('mcp.peers.link.accessKeyStored') : undefined}
             >
               <TextInput id={`mcp-peers-link-key-${index}`} type="password" mono autoComplete="off" value={row.accessKey} onChange={(event) => updateRow(index, { accessKey: event.target.value })} />
-            </Field>
-            <Field label={t('mcp.peers.link.fingerprint')} htmlFor={`mcp-peers-link-fp-${index}`} className="mcp-control-field mcp-peers-wide">
-              <TextInput id={`mcp-peers-link-fp-${index}`} mono value={row.tlsFingerprintSha256} spellCheck={false} onChange={(event) => updateRow(index, { tlsFingerprintSha256: event.target.value })} />
             </Field>
           </div>
           <div className="mcp-control-item-actions">

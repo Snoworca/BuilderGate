@@ -142,16 +142,8 @@ test('FR-MCP-016 AC-2/AC-3: with a pinned fingerprint the key goes out only to t
     await waitFor(() => received.length === 1);
     assert.equal(opened, true);
     right.close();
-
-    // Without a pin the self-signed certificate fails ordinary verification.
-    let unpinned: string | undefined;
-    dialPeerWebSocket({ name: 'a', url, accessKey: 'k', enabled: true }, {
-      onOpen: () => {},
-      onText: () => {},
-      onClose: (reason) => { unpinned = reason; },
-    });
-    await waitFor(() => unpinned !== undefined);
-    assert.equal(received.length, 1);
+    // Without a pin the certificate is remembered on first use (FR-MCP-024 AC-3, peerLinkSimpleConnect.test.ts);
+    // the earlier "unpinned self-signed fails ordinary verification" no longer holds.
   } finally {
     wss.close();
     server.closeAllConnections();

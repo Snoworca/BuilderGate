@@ -412,6 +412,15 @@ textarea.mcp-control-textarea {
   color: var(--danger-text);
 }
 
+/* FR-MCP-024 AC-4: the changed-certificate notice and its button sit under the link state. */
+.mcp-peers-trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .mcp-peers-link {
   grid-template-columns: minmax(0, 1fr);
 }

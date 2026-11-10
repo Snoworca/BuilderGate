@@ -1,5 +1,6 @@
-// FR-MCP-020 (#233): the Remote links tab of the MCP settings window. The form edits seconds; the
-// server keeps milliseconds and does the full validation.
+// FR-MCP-020 (#233), FR-MCP-024: the Remote links tab of the MCP settings window. The form edits
+// seconds; the server keeps milliseconds, turns the MCP address into the link address and does the
+// full validation.
 import { t, type MessageKey } from '../../i18n/i18n.ts';
 
 export interface PeerLinkView {
@@ -55,7 +56,6 @@ export interface PeerLinkRow {
   /** A new key; empty keeps the stored one. */
   accessKey: string;
   hasAccessKey: boolean;
-  tlsFingerprintSha256: string;
   enabled: boolean;
   /** The stored link this row was loaded from; absent for a row added in the panel. */
   loadedFrom?: PeerLinkView;
@@ -99,7 +99,6 @@ export function createPeerLinksDraft(view: PeerLinksSettingsView): PeerLinksDraf
       url: link.url,
       accessKey: '',
       hasAccessKey: link.hasAccessKey,
-      tlsFingerprintSha256: link.tlsFingerprintSha256 ?? '',
       enabled: link.enabled,
       loadedFrom: link,
     })),
@@ -107,7 +106,7 @@ export function createPeerLinksDraft(view: PeerLinksSettingsView): PeerLinksDraf
 }
 
 export function emptyPeerLinkRow(): PeerLinkRow {
-  return { name: '', url: '', accessKey: '', hasAccessKey: false, tlsFingerprintSha256: '', enabled: true };
+  return { name: '', url: '', accessKey: '', hasAccessKey: false, enabled: true };
 }
 
 /** The timeout in effect, in seconds: the one typed, or 2.5 times the heartbeat. */
@@ -118,11 +117,11 @@ export function effectivePeerTimeoutSeconds(draft: Pick<PeerLinksDraft, 'heartbe
   return heartbeat === undefined ? undefined : heartbeat * PEER_TIMEOUT_RATIO;
 }
 
+// FR-MCP-024 AC-5: the certificate fingerprint is never sent; the server keeps the one it remembered.
 const rowPatch = (row: PeerLinkRow): Record<string, unknown> => ({
   name: row.name.trim(),
   url: row.url.trim(),
   accessKey: row.accessKey.trim(),
-  tlsFingerprintSha256: row.tlsFingerprintSha256.trim(),
   enabled: row.enabled,
 });
 
@@ -130,7 +129,6 @@ const viewPatch = (link: PeerLinkView): Record<string, unknown> => ({
   name: link.name,
   url: link.url,
   accessKey: '',
-  tlsFingerprintSha256: link.tlsFingerprintSha256 ?? '',
   enabled: link.enabled,
 });
 
@@ -140,7 +138,6 @@ function rowEdited(row: PeerLinkRow): boolean {
   return row.name.trim() !== loaded.name
     || row.url.trim() !== loaded.url
     || row.accessKey.trim() !== ''
-    || row.tlsFingerprintSha256.trim() !== (loaded.tlsFingerprintSha256 ?? '')
     || row.enabled !== loaded.enabled;
 }
 
@@ -218,6 +215,11 @@ export function peerStateLabelKey(state: string): MessageKey {
   }
 }
 
+/** FR-MCP-024 AC-4: a link this server dialed was refused because the remote certificate changed. */
+export function needsCertificateTrust(peer: PeerLinkStatus): boolean {
+  return peer.direction === 'outbound' && peer.lastError === 'PEER_TLS_FINGERPRINT_MISMATCH';
+}
+
 function parseNumber(text: string): number | undefined {
   const trimmed = text.trim();
   if (trimmed === '' || !/^\d+(\.\d+)?$/u.test(trimmed)) return undefined;
@@ -235,7 +237,6 @@ const FIELD_LABELS: Record<string, MessageKey> = {
   name: 'mcp.peers.link.name',
   url: 'mcp.peers.link.url',
   accessKey: 'mcp.peers.link.accessKey',
-  tlsFingerprintSha256: 'mcp.peers.link.fingerprint',
 };
 
 /** FR-MCP-020 AC-3: the server's field errors as lines naming the field ("Address (remote 2): ..."). */

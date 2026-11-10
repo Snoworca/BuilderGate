@@ -26,6 +26,7 @@ const BROWSER_FACING = [
   'services/McpControlConfigCoordinator.ts',
   'services/McpControlConfigStore.ts',
   'services/McpControlService.ts',
+  'services/McpFixedAccessKeyVault.ts',
   'services/McpSecurityContract.ts',
   'services/SessionInputGateway.ts',
   'services/WorkspaceService.ts',
