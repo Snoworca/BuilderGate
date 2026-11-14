@@ -137,7 +137,7 @@ test('FR-MKB-013 AC-4: the keyboard hook re-renders only when the threshold is c
 
 test('FR-MKB-013 AC-2: App gates the bar on the keyboard and the grace hook', () => {
   const source = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
-  assert.match(source, /useSystemKeyboardUp\(isMobile\)/u);
+  assert.match(source, /useSystemKeyboardUp\(isTouchInput\)/u); // FR-MKB-013 AC-5: a tablet too
   assert.match(source, /decideMobileKeyBar\(\{/u);
   assert.match(source, /const showMobileKeyBar = useMobileKeyBarVisible\(/u);
 });

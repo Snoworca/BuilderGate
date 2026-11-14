@@ -535,14 +535,14 @@ test('FR-MKB-008 AC-1 AC-2 AC-3 AC-5 AC-6 / SDS-AC-1 SDS-AC-2 SDS-AC-3 SDS-AC-5:
   assert.ok(bar > 0 && panel > bar, 'the panel is mounted after the bar');
   const between = app.slice(bar, panel);
   assert.equal((between.match(/<\/div>/g) ?? []).length, 0, 'no container closes between the bar and the panel: same flex column');
-  assert.match(app, /if\s*\(\s*!isMobile\s*\)\s*closeSpecialKeyboard\(\)/, 'the panel closes when mobile mode ends');
-  assert.match(app, /useResetLatchWhenNotMobile\(\s*isMobile\s*\)/, 'the latch is reset when mobile mode ends');
+  assert.match(app, /if\s*\(\s*!isTouchInput\s*\)\s*closeSpecialKeyboard\(\)/, 'the panel closes when touch input ends (FR-MKB-013 AC-5)');
+  assert.match(app, /useResetLatchWhenNotMobile\(\s*isTouchInput\s*\)/, 'the latch is reset when touch input ends (FR-MKB-013 AC-5)');
   assert.match(
     app,
     /useEffect\(\(\)\s*=>\s*\{\s*if\s*\(\s*screen\s*!==\s*'workspace'\s*\|\|\s*activeTabId\s*===\s*null\s*\)\s*closeSpecialKeyboard\(\);?\s*\},\s*\[\s*screen\s*,\s*activeTabId\s*,\s*closeSpecialKeyboard\s*\]\)/,
     'the panel closes when the screen leaves the workspace or no tab is active',
   );
-  assert.match(app, /useTerminalInputFocus\(\s*activeTab\?\.id\s*\?\?\s*null\s*,\s*isMobile\s*\)/, 'the focus watch only runs on a phone');
+  assert.match(app, /useTerminalInputFocus\(\s*activeTab\?\.id\s*\?\?\s*null\s*,\s*isTouchInput\s*\)/, 'the focus watch only runs on a touch device (FR-MKB-013 AC-5)');
 });
 
 test('FR-MKB-009 AC-6: panel keys are at least the 44 px touch size', () => {

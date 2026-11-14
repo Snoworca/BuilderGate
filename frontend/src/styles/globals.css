@@ -7,6 +7,9 @@
 html, body, #root {
   height: 100%;
   overflow: hidden;
+  /* FR-ARCH-008 AC-4: iOS Safari still rubber-bands an overflow-hidden document on a drag
+   * nothing consumed (an iPad in the desktop layout moved the whole app up and down). */
+  overscroll-behavior: none;
 }
 
 body {

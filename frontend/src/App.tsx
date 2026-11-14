@@ -194,7 +194,7 @@ function AppContent() {
   const { logout } = useAuth();
   const terminalShortcuts = useTerminalShortcutContext();
   const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
-  const { isMobile, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
+  const { isMobile, isTouchInput, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
@@ -666,10 +666,11 @@ function AppContent() {
     [wm.activeWorkspaceTabs, wm.activeWorkspace]
   );
   // FR-MKB-006 / FR-MKB-007: the mobile key bar shows while the active tab's
-  // terminal input has focus on a phone, and the app then follows the visual
-  // viewport so the bar sits right above the system keyboard.
+  // terminal input has focus on a touch device (a phone, or a tablet such as an
+  // iPad that keeps the desktop layout, FR-MKB-013 AC-5), and the app then follows
+  // the visual viewport so the bar sits right above the system keyboard.
   // No focus watch at all on a desktop (FR-MKB-011 AC-4).
-  const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null, isMobile);
+  const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null, isTouchInput);
   const activeTabId = activeTab?.id ?? null;
   const activeSessionId = activeTab?.sessionId ?? null;
   // FR-MKB-008: the special keyboard panel replaces the system keyboard under
@@ -693,9 +694,9 @@ function AppContent() {
   const closeSpecialKeyboard = specialKeyboard.close;
   // FR-MKB-013: only while the system keyboard is actually up (or the panel is
   // open). Android's back button closes the keyboard but keeps the focus.
-  const systemKeyboardUp = useSystemKeyboardUp(isMobile);
+  const systemKeyboardUp = useSystemKeyboardUp(isTouchInput);
   const showMobileKeyBar = useMobileKeyBarVisible(decideMobileKeyBar({
-    isMobile,
+    isMobile: isTouchInput,
     screen,
     hasActiveTab: activeTab !== null,
     inputFocused: activeTerminalInputFocused,
@@ -706,17 +707,17 @@ function AppContent() {
   // events do not re-render AppContent (FR-MKB-007).
   const appRootRef = useRef<HTMLDivElement>(null);
   useVisualViewportLock(showMobileKeyBar, appRootRef);
-  // FR-MKB-008 AC-6: the panel never survives a switch to the desktop layout.
+  // FR-MKB-008 AC-6: the panel never survives a switch to a non-touch desktop.
   useEffect(() => {
-    if (!isMobile) closeSpecialKeyboard();
-  }, [isMobile, closeSpecialKeyboard]);
+    if (!isTouchInput) closeSpecialKeyboard();
+  }, [isTouchInput, closeSpecialKeyboard]);
   // The panel only lives on the workspace screen with an active tab; leaving
   // either closes it rather than leaving a suppressed terminal behind.
   useEffect(() => {
     if (screen !== 'workspace' || activeTabId === null) closeSpecialKeyboard();
   }, [screen, activeTabId, closeSpecialKeyboard]);
   // A latch left on in mobile mode must not reach a desktop hardware keyboard.
-  useResetLatchWhenNotMobile(isMobile);
+  useResetLatchWhenNotMobile(isTouchInput);
 
   const runtimeResidency = useTerminalRuntimeResidency({
     tabs: wm.tabs,

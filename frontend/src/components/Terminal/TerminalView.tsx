@@ -591,7 +591,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     } | null>(null);
     const imeTransaction = useMemo(() => new ImeTransaction(), []);
     const imeTransactionRef = useRef<ImeTransaction | null>(imeTransaction);
-    const { isMobile } = useResponsive();
+    const { isMobile, isTouchInput } = useResponsive();
     const {
       send,
       registerTerminalCheckpointDispatcher,
@@ -5224,9 +5224,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return () => container.removeEventListener('wheel', handleWheel, { capture: true });
     }, [isMobile, handleFontSizeChange]);
 
-    // Mobile: single-touch pan scroll + two-touch pinch zoom
+    // Touch input (a phone, or a tablet that keeps the desktop layout): single-touch pan
+    // scroll + two-touch pinch zoom (FR-ARCH-008 AC-4).
     useEffect(() => {
-      if (!isMobile) return;
+      if (!isTouchInput) return;
       const container = containerRef.current;
       if (!container) return;
       const onTouchEnd = () => finishMobileTouchGesture('touchend');
@@ -5243,7 +5244,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         container.removeEventListener('touchend', onTouchEnd);
         container.removeEventListener('touchcancel', onTouchCancel);
       };
-    }, [isMobile, handleMobileTouchStart, handleMobileTouchMove, finishMobileTouchGesture]);
+    }, [isTouchInput, handleMobileTouchStart, handleMobileTouchMove, finishMobileTouchGesture]);
 
 
 
@@ -5281,7 +5282,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         className="terminal-view"
         ref={containerRef}
         data-terminal-view="true"
-        style={isMobile ? { touchAction: 'none' } : undefined}
+        style={isTouchInput ? { touchAction: 'none' } : undefined}
         onClick={handleClick}
         onPointerDownCapture={handleManualRepairPointerEvent}
         onMouseDownCapture={handleManualRepairMouseEvent}
