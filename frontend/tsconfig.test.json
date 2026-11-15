@@ -102,6 +102,7 @@
     "./tests/unit/terminalRedrawNudge.test.ts",
     "./tests/unit/remoteTabActivation.test.ts",
     "./tests/unit/homeScreenApp.test.ts",
+    "./tests/unit/standaloneViewport.test.ts",
     "./tests/unit/terminalTextCopy.test.ts",
     "./tests/unit/terminalResizeSendLedger.test.ts",
     "./tests/unit/terminalFileDrop.test.ts",
