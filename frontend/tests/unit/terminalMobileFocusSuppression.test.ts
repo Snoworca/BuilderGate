@@ -197,3 +197,37 @@ test('FR-MKB-008 AC-4 / SDS-AC-4: once released with setFocusSuppressed(false), 
     await r.unmount();
   }
 });
+
+// @req FR-ARCH-010
+test('FR-ARCH-010 AC-8: during a click-only tap the focus xterm takes is undone under inputmode none, and afterwards focus works again', async () => {
+  const r = await renderWithHandle();
+  try {
+    await act(async () => { r.handle.setTapFocusSuppressed(true); });
+    assert.equal(r.textarea.getAttribute('inputmode'), 'none', 'no keyboard even for a focus the blur cannot undo in time');
+    // xterm focuses its own helper textarea on the mousedown that reports the click.
+    await act(async () => { r.textarea.focus(); });
+    assert.notEqual(document.activeElement, r.textarea, 'the self-focus was undone');
+    await act(async () => { r.handle.focus('test'); });
+    assert.notEqual(document.activeElement, r.textarea, 'no focus entry opens while the tap is held');
+    await act(async () => { r.handle.setTapFocusSuppressed(false); });
+    assert.equal(r.textarea.hasAttribute('inputmode'), false, 'the keyboard type is back');
+    await act(async () => { r.handle.focus('test'); });
+    assert.equal(document.activeElement, r.textarea, 'a later tap on the input line focuses');
+  } finally {
+    await r.unmount();
+  }
+});
+
+// @req FR-ARCH-010
+test('FR-ARCH-010 AC-8: a held tap whose click never came lets go by itself', async () => {
+  const r = await renderWithHandle();
+  try {
+    await act(async () => { r.handle.setTapFocusSuppressed(true); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1100)); });
+    assert.equal(r.textarea.hasAttribute('inputmode'), false);
+    await act(async () => { r.handle.focus('test'); });
+    assert.equal(document.activeElement, r.textarea);
+  } finally {
+    await r.unmount();
+  }
+});

@@ -8,7 +8,8 @@ import { useLongPress } from '../../hooks/useLongPress';
 import { dismissSoftKeyboard } from '../../hooks/doubleTap';
 import type { TerminalShortcutState } from '../../types';
 import { suppressTerminalSecondaryButtonEvent } from '../../utils/terminalPointerPolicy';
-import { createTouchTapTracker, shouldFocusTerminalOnPointerDown } from '../../utils/terminalTouchTapPolicy';
+import { createTouchTapTracker, shouldFocusTerminalOnPointerDown, shouldTapOpenKeyboard } from '../../utils/terminalTouchTapPolicy';
+import { isSystemKeyboardUp } from '../../hooks/useVisualViewportInset';
 import { t } from '../../i18n/i18n.ts';
 import { readDroppedSources } from '../fileExplorer/fileDropEntries.ts';
 import { startUpload } from '../fileExplorer/fileTransferRuntime.ts';
@@ -92,6 +93,8 @@ function TerminalRuntimeEntry({
   // only when it ends as a short tap, never when it begins.
   const touchTapRef = useRef(createTouchTapTracker());
   const lastPointerWasTouchRef = useRef(false);
+  // FR-ARCH-010 AC-8: the current tap is a click only; its focus is held off until its click.
+  const clickOnlyTapRef = useRef(false);
 
   const longPress = useLongPress(
     ({ clientX, clientY, gesture }) => {
@@ -154,6 +157,15 @@ function TerminalRuntimeEntry({
       .catch((error: unknown) => console.warn('[terminal-file-drop] upload failed', error));
   };
 
+  // FR-ARCH-010 AC-8: a tap that only clicks. xterm focuses its input on the mousedown
+  // that also reports the click, so focus is held off from that mousedown to the click.
+  const releaseClickOnlyTap = () => {
+    if (!clickOnlyTapRef.current) return false;
+    clickOnlyTapRef.current = false;
+    terminalRefsMap.current.get(tab.id)?.current?.setTapFocusSuppressed(false);
+    return true;
+  };
+
   const focusTerminal = (fallbackRoot?: EventTarget | null) => {
     const handle = terminalRefsMap.current.get(tab.id)?.current;
     if (handle) {
@@ -189,6 +201,7 @@ function TerminalRuntimeEntry({
           return;
         }
 
+        releaseClickOnlyTap();
         lastPointerWasTouchRef.current = !shouldFocusTerminalOnPointerDown(event.pointerType);
         if (lastPointerWasTouchRef.current) {
           // Wait for the click: only a tap may focus.
@@ -213,11 +226,31 @@ function TerminalRuntimeEntry({
         if (lastPointerWasTouchRef.current && !touchTapRef.current.isTap()) {
           event.preventDefault();
           event.stopPropagation();
+          return;
+        }
+        // FR-ARCH-010 AC-8: with the keyboard down, a tap on a program that tracks the
+        // mouse reaches it as a click; only a tap on the input line opens the keyboard.
+        if (lastPointerWasTouchRef.current) {
+          const handle = terminalRefsMap.current.get(tab.id)?.current;
+          if (handle && !shouldTapOpenKeyboard({
+            mouseTracking: handle.getMouseTrackingActive(),
+            keyboardUp: isSystemKeyboardUp(window),
+            rows: handle.getTapRows(event.clientX, event.clientY),
+          })) {
+            clickOnlyTapRef.current = true;
+            handle.setTapFocusSuppressed(true);
+          }
         }
       }}
       onClickCapture={(event) => {
         if (lastPointerWasTouchRef.current) {
           if (!touchTapRef.current.consumeTap()) {
+            releaseClickOnlyTap();
+            event.stopPropagation();
+            return;
+          }
+          // FR-ARCH-010 AC-8: the program has the click already; nothing focuses.
+          if (releaseClickOnlyTap()) {
             event.stopPropagation();
             return;
           }

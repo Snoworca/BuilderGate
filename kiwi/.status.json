@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-17T12:36:00.122Z",
+  "generatedAt": "2026-11-17T12:37:56.690Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "1f8aee5c2ed441d6fbbdc9dadfc41c0cc6912cc0145d3d4e617f7840efe3a07f",
+    "value": "1e512bbf55ffbd697fa5b98155d1b5e8ec0ed7e63a521f3a33a478f2fee21831",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -14,9 +14,9 @@
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "c6d1fffd14ddbe339514e7cbd84c26623b4c904f8641f48bb059119b20b8386c",
-        "size": 87993,
-        "mtimeMs": 1794918930134.5369
+        "sha256": "27588a751294c1984cb6221891fccc19f7713bdf29834f3338c9c9707399a52b",
+        "size": 89803,
+        "mtimeMs": 1794919056122.4944
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",

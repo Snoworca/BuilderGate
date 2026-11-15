@@ -2367,6 +2367,10 @@ export const TerminalContainer = memo(
       blurInput: () => terminalRef.current?.blurInput(),
       // @req FR-MKB-008
       setFocusSuppressed: (on) => terminalRef.current?.setFocusSuppressed(on),
+      // @req FR-ARCH-010
+      getTapRows: (clientX, clientY) => terminalRef.current?.getTapRows(clientX, clientY) ?? null,
+      // @req FR-ARCH-010
+      setTapFocusSuppressed: (on) => terminalRef.current?.setTapFocusSuppressed(on),
       hasSelection: () => terminalRef.current?.hasSelection() ?? false,
       getSelection: () => terminalRef.current?.getSelection() ?? '',
       getMouseTrackingActive: () => terminalRef.current?.getMouseTrackingActive() ?? false,

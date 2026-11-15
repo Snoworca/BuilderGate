@@ -192,6 +192,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   getApplicationCursorKeysMode: 'reads application cursor mode; no input', // IR-MKB-001 AC-1 / SDS-AC-12
   getMouseTrackingActive: 'reads mouse mode; no input',
   getPathsAt: 'reads file paths shown at a screen point; takes two numbers, no input', // FR-ARCH-012/013 (5f6f17d4)
+  getTapRows: 'reads the tapped row and the cursor row at a screen point; takes two numbers, no input', // FR-ARCH-010 AC-8
   getScreenRepairReadiness: 'reads readiness; no input',
   getText: 'reads the active buffer as plain text for the touch text dialog; no input', // FR-ARCH-017
   getSelection: 'reads selection text; no input',
@@ -211,6 +212,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
     + 'transport every input source ends in, including the coordinator. Routing a '
     + 'clipboard payload here directly is the bypass this test exists to prevent.',
   setFocusSuppressed: 'gates every focus entry while the mobile special keyboard is open; takes a boolean, no input', // FR-MKB-008 AC-4 / SDS-AC-4
+  setTapFocusSuppressed: 'gates focus for one click-only touch tap; takes a boolean, no input', // FR-ARCH-010 AC-8
   setInputTransportState: 'transport bookkeeping; no input',
   setServerReady: 'readiness flag; no input',
   setWindowsPty: 'platform flag; no input',

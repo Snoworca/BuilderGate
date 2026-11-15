@@ -17,9 +17,13 @@ interface Calls {
   hostPointerDown: number;
   contextMenu: Array<[number, number]>;
   innerClicks: number;
+  tapSuppressed: boolean[];
 }
 
-const calls: Calls = { focus: [], invalidate: 0, hostPointerDown: 0, contextMenu: [], innerClicks: 0 };
+// FR-ARCH-010 AC-8: what the fake terminal reports about the program and the tap.
+const fakeTerminal = { mouseTracking: false, rows: null as { tapRow: number; cursorRow: number } | null };
+
+const calls: Calls = { focus: [], invalidate: 0, hostPointerDown: 0, contextMenu: [], innerClicks: 0, tapSuppressed: [] };
 let hostClassName = '';
 
 function resetCalls(): void {
@@ -28,6 +32,7 @@ function resetCalls(): void {
   calls.hostPointerDown = 0;
   calls.contextMenu.length = 0;
   calls.innerClicks = 0;
+  calls.tapSuppressed.length = 0;
 }
 
 const React = await import('react');
@@ -38,6 +43,9 @@ mock.module('../../src/components/Terminal/TerminalContainer.tsx', {
       React.useImperativeHandle(ref, () => ({
         focus: (reason: string) => { calls.focus.push(reason); },
         invalidateClipboardContext: () => { calls.invalidate += 1; },
+        getMouseTrackingActive: () => fakeTerminal.mouseTracking,
+        getTapRows: () => fakeTerminal.rows,
+        setTapFocusSuppressed: (on: boolean) => { calls.tapSuppressed.push(on); },
       }));
       return React.createElement('div', { 'data-fake-terminal': 'true' });
     }),
@@ -198,4 +206,90 @@ test('FR-ARCH-010 AC-7: a tap on a grid tile selects the tile and focuses it', a
   assert.equal(calls.invalidate, 1, 'grid clipboard context was invalidated on the tap');
   assert.deepEqual(calls.focus, ['runtime-layer']);
   await view.unmount();
+});
+
+const tapMouseDown = (clientX: number, clientY: number) => new window.MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientX, clientY });
+const tapClick = (clientX: number, clientY: number) => new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, clientX, clientY });
+
+// The phone's keyboard state, read through visualViewport the way the key bar reads it.
+function setKeyboard(up: boolean): void {
+  Object.defineProperty(window, 'innerWidth', { value: 400, configurable: true });
+  Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true });
+  Object.defineProperty(window, 'visualViewport', { value: { height: up ? 420 : 800, offsetTop: 0, addEventListener() {}, removeEventListener() {} }, configurable: true });
+}
+
+async function tapAt(view: { inner: HTMLElement }, clientX: number, clientY: number): Promise<{ mouseDown: Event }> {
+  await fire(view.inner, pointerDown('touch'));
+  await fire(view.inner, touch('touchstart', [{ clientX, clientY }]));
+  await fire(view.inner, touch('touchend', []));
+  const mouseDown = await fire(view.inner, tapMouseDown(clientX, clientY));
+  await fire(view.inner, tapClick(clientX, clientY));
+  return { mouseDown };
+}
+
+async function withProgram(state: { mouseTracking: boolean; rows: { tapRow: number; cursorRow: number } | null; keyboardUp: boolean }, body: () => Promise<void>): Promise<void> {
+  fakeTerminal.mouseTracking = state.mouseTracking;
+  fakeTerminal.rows = state.rows;
+  setKeyboard(state.keyboardUp);
+  try {
+    await body();
+  } finally {
+    fakeTerminal.mouseTracking = false;
+    fakeTerminal.rows = null;
+    Object.defineProperty(window, 'visualViewport', { value: undefined, configurable: true });
+  }
+}
+
+// @req FR-ARCH-010
+test('FR-ARCH-010 AC-8: with Claude Code tracking the mouse and the keyboard down, a tap on a choice is a click only', async () => {
+  await withProgram({ mouseTracking: true, rows: { tapRow: 5, cursorRow: 30 }, keyboardUp: false }, async () => {
+    const view = await render();
+    const { mouseDown } = await tapAt(view, 60, 70);
+    assert.equal(mouseDown.defaultPrevented, false, 'the mousedown reaches xterm, which reports the click to the program');
+    assert.deepEqual(calls.tapSuppressed, [true, false], 'xterm self-focus is held off from the mousedown to the click');
+    assert.deepEqual(calls.focus, [], 'the terminal input is not focused, so the keyboard stays down');
+    assert.equal(calls.innerClicks, 0, 'the click does not reach TerminalView, whose click handler focuses');
+    await view.unmount();
+  });
+});
+
+// @req FR-ARCH-010
+test('FR-ARCH-010 AC-8: a tap on the input line still opens the keyboard', async () => {
+  await withProgram({ mouseTracking: true, rows: { tapRow: 29, cursorRow: 30 }, keyboardUp: false }, async () => {
+    const view = await render();
+    await tapAt(view, 60, 590);
+    assert.deepEqual(calls.tapSuppressed, []);
+    assert.deepEqual(calls.focus, ['runtime-layer']);
+    await view.unmount();
+  });
+});
+
+// @req FR-ARCH-010
+test('FR-ARCH-010 AC-8: with the keyboard up, or in a plain shell, a tap anywhere focuses as before', async () => {
+  for (const state of [
+    { mouseTracking: true, rows: { tapRow: 5, cursorRow: 30 }, keyboardUp: true },
+    { mouseTracking: false, rows: { tapRow: 5, cursorRow: 30 }, keyboardUp: false },
+  ]) {
+    await withProgram(state, async () => {
+      const view = await render();
+      await tapAt(view, 60, 70);
+      assert.deepEqual(calls.tapSuppressed, [], JSON.stringify(state));
+      assert.deepEqual(calls.focus, ['runtime-layer'], JSON.stringify(state));
+      await view.unmount();
+    });
+  }
+});
+
+// @req FR-ARCH-010
+test('FR-ARCH-010 AC-8: a click-only tap whose click never came is released by the next touch', async () => {
+  await withProgram({ mouseTracking: true, rows: { tapRow: 5, cursorRow: 30 }, keyboardUp: false }, async () => {
+    const view = await render();
+    await fire(view.inner, pointerDown('touch'));
+    await fire(view.inner, touch('touchstart', [{ clientX: 60, clientY: 70 }]));
+    await fire(view.inner, touch('touchend', []));
+    await fire(view.inner, tapMouseDown(60, 70));
+    await fire(view.inner, pointerDown('touch'));
+    assert.deepEqual(calls.tapSuppressed, [true, false]);
+    await view.unmount();
+  });
 });
