@@ -153,6 +153,8 @@ import { detectSessionAgent } from './services/messenger/agentDetection.js';
 import { createPeerUpgradeHandler, dialPeerWebSocket, peerUpgradeAllowed } from './services/peer/peerWsTransport.js';
 import { createMcpFixedAccessKeyVault, type McpFixedAccessKeyVault } from './services/McpFixedAccessKeyVault.js';
 import { createMcpCallerSessionResolver, findClientPidFromOs } from './services/mcpCallerSession.js';
+import { createSystemStatsSampler } from './services/systemStats/systemStats.js';
+import { createOsSystemStatsDeps } from './services/systemStats/osSystemStats.js';
 import {
   buildMcpGatewayDeliveryResponse,
 } from './services/McpGatewayDeliveryResult.js';
@@ -1975,7 +1977,14 @@ async function startServer(): Promise<void> {
       audit: (event) => console.info('[MCP Agent Audit]', JSON.stringify(event)),
       recordCleanupEvidence: (event) => console.info('[MCP Agent Cleanup]', JSON.stringify(event)),
     });
+    // FR-MCP-028: sampled only while buildergate.system.stats is being asked for.
+    const systemStatsSampler = createSystemStatsSampler(createOsSystemStatsDeps(() => {
+      const sessions = workspaceService.listMcpSessions(undefined, true);
+      return { total: sessions.length, agents: sessions.filter((session) => session.agentKind !== 'terminal').length };
+    }));
+    process.once('exit', () => systemStatsSampler.stop());
     const mcpToolService = createMcpToolService({
+      systemStats: systemStatsSampler,
       // FR-MCP-010: tell MCP clients about the user's agent launch aliases.
       getAgentAliases: () => {
         const all = agentAliasService?.getAll();

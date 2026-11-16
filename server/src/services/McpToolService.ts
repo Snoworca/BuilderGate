@@ -63,6 +63,8 @@ import { callFederated, withServerProperty } from './McpFederation.js';
 type StringRecord = Record<string, unknown>;
 
 type McpToolServiceDeps = {
+  /** FR-MCP-028: CPU, memory and disk figures of this server. */
+  systemStats?: { snapshot: () => Promise<unknown> };
   now?: () => string;
   audit?: (event: StringRecord) => void;
   log?: (event: StringRecord) => void;
@@ -213,6 +215,9 @@ type ListenerControllerDeps = {
   resolveSession?: (sessionKey: string) => unknown;
 };
 
+/** FR-MCP-028. */
+export const MCP_SYSTEM_STATS_TOOL = 'buildergate.system.stats';
+
 export const BUILDERGATE_MCP_TOOL_NAMES = [
   'buildergate.session.whoami',
   'buildergate.session.claim',
@@ -232,6 +237,7 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   ...MCP_ROOM_TOOL_NAMES,
   ...MCP_PEER_TOOL_NAMES,
   MCP_FILE_UPLOAD_TOOL,
+  MCP_SYSTEM_STATS_TOOL,
 ] as const;
 
 const SECRET_FIELD_NAMES = new Set([
@@ -264,6 +270,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     required: ['claimCode', 'sessionKey'],
     additionalProperties: false,
   },
+  [MCP_SYSTEM_STATS_TOOL]: { type: 'object', properties: {}, additionalProperties: false },
   'buildergate.session.list': {
     type: 'object',
     properties: {
@@ -866,6 +873,8 @@ async function callLocalTool(
       return withAudit(deps, state, 'buildergate.session.claim', actor, context, {}, await handleClaim(deps, actor, args));
     case 'buildergate.session.list':
       return withAudit(deps, state, 'buildergate.session.list', actor, context, {}, await handleSessionList(deps, actor, args));
+    case MCP_SYSTEM_STATS_TOOL:
+      return withAudit(deps, state, MCP_SYSTEM_STATS_TOOL, actor, context, {}, await handleSystemStats(deps, actor));
     case 'buildergate.session.search':
       return withAudit(deps, state, 'buildergate.session.search', actor, context, {}, await handleSessionSearch(deps, actor, args));
     case 'buildergate.session.set_alias':
@@ -1049,6 +1058,15 @@ function resolveClaimSession(deps: McpToolServiceDeps, sessionKey: string): Stri
 }
 
 // @req IR-MCP-001
+/** FR-MCP-028 AC-1: this server's load as the one item of servers (McpFederation merges the rest). */
+async function handleSystemStats(deps: McpToolServiceDeps, actor: StringRecord): Promise<StringRecord> {
+  const scope = requireScope(actor, 'mcp:sessions.list');
+  if (scope) return scope;
+  if (!deps.systemStats) return { ok: false, code: 'SYSTEM_STATS_UNAVAILABLE' };
+  const stats = await deps.systemStats.snapshot().then(asRecord, () => undefined);
+  return stats ? { ok: true, servers: [stats] } : { ok: false, code: 'SYSTEM_STATS_FAILED' };
+}
+
 async function handleSessionList(deps: McpToolServiceDeps, actor: StringRecord, args: StringRecord): Promise<StringRecord> {
   const scope = requireScope(actor, 'mcp:sessions.list');
   if (scope) {
@@ -2941,6 +2959,9 @@ function toolDescription(name: string): string {
   const descriptions: Record<string, string> = {
     'buildergate.session.whoami': 'Return the current MCP session binding. Needs a session-bound connection (BUILDERGATE_MCP_TOKEN); the fixed access key gets UNBOUND_ACTOR.',
     'buildergate.session.claim': 'Bind this MCP connection to a BuilderGate session with the one-time code and session key from MCP settings (Sessions tab). Works over the MCP key; afterwards whoami, room and session tools act as that session.',
+    [MCP_SYSTEM_STATS_TOOL]: 'CPU (model, cores, usage now and over the last minute, load average), memory, volume space, '
+      + 'disk read/write speed and busy share, and how many sessions and agents run -- for this server and every connected '
+      + 'linked server, one item each in servers. Use it to pick the least loaded server before starting work there.',
     'buildergate.session.list': 'List live sessions of this server and of every connected linked server. Each item names its server, '
       + 'and its target ("<server>/<sessionKey>") goes into buildergate.message.send as is.',
     'buildergate.session.search': 'Find a session on this server and every connected linked server in one call. Pass the words of '

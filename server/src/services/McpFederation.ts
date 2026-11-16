@@ -20,6 +20,8 @@ const MERGED_LISTS: Readonly<Record<string, readonly string[]>> = {
   [SEARCH_TOOL]: ['matches', 'candidates'],
   'buildergate.workspace.list': ['workspaces'],
   'buildergate.terminal.list': ['terminals'],
+  // FR-MCP-028 AC-5: every server's load in one call.
+  'buildergate.system.stats': ['servers'],
 };
 
 /** FR-MCP-022 AC-6: tools that never run elsewhere. */
