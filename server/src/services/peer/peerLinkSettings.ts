@@ -60,27 +60,21 @@ export function peerNodeNameFrom(hostName: string): string {
   return PEER_NAME_PATTERN.test(cleaned) ? cleaned : DEFAULT_PEER_LINK_SETTINGS.nodeName;
 }
 
-export function isLoopbackHost(host: string): boolean {
-  const bare = host.replace(/^\[|\]$/gu, '').toLowerCase();
-  return bare === 'localhost' || bare === '::1' || /^127\./u.test(bare);
-}
-
-/** FR-MCP-016 AC-1: wss, or ws to a loopback host. */
+/** FR-MCP-027 AC-2 (supersedes FR-MCP-016 AC-1, user decision 2026-11-16): wss or ws, to any host. */
 export function isAllowedPeerUrl(value: string): boolean {
   if (!URL.canParse(value)) return false;
   const url = new URL(value);
-  return url.protocol === 'wss:' || (url.protocol === 'ws:' && isLoopbackHost(url.hostname));
+  return url.protocol === 'wss:' || url.protocol === 'ws:';
 }
 
 /** The port an MCP listener uses when the address names none (McpControlService default). */
 export const PEER_DEFAULT_MCP_PORT = 3333;
-const PEER_ADDRESS_RULE = 'an MCP address such as https://host:3333/mcp (ws:// and http:// only to localhost)';
-const PEER_PLAIN_HTTP_RULE = 'the remote MCP uses plain HTTP; turn on HTTPS in its MCP settings';
+const PEER_ADDRESS_RULE = 'an MCP address such as https://host:3333/mcp or http://host:3333/mcp';
 
 /**
- * FR-MCP-024 AC-1/AC-2: turns what a person pastes (the MCP address, host:port, a bare host or a
- * link address) into the link address wss://host:port/mcp/peer. http and ws stay plain only for a
- * loopback host.
+ * FR-MCP-024 AC-1, FR-MCP-027 AC-1: turns what a person pastes (the MCP address, host:port, a bare
+ * host or a link address) into the link address wss://host:port/mcp/peer, or ws:// for an http or
+ * ws address (any host, user decision 2026-11-16).
  */
 export function normalizePeerAddress(input: string): { ok: true; url: string } | { ok: false; reason: string } {
   const trimmed = input.trim();
@@ -92,7 +86,6 @@ export function normalizePeerAddress(input: string): { ok: true; url: string } |
   if (url.protocol === 'https:' || url.protocol === 'wss:') {
     scheme = 'wss';
   } else if (url.protocol === 'http:' || url.protocol === 'ws:') {
-    if (!isLoopbackHost(url.hostname)) return { ok: false, reason: PEER_PLAIN_HTTP_RULE };
     scheme = 'ws';
   } else {
     return { ok: false, reason: PEER_ADDRESS_RULE };

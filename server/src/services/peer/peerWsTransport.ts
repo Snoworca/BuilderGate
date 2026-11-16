@@ -6,7 +6,7 @@ import type { Duplex } from 'node:stream';
 import type { TLSSocket } from 'node:tls';
 import WebSocket, { WebSocketServer } from 'ws';
 import type { PeerDialHandlers, PeerLinkManager, PeerSocket } from './peerLinkManager.js';
-import { isAllowedPeerUrl, isLoopbackHost, normalizeFingerprint, type PeerLinkEntry } from './peerLinkSettings.js';
+import { isAllowedPeerUrl, normalizeFingerprint, type PeerLinkEntry } from './peerLinkSettings.js';
 
 export const PEER_LINK_PATH = '/mcp/peer';
 /** FR-MCP-016 AC-7. */
@@ -18,7 +18,7 @@ const HANDSHAKE_TIMEOUT_MS = 10_000;
  * certificate is judged on the upgrade response, before onOpen -- so before hello carries the key.
  * A pinned link is closed when the certificate differs; an unpinned one reports the certificate
  * through onCertificate so it is remembered (trust on first use). Throws PEER_URL_NOT_ALLOWED for
- * ws:// to a host that is not loopback.
+ * a scheme other than ws:// or wss:// (FR-MCP-027).
  */
 export function dialPeerWebSocket(link: PeerLinkEntry, handlers: PeerDialHandlers): PeerSocket {
   if (!isAllowedPeerUrl(link.url)) {
@@ -70,11 +70,13 @@ export function dialPeerWebSocket(link: PeerLinkEntry, handlers: PeerDialHandler
   };
 }
 
-/** FR-MCP-016 AC-5: a plain-HTTP MCP listener takes links only from loopback. */
-export function peerUpgradeAllowed(transportSecurity: string, remoteAddress: string): boolean {
-  if (transportSecurity !== 'none') return true;
-  const address = remoteAddress.startsWith('::ffff:') ? remoteAddress.slice('::ffff:'.length) : remoteAddress;
-  return isLoopbackHost(address);
+/**
+ * FR-MCP-027 AC-3 (supersedes FR-MCP-016 AC-5, user decision 2026-11-16): a plain-HTTP MCP listener
+ * takes links from any address. The hello that follows is checked like any MCP request -- the IP
+ * allowlist and the key (index.ts createPeerHelloAuthenticator).
+ */
+export function peerUpgradeAllowed(_transportSecurity: string, _remoteAddress: string): boolean {
+  return true;
 }
 
 /**

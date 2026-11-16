@@ -33,15 +33,17 @@ function waitFor(check: () => boolean, ms = 5_000): Promise<void> {
 
 const noop = { onOpen: () => {}, onText: () => {}, onClose: () => {} };
 
-test('FR-MCP-016 AC-1: ws:// to a host that is not loopback is refused before any connection', () => {
+test('FR-MCP-027 AC-2 (supersedes FR-MCP-016 AC-1): ws:// to a LAN host is dialled; other schemes are refused', () => {
+  const socket = dialPeerWebSocket({ name: 'x', url: 'ws://10.255.255.1:3333/mcp/peer', accessKey: 'k', enabled: true }, noop);
+  socket.close();
   assert.throws(
-    () => dialPeerWebSocket({ name: 'x', url: 'ws://10.0.0.5:3333/mcp/peer', accessKey: 'k', enabled: true }, noop),
+    () => dialPeerWebSocket({ name: 'x', url: 'ftp://10.0.0.5:3333/mcp/peer', accessKey: 'k', enabled: true }, noop),
     /PEER_URL_NOT_ALLOWED/,
   );
 });
 
-test('FR-MCP-016 AC-5: a plain-HTTP listener takes links only from loopback', () => {
-  assert.equal(peerUpgradeAllowed('none', '10.1.1.1'), false);
+test('FR-MCP-027 AC-3 (supersedes FR-MCP-016 AC-5): a plain-HTTP listener takes links from the LAN too', () => {
+  assert.equal(peerUpgradeAllowed('none', '10.1.1.1'), true);
   assert.equal(peerUpgradeAllowed('none', '127.0.0.1'), true);
   assert.equal(peerUpgradeAllowed('none', '::ffff:127.0.0.1'), true);
   assert.equal(peerUpgradeAllowed('none', '::1'), true);

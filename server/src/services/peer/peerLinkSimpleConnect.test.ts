@@ -43,14 +43,12 @@ test('FR-MCP-024 AC-1 (review H1): a port written out is kept even when it is th
   assert.equal(urlOf('wss://mcp.example:443/mcp/peer'), 'wss://mcp.example:443/mcp/peer');
 });
 
-test('FR-MCP-024 AC-2: http and ws become ws only for a loopback host; plain HTTP to another host is refused with a hint', () => {
+test('FR-MCP-027 AC-1 (supersedes FR-MCP-024 AC-2): http and ws become ws for any host', () => {
   assert.equal(urlOf('http://127.0.0.1:3333/mcp'), 'ws://127.0.0.1:3333/mcp/peer');
   assert.equal(urlOf('ws://localhost:3333'), 'ws://localhost:3333/mcp/peer');
-  for (const input of ['http://10.0.1.13:3333/mcp', 'ws://10.0.1.13:3333/mcp/peer']) {
-    const result = validatePeerLinkSettings({ links: [{ ...link, url: input }] }, DEFAULT_PEER_LINK_SETTINGS);
-    assert.equal(result.ok, false, input);
-    if (!result.ok) assert.match(result.fieldErrors['links.0.url'] ?? '', /HTTPS/, input);
-  }
+  assert.equal(urlOf('http://10.0.1.33:3003/mcp'), 'ws://10.0.1.33:3003/mcp/peer');
+  assert.equal(urlOf('ws://10.0.1.13:3333/mcp/peer'), 'ws://10.0.1.13:3333/mcp/peer');
+  assert.equal(urlOf('http://10.0.1.33/mcp'), 'ws://10.0.1.33:3333/mcp/peer');
   for (const input of ['ftp://10.0.1.13', '', 'https://']) {
     assert.equal(urlOf(input), undefined, input);
   }
