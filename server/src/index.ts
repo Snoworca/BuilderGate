@@ -152,6 +152,7 @@ import { buildRoomPaste, ROOM_PASTE_SOURCE } from './services/messenger/pasteFra
 import { detectSessionAgent } from './services/messenger/agentDetection.js';
 import { createPeerUpgradeHandler, dialPeerWebSocket, peerUpgradeAllowed } from './services/peer/peerWsTransport.js';
 import { createMcpFixedAccessKeyVault, type McpFixedAccessKeyVault } from './services/McpFixedAccessKeyVault.js';
+import { createMcpCallerSessionResolver, findClientPidFromOs } from './services/mcpCallerSession.js';
 import {
   buildMcpGatewayDeliveryResponse,
 } from './services/McpGatewayDeliveryResult.js';
@@ -2218,6 +2219,17 @@ async function startServer(): Promise<void> {
     const mcpHttpHandler = createMcpHttpHandler({
       service: mcpToolService,
       listenerController: mcpListenerController,
+      // FR-MCP-026: an agent started in a BuilderGate terminal acts as that terminal's session.
+      resolveCallerSession: createMcpCallerSessionResolver({
+        findClientPid: findClientPidFromOs,
+        listProcesses,
+        listShells: () => sessionManager.listEditorWaitSessions(),
+        sessionKeyFor: (sessionId) => {
+          const session = workspaceService.listMcpSessions(undefined, true)
+            .find((entry) => entry.currentSessionId === sessionId || entry.sessionId === sessionId);
+          return typeof session?.sessionKey === 'string' ? session.sessionKey : undefined;
+        },
+      }),
     }) as McpHttpHandler;
     mcpHandlerForListener = mcpHttpHandler;
     await (mcpListenerController.start as (request: unknown) => Promise<unknown>)({ enabled: mcpControlSecurityConfig.enabled !== false });

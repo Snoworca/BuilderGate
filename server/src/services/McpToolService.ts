@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import type { McpCallerSession } from './mcpCallerSession.js';
 import net from 'node:net';
 import {
   createDefaultMcpSecurityConfig,
@@ -111,6 +112,8 @@ type McpHttpTransportSession = {
   protocolVersion: string;
   credential: StringRecord;
   bearerToken: string;
+  /** FR-MCP-025: bound to a session by session.claim over an MCP-key connection. */
+  boundFromFixedKey?: boolean;
   lastSeenAt: number;
 };
 
@@ -126,6 +129,8 @@ type McpHttpHandlerInput = {
   now?: () => number;
   sessionTtlMs?: number;
   maxSessions?: number;
+  /** FR-MCP-026: the BuilderGate terminal session the client was started in, if any. */
+  resolveCallerSession?: (request: { remoteAddress: string; listenerPort: number; clientPort: number }) => Promise<McpCallerSession | undefined>;
 };
 
 const MCP_SESSION_HEADER = 'mcp-session-id';
@@ -413,6 +418,8 @@ export function createMcpToolService(deps: McpToolServiceDeps = {}): StringRecor
     getInstructions: () => buildMcpServerInstructions(deps),
     callTool: (request: unknown) => callTool(deps, state, asRecord(request)),
     validateClaimCode: (request: unknown) => validateClaimCode(deps, asRecord(request)),
+    // FR-MCP-026: a session token for a caller the server found under that session's terminal.
+    mintSessionActorToken: (request: unknown) => mintCallerSessionActorToken(deps, request),
     getStatus: () => getServiceStatus(deps, state),
     getAssignmentStatus: (request: unknown) => getAssignmentStatus(state, asRecord(request)),
     getVerificationCoverage: () => getVerificationCoverage(state),
@@ -460,8 +467,9 @@ export function issueMcpClaimCode(
 // @req SEC-MCP-001
 export function createMcpHttpHandler(input: McpHttpHandlerInput): StringRecord {
   const sessions = new Map<string, McpHttpTransportSession>();
+  const callers = createMcpCallerCache();
   return {
-    handleRequest: async (request: unknown) => handleMcpHttpRequest(input, asRecord(request), sessions),
+    handleRequest: async (request: unknown) => handleMcpHttpRequest(input, asRecord(request), sessions, callers),
   };
 }
 
@@ -935,7 +943,11 @@ async function handleWhoami(deps: McpToolServiceDeps, actor: StringRecord): Prom
 
 // @req IR-MCP-001
 async function handleClaim(deps: McpToolServiceDeps, actor: StringRecord, args: StringRecord): Promise<StringRecord> {
-  const scope = requireScope(actor, 'mcp:session.claim');
+  // FR-MCP-025: an agent already connected with the MCP key binds that connection with the one-time
+  // code the UI issued; the code is the proof of which session, so the key needs no extra scope.
+  // FR-MCP-026 review M4: inside a terminal the actor is the session, with the key verified on top.
+  const fixedKeyActor = actor.type === 'mcp-fixed-access-key' || actor.viaFixedKey === true;
+  const scope = fixedKeyActor ? undefined : requireScope(actor, 'mcp:session.claim');
   if (scope) {
     return scope;
   }
@@ -951,6 +963,15 @@ async function handleClaim(deps: McpToolServiceDeps, actor: StringRecord, args: 
   const claim = deps.claimCodes?.get(claimCode);
   if (!claim) return { ok: false, code: 'CLAIM_CODE_INVALID' };
   claim.used = true;
+  return mintSessionActorToken(deps, sessionKey);
+}
+
+/**
+ * A session-bound actor token. It carries session scopes only, also for an MCP-key caller
+ * (FR-MCP-025 review H1): the key's own scopes are added per request on a bound connection after
+ * the key is verified again, so no token outlives a key rotation with MCP-key-only powers.
+ */
+async function mintSessionActorToken(deps: McpToolServiceDeps, sessionKey: string): Promise<StringRecord> {
   const mintRequest = {
     audience: 'buildergate-mcp',
     sessionKey,
@@ -968,6 +989,16 @@ async function handleClaim(deps: McpToolServiceDeps, actor: StringRecord, args: 
     sessionKey,
     actorToken,
   };
+}
+
+/** FR-MCP-026: a token for a caller the server itself found under the session's terminal. */
+async function mintCallerSessionActorToken(deps: McpToolServiceDeps, request: unknown): Promise<StringRecord> {
+  const sessionKey = asString(asRecord(request).sessionKey);
+  const session = sessionKey ? resolveClaimSession(deps, sessionKey) : undefined;
+  if (!sessionKey || asString(session?.sessionKey) !== sessionKey || asString(session?.bindingLifecycle) !== 'live') {
+    return { ok: false, code: 'TARGET_NOT_LIVE' };
+  }
+  return mintSessionActorToken(deps, sessionKey);
 }
 
 function validateClaimCode(deps: McpToolServiceDeps, request: StringRecord): StringRecord {
@@ -1909,6 +1940,7 @@ async function handleMcpHttpRequest(
   input: McpHttpHandlerInput,
   request: StringRecord,
   sessions: Map<string, McpHttpTransportSession>,
+  callers: McpCallerCache,
 ): Promise<StringRecord> {
   if (request.path !== '/mcp') {
     return {
@@ -1930,19 +1962,24 @@ async function handleMcpHttpRequest(
   const body = parsedBody.ok ? parsedBody.body : {};
   const headers = normalizeHeaders(asRecord(request.headers));
   if (parsedBody.ok && body.method !== 'initialize' && readModernProtocolVersion(body) !== undefined) {
-    return handleModernMcpRequest(input, request, body, headers);
+    return handleModernMcpRequest(input, request, body, headers, callers);
   }
   const now = input.now?.() ?? Date.now();
   pruneExpiredMcpHttpSessions(sessions, now, input.sessionTtlMs ?? DEFAULT_MCP_HTTP_SESSION_TTL_MS);
   const transportSessionId = asString(headers[MCP_SESSION_HEADER]);
-  const transportSession = transportSessionId ? sessions.get(transportSessionId) : undefined;
+  let transportSession = transportSessionId ? sessions.get(transportSessionId) : undefined;
   const requestedToolName = asString(asRecord(body.params).name);
   const isInitialize = body.method === 'initialize';
-  if (!isInitialize && transportSessionId && !transportSession) {
-    return jsonRpcError(readJsonRpcId(body), 'MCP_SESSION_NOT_FOUND', 404);
-  }
   if (isInitialize) {
-    return initializeMcpHttpSession(input, request, body, headers, sessions, now);
+    return initializeMcpHttpSession(input, request, body, headers, sessions, now, callers);
+  }
+  if (transportSessionId && !transportSession) {
+    // FR-MCP-026 AC-6: after a restart the client still sends the id it had. A caller that would be
+    // let in by initialize gets the connection back under that id instead of a dead 404.
+    transportSession = await reopenMcpHttpSession(input, request, headers, body, sessions, transportSessionId, now, callers);
+    if (!transportSession) {
+      return jsonRpcError(readJsonRpcId(body), 'MCP_SESSION_NOT_FOUND', 404);
+    }
   }
 
   const presentedCredential = asRecord(request.credential);
@@ -1959,12 +1996,21 @@ async function handleMcpHttpRequest(
       auditId: createAuditId(),
     }, transportSessionId);
   }
-  if (transportSession && !mcpBearerMatches(presentedCredential, transportSession.bearerToken)) {
+  if (transportSession && !mcpSessionBearerMatches(presentedCredential, transportSession.bearerToken)) {
     return jsonRpcTransportError(readJsonRpcId(body), {
       ok: false,
       code: 'INVALID_TOKEN',
       auditId: createAuditId(),
     }, transportSessionId);
+  }
+  let fixedKeyScopes: string[] = [];
+  if (transportSession?.boundFromFixedKey) {
+    // FR-MCP-025 AC-3: the key is verified on every request. A regenerated key takes its scopes away
+    // at once; the session binding, proven by the claim code, stays (FR-MCP-026 AC-5).
+    const keyCheck = await evaluateMcpHttpTransport(input, { ...request, headers, body, credential: presentedCredential });
+    if (keyCheck.ok !== false && asString(asRecord(keyCheck.actor).type) === 'mcp-fixed-access-key') {
+      fixedKeyScopes = stringArray(asRecord(keyCheck.actor).scopes);
+    }
   }
   const sessionCredential = asRecord(transportSession?.credential ?? presentedCredential);
   const isClaimBootstrap = sessionCredential.type === 'mcp-claim-bootstrap';
@@ -1992,10 +2038,16 @@ async function handleMcpHttpRequest(
     credential: sessionCredential,
   };
 
-  const transport = await evaluateMcpHttpTransport(input, transportRequest);
-  if (transport.ok === false) {
-    return jsonRpcTransportError(parsedBody.ok ? readJsonRpcId(body) : null, transport, transportSessionId);
+  let evaluated = await evaluateMcpHttpTransport(input, transportRequest);
+  if (!isClaimBootstrap && !transportSession?.boundFromFixedKey) {
+    // FR-MCP-026: a client started in a BuilderGate terminal acts as that terminal's session.
+    evaluated = (await callerTransport(input, transportRequest, evaluated, callers)) ?? evaluated;
   }
+  if (evaluated.ok === false) {
+    return jsonRpcTransportError(parsedBody.ok ? readJsonRpcId(body) : null, evaluated, transportSessionId);
+  }
+  // FR-MCP-025 AC-2: the bound connection also has what the just-verified MCP key allows.
+  const transport = fixedKeyScopes.length > 0 ? withScopes(evaluated, fixedKeyScopes) : evaluated;
   if (transportSession) {
     transportSession.lastSeenAt = now;
   }
@@ -2060,6 +2112,9 @@ async function handleMcpHttpRequest(
       const actorToken = asString(result.actorToken);
       if (actorToken) {
         transportSession.credential = { type: 'mcp-capability', token: actorToken };
+        // FR-MCP-025 AC-3: bound from the MCP key, so the key must keep verifying on every request.
+        transportSession.boundFromFixedKey = asString(asRecord(transport.actor).type) === 'mcp-fixed-access-key'
+          || asRecord(transport.actor).viaFixedKey === true;
         const boundResult = { ...result };
         delete boundResult.actorToken;
         return jsonRpcResult(id, toMcpToolResult(boundResult), responseHeaders);
@@ -2078,6 +2133,7 @@ async function initializeMcpHttpSession(
   headers: Record<string, string>,
   sessions: Map<string, McpHttpTransportSession>,
   now: number,
+  callers: McpCallerCache,
 ): Promise<StringRecord> {
   let sessionCredential = asRecord(request.credential);
   const bearerToken = asString(sessionCredential.token);
@@ -2117,10 +2173,14 @@ async function initializeMcpHttpSession(
       });
     }
   }
+  if (transport.ok === false && sessionCredential.type !== 'mcp-claim-bootstrap') {
+    // FR-MCP-026 AC-5: a terminal agent still holding a regenerated (or no) key is let in as its session.
+    transport = (await callerTransport(input, { ...request, headers, body, credential: sessionCredential }, transport, callers)) ?? transport;
+  }
   if (transport.ok === false) {
     return jsonRpcTransportError(readJsonRpcId(body), transport);
   }
-  if (!bearerToken) {
+  if (!bearerToken && asString(asRecord(transport.actor).sessionKey) === undefined) {
     return jsonRpcTransportError(readJsonRpcId(body), { ok: false, code: 'INVALID_TOKEN', auditId: createAuditId() });
   }
   const requestedVersion = asString(asRecord(body.params).protocolVersion);
@@ -2129,13 +2189,156 @@ async function initializeMcpHttpSession(
     : DEFAULT_MCP_PROTOCOL_VERSION;
   const sessionId = crypto.randomUUID();
   enforceMcpHttpSessionLimit(sessions, Math.max(1, input.maxSessions ?? DEFAULT_MCP_HTTP_MAX_SESSIONS));
-  sessions.set(sessionId, { protocolVersion, credential: sessionCredential, bearerToken, lastSeenAt: now });
+  sessions.set(sessionId, { protocolVersion, credential: sessionCredential, bearerToken: bearerToken ?? '', lastSeenAt: now });
   return jsonRpcResult(readJsonRpcId(body), {
     protocolVersion,
     capabilities: { tools: { listChanged: false } },
     serverInfo: MCP_SERVER_INFO,
     instructions: serviceInstructions(input.service),
   }, mcpSessionHeaders(sessionId));
+}
+
+/**
+ * FR-MCP-026 AC-6: re-creates a connection under the id a client still sends after a restart, for
+ * a caller that initialize would let in (a valid MCP key, or a client in a BuilderGate terminal).
+ */
+async function reopenMcpHttpSession(
+  input: McpHttpHandlerInput,
+  request: StringRecord,
+  headers: Record<string, string>,
+  body: StringRecord,
+  sessions: Map<string, McpHttpTransportSession>,
+  sessionId: string,
+  now: number,
+  callers: McpCallerCache,
+): Promise<McpHttpTransportSession | undefined> {
+  const credential = asRecord(request.credential);
+  if (credential.type === 'browser-jwt') return undefined;
+  const keyTransport = await evaluateMcpHttpTransport(input, { ...request, headers, body, credential });
+  const caller = keyTransport.ok === false
+    ? await callerTransport(input, { ...request, headers, body, credential }, keyTransport, callers)
+    : undefined;
+  if (keyTransport.ok === false && !caller) return undefined;
+  enforceMcpHttpSessionLimit(sessions, Math.max(1, input.maxSessions ?? DEFAULT_MCP_HTTP_MAX_SESSIONS));
+  const reopened: McpHttpTransportSession = {
+    protocolVersion: DEFAULT_MCP_PROTOCOL_VERSION,
+    credential,
+    bearerToken: asString(credential.token) ?? '',
+    lastSeenAt: now,
+  };
+  sessions.set(sessionId, reopened);
+  return reopened;
+}
+
+/** The actor's scopes with more added. */
+function withScopes(transport: StringRecord, extra: readonly string[]): StringRecord {
+  const actor = asRecord(transport.actor);
+  return { ...transport, actor: { ...actor, scopes: [...new Set([...stringArray(actor.scopes), ...extra])] } };
+}
+
+/**
+ * FR-MCP-026: when the client of this request runs in a BuilderGate terminal, the request acts as
+ * that terminal's session. The session token is checked by the same transport rules as any token
+ * (address, origin, revocation, liveness); a valid MCP key adds its own scopes, a missing or stale
+ * one adds none (AC-5). Answers undefined when the caller is not in a terminal or already acts as
+ * a session, leaving the key's own result in force.
+ */
+async function callerTransport(
+  input: McpHttpHandlerInput,
+  request: StringRecord,
+  keyTransport: StringRecord,
+  callers: McpCallerCache,
+): Promise<StringRecord | undefined> {
+  if (!input.resolveCallerSession) return undefined;
+  // Review M5: a browser JWT and a claim code keep their own rules.
+  const credentialType = asString(asRecord(request.credential).type);
+  if (credentialType === 'browser-jwt' || credentialType === 'mcp-claim-bootstrap') return undefined;
+  if (keyTransport.ok === false && asString(keyTransport.code) === 'CREDENTIAL_BOUNDARY_VIOLATION') return undefined;
+  const keyActor = keyTransport.ok === false ? undefined : asRecord(keyTransport.actor);
+  if (keyActor && asString(keyActor.type) !== 'mcp-fixed-access-key') return undefined;
+  const caller = await callers.callerFor(input, request);
+  // AC-7 (review C1): without a valid key only an agent CLI itself is let in -- never a tunnel or
+  // proxy that happens to run in the terminal and relays someone else's requests from loopback.
+  if (!caller || (!keyActor && !caller.agent)) return undefined;
+  const token = await callers.tokenFor(input, caller);
+  if (!token) return undefined;
+  const evaluated = await evaluateMcpHttpTransport(input, {
+    ...request,
+    credential: { type: 'mcp-capability', token },
+    allowClaimBootstrap: false,
+  });
+  if (evaluated.ok === false) {
+    // Review H2: a revoked token stays revoked for this terminal; anything else is retried later.
+    if (asString(evaluated.code) !== 'TOKEN_REVOKED') callers.forget(caller);
+    return undefined;
+  }
+  if (!keyActor) return evaluated;
+  const withKey = withScopes(evaluated, stringArray(keyActor.scopes));
+  return { ...withKey, actor: { ...asRecord(withKey.actor), viaFixedKey: true } };
+}
+
+type McpCallerCache = {
+  callerFor: (input: McpHttpHandlerInput, request: StringRecord) => Promise<McpCallerSession | undefined>;
+  tokenFor: (input: McpHttpHandlerInput, caller: McpCallerSession) => Promise<string | undefined>;
+  forget: (caller: McpCallerSession) => void;
+};
+
+const CALLER_CACHE_TTL_MS = 10 * 60 * 1000;
+const CALLER_CACHE_MAX_ENTRIES = 512;
+
+/**
+ * FR-MCP-026 AC-2: one lookup per client socket (its process does not change), and one session
+ * token per terminal session (key + PTY session id), so a restarted terminal gets a fresh token
+ * while a revoked one is not minted again for the same terminal (review H2).
+ */
+function createMcpCallerCache(): McpCallerCache {
+  const bySocket = new Map<string, { expiresAt: number; caller: Promise<McpCallerSession | undefined> }>();
+  const tokenByTerminal = new Map<string, Promise<string | undefined>>();
+  const terminalKey = (caller: McpCallerSession) => `${caller.sessionKey}|${caller.sessionId}`;
+  return {
+    callerFor: async (input, request) => {
+      const resolve = input.resolveCallerSession;
+      const listenerPort = Number(request.localPort);
+      const clientPort = Number(request.remotePort);
+      if (!resolve || !Number.isInteger(listenerPort) || !Number.isInteger(clientPort)) return undefined;
+      const remoteAddress = asString(request.remoteAddress) ?? '';
+      const lookup = () => resolve({ remoteAddress, listenerPort, clientPort }).catch(() => undefined);
+      // Review L2: without a socket identity a port could be reused by another process; no caching.
+      const connectionId = asString(request.connectionId);
+      if (!connectionId) return lookup();
+      const socketKey = `${connectionId}|${remoteAddress}|${clientPort}`;
+      const now = Date.now();
+      let entry = bySocket.get(socketKey);
+      if (!entry || entry.expiresAt <= now) {
+        for (const [key, value] of bySocket) if (value.expiresAt <= now) bySocket.delete(key);
+        while (bySocket.size >= CALLER_CACHE_MAX_ENTRIES) bySocket.delete(bySocket.keys().next().value as string);
+        entry = { expiresAt: now + CALLER_CACHE_TTL_MS, caller: lookup() };
+        bySocket.set(socketKey, entry);
+      }
+      return entry.caller;
+    },
+    tokenFor: (input, caller) => {
+      const key = terminalKey(caller);
+      let token = tokenByTerminal.get(key);
+      if (!token) {
+        token = Promise.resolve(callMaybeAsync(input.service.mintSessionActorToken, { sessionKey: caller.sessionKey }))
+          .then((minted) => (asRecord(minted).ok === true ? asString(asRecord(minted).actorToken) : undefined))
+          .catch(() => undefined);
+        tokenByTerminal.set(key, token);
+        void token.then((value) => { if (!value && tokenByTerminal.get(key) === token) tokenByTerminal.delete(key); });
+      }
+      return token;
+    },
+    forget: (caller) => {
+      tokenByTerminal.delete(terminalKey(caller));
+    },
+  };
+}
+
+/** A connection opened without a Bearer (a terminal caller, FR-MCP-026) keeps sending none. */
+function mcpSessionBearerMatches(credential: StringRecord, expectedToken: string): boolean {
+  if (expectedToken === '') return !asString(credential.token);
+  return mcpBearerMatches(credential, expectedToken);
 }
 
 function serviceInstructions(service: StringRecord): string {
@@ -2157,6 +2360,7 @@ async function handleModernMcpRequest(
   request: StringRecord,
   body: StringRecord,
   headers: Record<string, string>,
+  callers: McpCallerCache,
 ): Promise<StringRecord> {
   const id = readJsonRpcId(body);
   const method = asString(body.method) ?? '';
@@ -2200,6 +2404,10 @@ async function handleModernMcpRequest(
       isClaimBootstrap = true;
       transport = await evaluateMcpHttpTransport(input, { ...transportRequest, credential, allowClaimBootstrap: true });
     }
+  }
+  if (!isClaimBootstrap) {
+    // FR-MCP-026: stateless requests are matched to their terminal session one by one (cached per socket).
+    transport = (await callerTransport(input, { ...transportRequest, credential }, transport, callers)) ?? transport;
   }
   if (transport.ok === false) {
     return jsonRpcTransportError(id, transport);
@@ -2572,6 +2780,8 @@ function sanitizeActor(actor: StringRecord): StringRecord {
     sessionKey: actor.sessionKey,
     leaderSessionKey: actor.leaderSessionKey,
     scopes: Array.isArray(actor.scopes) ? actor.scopes.map(String) : [],
+    // FR-MCP-026: the MCP key was verified on this request as well (session actor in a terminal).
+    ...(actor.viaFixedKey === true ? { viaFixedKey: true } : {}),
   });
 }
 
@@ -2730,7 +2940,7 @@ function listenerRuntimeStatus(handle: unknown): StringRecord {
 function toolDescription(name: string): string {
   const descriptions: Record<string, string> = {
     'buildergate.session.whoami': 'Return the current MCP session binding. Needs a session-bound connection (BUILDERGATE_MCP_TOKEN); the fixed access key gets UNBOUND_ACTOR.',
-    'buildergate.session.claim': 'Bind a one-time claim code to a session.',
+    'buildergate.session.claim': 'Bind this MCP connection to a BuilderGate session with the one-time code and session key from MCP settings (Sessions tab). Works over the MCP key; afterwards whoami, room and session tools act as that session.',
     'buildergate.session.list': 'List live sessions of this server and of every connected linked server. Each item names its server, '
       + 'and its target ("<server>/<sessionKey>") goes into buildergate.message.send as is.',
     'buildergate.session.search': 'Find a session on this server and every connected linked server in one call. Pass the words of '

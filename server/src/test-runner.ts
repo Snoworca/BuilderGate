@@ -12579,8 +12579,12 @@ async function testMcpFixedAccessKeyHttpAuthentication(): Promise<void> {
       },
     }), 'utf8'),
     remoteAddress: '127.0.0.1',
-  }), 'fixed key claim denial response');
-  assert.equal(asRecord(asRecord(fixedKeyClaim.body, 'fixed key claim body').result, 'fixed key claim result').code, 'INVALID_SCOPE');
+  }), 'fixed key claim response');
+  // FR-MCP-025 (user decision 2026-11-16) supersedes the old INVALID_SCOPE denial: the MCP key
+  // connection is bound to the session by the claim, and the token never leaves the server.
+  const fixedKeyClaimResult = asRecord(asRecord(fixedKeyClaim.body, 'fixed key claim body').result, 'fixed key claim result');
+  assert.equal(fixedKeyClaimResult.code, undefined, JSON.stringify(fixedKeyClaimResult));
+  assert.equal(JSON.stringify(fixedKeyClaimResult).includes('actorToken'), false);
 
   const sessionCredential = await createValidMcpCredential('self-session-key');
   const sessionInitialized = asRecord(await request(sessionCredential), 'ordinary session initialize');
@@ -12650,7 +12654,20 @@ async function testMcpFixedAccessKeyHttpAuthentication(): Promise<void> {
     body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'ping', params: {} }), 'utf8'),
     remoteAddress: '127.0.0.1',
   }), 'expired MCP HTTP session response');
-  assert.equal(expired.status, 404);
+  // FR-MCP-026 AC-6 (user requirement 2026-11-16) supersedes the dead 404: an id the server no
+  // longer knows (expired, or lost in a restart) is taken back for a caller with a valid key...
+  assert.equal(expired.status, 200);
+  // ...and still answers 404 to a caller without one.
+  now += 501;
+  const expiredWithoutKey = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': 'not-a-known-session-id' },
+    credential: { type: 'mcp-capability', token: 'bgmcp_not_a_key' },
+    body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'ping', params: {} }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'expired MCP HTTP session without a key');
+  assert.equal(expiredWithoutKey.status, 404);
 }
 
 async function testMcpFixedAccessKeyHashPersistence(): Promise<void> {

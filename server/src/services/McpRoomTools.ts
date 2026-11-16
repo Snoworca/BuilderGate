@@ -75,7 +75,7 @@ export async function callMcpRoomTool(control: McpRoomControl | undefined, name:
   if (!scopes.includes(REQUIRED_SCOPE[name])) return { ok: false, code: 'INVALID_SCOPE' };
   const sessionKey = typeof actor.sessionKey === 'string' ? actor.sessionKey : '';
   if (!sessionKey) {
-    return { ok: false, code: 'UNBOUND_ACTOR', message: 'Room tools act as your session. Connect with the session token in BUILDERGATE_MCP_TOKEN.' };
+    return { ok: false, code: 'UNBOUND_ACTOR', message: 'Room tools act as your session. Connect with the session token in BUILDERGATE_MCP_TOKEN, or call buildergate.session.claim once with the one-time code from MCP settings.' };
   }
   if (!control) return { ok: false, code: 'MESSENGER_UNAVAILABLE' };
   if (name === 'buildergate.room.list') return { ok: true, rooms: control.roomsForSession(sessionKey) };

@@ -127,6 +127,18 @@ export async function closeMcpNodeHttpListener(handle: unknown): Promise<void> {
   await closed;
 }
 
+const connectionIds = new WeakMap<object, string>();
+let nextConnectionId = 0;
+function connectionIdOf(socket: object): string {
+  let id = connectionIds.get(socket);
+  if (id === undefined) {
+    nextConnectionId += 1;
+    id = `c${nextConnectionId}`;
+    connectionIds.set(socket, id);
+  }
+  return id;
+}
+
 async function handleMcpNodeRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -145,6 +157,10 @@ async function handleMcpNodeRequest(
       credential: bearer ? classifyMcpBearerCredential(bearer) : undefined,
       body,
       remoteAddress: req.socket.remoteAddress ?? '',
+      // FR-MCP-026: the two ports name the client process; the connection id keeps one lookup per socket.
+      localPort: req.socket.localPort,
+      remotePort: req.socket.remotePort,
+      connectionId: connectionIdOf(req.socket),
       // FR-MCP-021 AC-2: how this client reached the listener, for URLs handed back to it.
       origin: req.headers.host ? `${scheme}://${req.headers.host}` : undefined,
     }));
