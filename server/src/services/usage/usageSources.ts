@@ -111,12 +111,23 @@ async function defaultNodeExists(ref: ClaudeConfigRef, nodeCommand: string): Pro
     const target = ref.source === 'wsl' ? linuxToUnc(bare, ref.configDir) : bare;
     return target ? fs.stat(target).then(() => true, () => false) : false;
   }
+  const [file, args] = bareNodeLookup(ref, process.platform, process.env.SHELL);
+  return run(file, args);
+}
+
+/**
+ * FR-USAGE-003 AC-1: how to look up a bare `node` the way that Claude finds it. Claude Code runs in
+ * a terminal whose login profile set PATH (nvm, ~/.local/opt/node, ...); the daemon may have been
+ * started without it. So outside Windows the lookup goes through a login shell, as for WSL.
+ */
+export function bareNodeLookup(ref: ClaudeConfigRef, platform: NodeJS.Platform, shell: string | undefined): [string, string[]] {
   if (ref.source === 'wsl') {
-    // A login shell, so a node from nvm is found; the distro is the one the folder is on.
+    // The distro is the one the folder is on.
     const distro = /^\\\\wsl(?:\.localhost|\$)\\([^\\]+)/iu.exec(ref.configDir)?.[1];
-    return run('wsl.exe', [...(distro ? ['-d', distro] : []), '-e', 'bash', '-lc', 'command -v node']);
+    return ['wsl.exe', [...(distro ? ['-d', distro] : []), '-e', 'bash', '-lc', 'command -v node']];
   }
-  return run(process.platform === 'win32' ? 'where' : 'which', ['node']);
+  if (platform === 'win32') return ['where', ['node']];
+  return [shell || 'bash', ['-lc', 'command -v node']];
 }
 
 export interface UsageSourcesDeps {

@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-16T09:05:22.866Z",
+  "generatedAt": "2026-11-16T14:17:38.399Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "e3030fc5ae8f6601c559360426a8748a916e05086d617aa20b2e5a2b12fd9b7a",
+    "value": "df6b02dfaf8a548b46e50455f0ac68abc6bf827ede35eb85b58bb4be19478310",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -86,9 +86,9 @@
       },
       {
         "path": "docs/spec/49.usage-limits.srs.md",
-        "sha256": "c3e080017b4fa9de9c064f633048752f7ec13ca4c76a962fcb0fe932d779b6f6",
-        "size": 22586,
-        "mtimeMs": 1793683456512.131
+        "sha256": "2311c7bbe32b2976fd6131df77d4ce9383f56cd73d89d19c7e46406b1c9c9129",
+        "size": 22975,
+        "mtimeMs": 1794838655236.8823
       },
       {
         "path": "docs/spec/50.messenger.srs.md",

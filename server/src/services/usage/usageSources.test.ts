@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { nodeCommandFrom, uncToLinuxPath } from './usageSources.js';
+import { bareNodeLookup, nodeCommandFrom, uncToLinuxPath } from './usageSources.js';
 
 test('FR-USAGE-003: a WSL folder reached over \\\\wsl.localhost is written into the command as its Linux path', () => {
   assert.equal(uncToLinuxPath('\\\\wsl.localhost\\Ubuntu\\home\\beom\\.claude'), '/home/beom/.claude');
@@ -98,4 +98,19 @@ test('FR-USAGE-008 AC-3: while WSL is skipped its last readings stay; once read,
   assert.deepEqual(holdWslReadings(held, [reading('windows', 2)], false), [reading('windows', 2), reading('wsl', 1)]);
   assert.deepEqual(holdWslReadings(held, [reading('windows', 2), reading('wsl', 3)], true), [reading('windows', 2), reading('wsl', 3)]);
   assert.deepEqual(holdWslReadings(held, [reading('windows', 2)], true), [reading('windows', 2)], 'a read WSL with no records has none');
+});
+
+
+test('FR-USAGE-003 AC-1: a bare node is looked up the way Claude Code finds it -- through a login shell on Linux and macOS', () => {
+  // Live 2026-11-16 (10.0.1.33, Ubuntu): node lives in ~/.local/opt/node/bin, added to PATH by the
+  // login profile. The daemon, started from a non-login shell, ran `which node` with a bare PATH and
+  // refused the folder, while Claude Code in a BuilderGate terminal finds node fine.
+  assert.deepEqual(bareNodeLookup({ source: 'local', configDir: '/home/beom/.claude' }, 'linux', '/bin/bash'), ['/bin/bash', ['-lc', 'command -v node']]);
+  assert.deepEqual(bareNodeLookup({ source: 'local', configDir: '/Users/beom/.claude' }, 'darwin', '/bin/zsh'), ['/bin/zsh', ['-lc', 'command -v node']]);
+  assert.deepEqual(bareNodeLookup({ source: 'local', configDir: '/home/beom/.claude' }, 'linux', undefined), ['bash', ['-lc', 'command -v node']]);
+  assert.deepEqual(bareNodeLookup({ source: 'local', configDir: 'C:\\Users\\beom\\.claude' }, 'win32', undefined), ['where', ['node']]);
+  assert.deepEqual(
+    bareNodeLookup({ source: 'wsl', configDir: '\\\\wsl.localhost\\Ubuntu\\home\\beom\\.claude' }, 'win32', undefined),
+    ['wsl.exe', ['-d', 'Ubuntu', '-e', 'bash', '-lc', 'command -v node']],
+  );
 });
