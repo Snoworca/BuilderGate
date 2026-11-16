@@ -97,6 +97,7 @@
     "./tests/unit/mobileKeyBar.test.ts",
     "./tests/unit/mobileKeyboardModel.test.ts",
     "./tests/unit/mobileSpecialKeyboard.test.ts",
+    "./tests/unit/mobileKeyBarDocked.test.ts",
     "./tests/unit/terminalMobileFocusSuppression.test.ts",
     "./tests/unit/visualViewportInset.test.ts",
     "./tests/unit/terminalRedrawNudge.test.ts",

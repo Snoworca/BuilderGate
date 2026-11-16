@@ -19,7 +19,9 @@ import {
   MobileKeyBar,
   MobileSpecialKeyboard,
   decideMobileKeyBar,
+  shouldDockMobileKeyBar,
   specialPanelHeight,
+  useActiveTerminalMouseTracking,
   useMobileKeyBarVisible,
   useResetLatchWhenNotMobile,
   useSpecialKeyboardPanel,
@@ -703,6 +705,18 @@ function AppContent() {
     keyboardUp: systemKeyboardUp,
     panelOpen: specialKeyboardOpen,
   }));
+  // FR-MKB-013 AC-6: while the active program tracks the mouse (Claude Code
+  // showing choices) and the keyboard is down, the bar docks at the bottom: a
+  // tap on a choice only clicks (FR-ARCH-010 AC-8), so the arrows need a place.
+  const activeTerminalMouseTracking = useActiveTerminalMouseTracking(activeTabId, isTouchInput, getTerminalHandle);
+  const showDockedKeyBar = shouldDockMobileKeyBar({
+    isTouchInput,
+    screen,
+    hasActiveTab: activeTab !== null,
+    mouseTracking: activeTerminalMouseTracking,
+    keyboardUp: systemKeyboardUp,
+    keyBarShown: showMobileKeyBar,
+  });
   // The viewport box goes straight onto .app's style, so viewport resize/scroll
   // events do not re-render AppContent (FR-MKB-007).
   const appRootRef = useRef<HTMLDivElement>(null);
@@ -1337,6 +1351,15 @@ function AppContent() {
                 shrinks by the panel height instead of being covered (FR-MKB-008 AC-5). */}
             {showMobileKeyBar && specialKeyboardOpen && (
               <MobileSpecialKeyboard height={specialKeyboardHeight} onSendKey={specialKeyboard.sendKey} />
+            )}
+            {/* FR-MKB-013 AC-6: keys without raising the keyboard; its button raises it. */}
+            {showDockedKeyBar && (
+              <MobileKeyBar
+                docked
+                onSendKey={specialKeyboard.sendKeyWithoutFocus}
+                onToggleKeyboard={specialKeyboard.restoreFocus}
+                keyboardOpen={false}
+              />
             )}
           </div>
 

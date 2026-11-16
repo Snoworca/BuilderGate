@@ -9,6 +9,7 @@ export type { MobileSpecialKeyboardProps } from './MobileSpecialKeyboard.tsx';
 export {
   DEFAULT_SPECIAL_PANEL_HEIGHT,
   MOBILE_BAR_KEYS,
+  MOUSE_TRACKING_POLL_MS,
   RIGHT_BLOCK_STORAGE_KEY,
   SPECIAL_ARROW_BLOCK,
   SPECIAL_LEFT_BLOCK,
@@ -20,8 +21,10 @@ export {
   decideMobileKeyBar,
   isDragBeyond,
   readRightBlock,
+  shouldDockMobileKeyBar,
   shouldShowMobileKeyBar,
   specialPanelHeight,
+  useActiveTerminalMouseTracking,
   useMobileKeyBarVisible,
   useResetLatchWhenNotMobile,
   useSpecialKeyboardPanel,
@@ -29,8 +32,10 @@ export {
   writeRightBlock,
 } from './mobileKeyboardModel.ts';
 export type {
+  DockedKeyBarInput,
   MobileBarEntry,
   MobileKeyBarVisibility,
+  MouseTrackingTarget,
   RightBlock,
   SpecialKeyEntry,
   SpecialKeyboardFocusTarget,

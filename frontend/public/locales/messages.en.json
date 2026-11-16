@@ -1186,6 +1186,8 @@
   "mobileKeyboard.switch.toSystem": "Back to the system keyboard",
   "mobileKeyboard.switch.specialLabel": "Special",
   "mobileKeyboard.switch.systemLabel": "ABC",
+  "mobileKeyboard.switch.showKeyboard": "Show the keyboard",
+  "mobileKeyboard.switch.keyboardLabel": "Keyboard",
   "mobileKeyboard.key.shift": "Shift (tap: next key only, hold 1.5 s: lock)",
   "mobileKeyboard.key.function": "Function key {name}",
   "mobileKeyboard.key.char": "Type {char}",

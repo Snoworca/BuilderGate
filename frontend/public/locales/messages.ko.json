@@ -1159,6 +1159,8 @@
   "mobileKeyboard.switch.toSystem": "시스템 키보드로 돌아가기",
   "mobileKeyboard.switch.specialLabel": "특수",
   "mobileKeyboard.switch.systemLabel": "ABC",
+  "mobileKeyboard.switch.showKeyboard": "키보드 열기",
+  "mobileKeyboard.switch.keyboardLabel": "키보드",
   "mobileKeyboard.key.shift": "Shift 키 (짧게 누르면 다음 한 키, 1.5초 누르면 잠금)",
   "mobileKeyboard.key.function": "기능 키 {name}",
   "mobileKeyboard.key.char": "{char} 입력",
