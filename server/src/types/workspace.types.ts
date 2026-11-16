@@ -54,6 +54,8 @@ export interface WorkspaceTab {
   recoveryArguments?: string[];
   recoveryIcon?: RecoveryOptionIcon | null;
   recoveryUpdatedAt?: string;
+  /** FR-AITUI-024: the tab's agent waits on a choice prompt. Runtime only, never written to disk. */
+  awaitingInput?: boolean;
 }
 
 export type WorkspaceTabNameSource = 'default' | 'terminal-title' | 'user';

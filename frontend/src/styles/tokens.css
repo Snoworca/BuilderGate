@@ -62,6 +62,9 @@
   --danger: #e05c5c;
   --warn: #d8a534;
   --ok: #4cc38a;
+  /* FR-AITUI-024: an agent waits on a choice. Orange, apart from --warn (the amber
+   * running count) and --lock (the mobile modifier lock). Dark text on it. */
+  --attention: #ff7a1a;
 
   /* Shape. */
   --r-sm: 6px;

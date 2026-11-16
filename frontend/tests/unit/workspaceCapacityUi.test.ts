@@ -11,6 +11,7 @@ import { workspaceActivity } from '../../src/components/Workspace/workspaceActiv
 import { workspaceTabClassName } from '../../src/components/Workspace/workspaceTabClass.ts';
 import { t, tn } from '../../src/i18n/i18n.ts';
 import { roomDotLabelInput } from '../../src/components/Messenger/messengerWindowModel.ts';
+import { countAwaitingInputTabs } from '../../src/components/Workspace/awaitingInputTabs.ts';
 
 // Execute existing component render logic with real React elements and inert
 // unrelated hooks. This verifies capacity-dependent props, not browser layout.
@@ -71,6 +72,8 @@ const sidebar = component('../../src/components/Workspace/WorkspaceSidebar.tsx',
   BUILD_LABEL: 'v0.0.0',
   // FR-USAGE-007: the usage block above the footer; its own tests cover it.
   UsageLimitsPanel: 'usage-limits-panel',
+  // FR-AITUI-024 AC-5: the waiting-tab count beside the running count.
+  countAwaitingInputTabs,
 });
 // The shared Button stands in as a plain 'button' element, which is what it
 // renders, so the cancellation control is still counted below.
@@ -127,11 +130,14 @@ const tabBar = component('../../src/components/Workspace/WorkspaceTabBar.tsx', '
   workspaceTabClassName,
   // FR-MSG-013 AC-3: the messenger room dot on a tab.
   roomDotLabelInput,
+  // FR-AITUI-024 AC-5: the waiting badge before a tab's name.
+  TabAwaitingInputBadge: 'tab-awaiting-input-badge',
 }, 'getSafeRecoveryIconLabel');
 const workspaceItem = component('../../src/components/Workspace/WorkspaceItem.tsx', 'WorkspaceItem', {
   useState: (initial: unknown) => [initial, noop], useRef: (initial: unknown) => ({ current: initial }), useEffect: noop,
   useContextMenu: () => ({ isOpen: true, targetId: 'target', position: { x: 10, y: 20 }, open: noop, close: noop }),
   ContextMenu: 'context-menu', workspaceActivity,
+  WorkspaceAwaitingInputBadge: 'workspace-awaiting-input-badge',
   useDoubleTap: () => ({ onTouchStart: noop, onTouchMove: noop, onTouchEnd: noop }),
 });
 const capacityTabs = (count: number) => Array.from({ length: count }, (_, index) => ({

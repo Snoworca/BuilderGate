@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { WorkspaceItem } from './WorkspaceItem';
+import { countAwaitingInputTabs } from './awaitingInputTabs.ts';
 import { useDragReorder } from '../../hooks/useDragReorder';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
@@ -101,6 +102,7 @@ export function WorkspaceSidebar({
               workspace={ws}
               isActive={ws.id === activeWorkspaceId}
               runningCount={getRunningCount(ws.id)}
+              awaitingCount={countAwaitingInputTabs(tabs, ws.id)}
               isLast={workspaces.length <= 1}
               onClick={() => onSelect(ws.id)}
               onRename={onRename}

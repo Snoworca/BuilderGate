@@ -157,6 +157,14 @@
 /* How many of the workspace's terminals are running. Amber rather than green:
  * green is the colour of a finished, healthy state, and this count means the
  * workspace is busy. The face is .ui-badge; only the tone is set here. */
+/* FR-AITUI-024 AC-5: how many of the workspace's tabs wait on a choice prompt. */
+.workspace-item .workspace-item-awaiting {
+  flex-shrink: 0;
+  margin-left: var(--sp-2);
+  background: var(--attention);
+  color: var(--bg-app);
+}
+
 .workspace-item .workspace-item-running {
   flex-shrink: 0;
   margin-left: var(--sp-2);

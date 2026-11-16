@@ -54,6 +54,8 @@ import { VALIDATION_LIMITS } from '../utils/constants.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import { advanceTerminalPartialEscapeTail } from '../utils/terminalPartialEscapeTail.js';
 import { TerminalTitleDetector } from '../utils/terminalTitle.js';
+import { CHOICE_PROMPT_SCAN_ROWS, readHeadlessBottomRows } from '../utils/agentChoicePrompt.js';
+import { AgentAwaitingInputTracker } from './AgentAwaitingInputTracker.js';
 import { guardPtyConsoleKill } from '../utils/ptyConsoleKillGuard.js';
 import { getRecoveryExecutableToken, normalizeRecoveryExecutable, type RecoveryRestoreShell } from '../utils/recoveryCommand.js';
 import type { WsRouter } from '../ws/WsRouter.js';
@@ -1402,6 +1404,15 @@ export class SessionManager {
   private shellsDetected: Promise<void> = Promise.resolve();
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
   private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
+  private awaitingInputChangeCallback: ((sessionId: string, awaiting: boolean) => void) | null = null;
+  // FR-AITUI-024: whether each session's agent waits on a choice prompt, read from
+  // the bottom of its headless screen once the output settles. Nothing polls.
+  private readonly awaitingInputTracker = new AgentAwaitingInputTracker({
+    readScreen: (sessionId) => this.readAwaitingInputScreen(sessionId),
+    onChange: (sessionId, awaiting) => {
+      this.awaitingInputChangeCallback?.(sessionId, awaiting);
+    },
+  });
   private sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
   private readonly sessionFinalizedListeners = new Set<(event: SessionFinalizedEvent) => void>();
   private commandSubmittedCallback: ((event: SessionCommandSubmittedEvent) => void | Promise<void>) | null = null;
@@ -1689,6 +1700,8 @@ export class SessionManager {
         return;
       }
       const sData = sessionData;
+      // FR-AITUI-024 AC-2: schedules one read of the screen once this output settles.
+      this.awaitingInputTracker.noteOutput(id);
 
       // ========================================
       // Step 9: OSC 133 마커 처리 (항상 수행)
@@ -3916,6 +3929,8 @@ export class SessionManager {
     const inputToWrite = this.maybeInjectCodexTuiSuppression(input, submittedCommand, hintedAppId, hasEnter);
     try {
       data.pty.write(inputToWrite);
+      // FR-AITUI-024 AC-3: an answering key clears the waiting mark at once.
+      this.awaitingInputTracker.noteInput(id, input);
       if (submittedCommand && !isAiForeground) {
         this.notifyCommandSubmitted({
           sessionId: id,
@@ -4318,6 +4333,11 @@ export class SessionManager {
   /** Register a callback to be invoked when a terminal title changes. */
   onTerminalTitleChange(cb: (sessionId: string, title: string) => void): void {
     this.terminalTitleChangeCallback = cb;
+  }
+
+  /** FR-AITUI-024 AC-4: called when a session's agent starts or stops waiting on a choice. */
+  onAwaitingInputChange(cb: (sessionId: string, awaiting: boolean) => void): void {
+    this.awaitingInputChangeCallback = cb;
   }
 
   /** Register a callback to be invoked after any session finalizer completes. */
@@ -6912,6 +6932,16 @@ export class SessionManager {
     };
   }
 
+  // FR-AITUI-024 AC-2: the bottom rows of the screen once the writes queued so far
+  // have reached the headless replica; never the scrollback.
+  private async readAwaitingInputScreen(sessionId: string): Promise<string | null> {
+    const data = this.sessions.get(sessionId);
+    if (!data?.headless) return null;
+    await data.headlessWriteChain.catch(() => undefined);
+    if (this.sessions.get(sessionId) !== data || !data.headless) return null;
+    return readHeadlessBottomRows(data.headless, CHOICE_PROMPT_SCAN_ROWS);
+  }
+
   // FR-MCP-008: plain text of the last lines of a session's screen, for MCP terminal.exec.
   readTerminalText(sessionId: string, maxLines: number): string | null {
     const headless = this.sessions.get(sessionId)?.headless;
@@ -7554,6 +7584,7 @@ export class SessionManager {
     }
     this.sessions.delete(sessionId);
     this.agentOutputHints.forget(sessionId);
+    this.awaitingInputTracker.forget(sessionId);
     // The session is gone, so its epoch is too. Ids are uuidv4 and never
     // reused, so nothing can inherit the entry — it would only accumulate.
     this.forgetTerminalStreamEpoch(sessionId);
