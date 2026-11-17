@@ -249,16 +249,18 @@ function TerminalRuntimeEntry({
             event.stopPropagation();
             return;
           }
-          // FR-ARCH-010 AC-8: the program has the click already; nothing focuses.
-          if (releaseClickOnlyTap()) {
-            event.stopPropagation();
-            return;
-          }
-          // FR-ARCH-013 AC-10: with the key bar's Ctrl latched, a tap on a path opens it.
+          const clickOnly = releaseClickOnlyTap();
+          // FR-ARCH-013 AC-10: with the key bar's Ctrl latched, a tap on a path opens it,
+          // also in the docked key bar's state where the tap is click-only.
           if (openPathOnLatchedTap(event.clientX, event.clientY, {
             pathsAt: (x, y) => terminalRefsMap.current.get(tab.id)?.current?.getPathsAt(x, y),
             open: (target) => requestTerminalPathOpen(tab.sessionId, target),
           })) {
+            event.stopPropagation();
+            return;
+          }
+          // FR-ARCH-010 AC-8: the program has the click already; nothing focuses.
+          if (clickOnly) {
             event.stopPropagation();
             return;
           }

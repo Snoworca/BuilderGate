@@ -68,3 +68,16 @@ test('FR-AITUI-024 AC-4: a session manager without the hook (an older stub) stil
   delete sessions.onAwaitingInputChange;
   assert.doesNotThrow(() => new WorkspaceService(sessions, { restoreInputDelayMs: 0 }));
 });
+
+test('FR-AITUI-024 AC-4: restarting a waiting tab drops its mark, since the new session waits on nothing', async () => {
+  // PR #241 review: restartTab moves the tab to the new session before the old one is
+  // closed, so the old session's "not waiting" no longer finds the tab.
+  const { service, sessions, events } = await makeService();
+  sessions.createSession = () => ({ id: 'pty-2' });
+  sessions.terminateSession = async () => {};
+  sessions.awaitingInputCallback('pty-1', true);
+  const tab = await service.restartTab('w1', 't1');
+  assert.equal(tab.sessionId, 'pty-2');
+  assert.notEqual(service.getState().tabs[0].awaitingInput, true);
+  assert.deepEqual(events.filter(e => 'awaitingInput' in e.changes).at(-1), { id: 't1', changes: { awaitingInput: false } });
+});

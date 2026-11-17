@@ -789,6 +789,9 @@ export class WorkspaceService {
 
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
+    // FR-AITUI-024 AC-4: the old session's "not waiting" comes after the tab has moved
+    // on and no longer finds it, so the mark is dropped here.
+    this.applyAwaitingInput(oldSessionId, false);
     tab.sessionId = sessionDTO.id;
     this.bindCurrentSessionId(tab, sessionDTO.id, oldSessionId);
     this.markTabActive(tab, 'tab-restart');

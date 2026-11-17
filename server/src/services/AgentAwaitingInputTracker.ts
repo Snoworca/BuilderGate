@@ -61,6 +61,12 @@ export class AgentAwaitingInputTracker {
     const entry = this.entries.get(sessionId);
     if (!entry || !isChoiceAnsweringInput(data)) return;
     entry.generation += 1;
+    // A read scheduled before the answer would see the old menu still on screen.
+    // The agent's reply is output, and that output schedules the next read.
+    if (entry.timer !== null) {
+      this.clearTimer(entry.timer);
+      entry.timer = null;
+    }
     this.set(sessionId, entry, false);
   }
 
@@ -73,6 +79,8 @@ export class AgentAwaitingInputTracker {
     if (!entry) return;
     if (entry.timer !== null) this.clearTimer(entry.timer);
     this.entries.delete(sessionId);
+    // A session that dies on a menu would otherwise leave its tab marked.
+    if (entry.awaiting) this.options.onChange(sessionId, false);
   }
 
   private entry(sessionId: string): Entry {

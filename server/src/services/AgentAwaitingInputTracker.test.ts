@@ -152,3 +152,27 @@ test('FR-AITUI-024 AC-2: a screen that cannot be read (no headless replica) answ
   assert.deepEqual(h.changes, []);
   assert.equal(h.tracker.isAwaiting('s1'), false);
 });
+
+test('FR-AITUI-024 AC-3: an answering key cancels a read already scheduled, so the old menu cannot set the mark again', async () => {
+  // PR #241 review: Down redraws the menu and arms a read; Enter lands before it fires.
+  // The read must not run against the menu still on screen before the agent's reply.
+  const h = harness();
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
+  assert.deepEqual(h.changes, [['s1', true]]);
+  h.tracker.noteOutput('s1');
+  h.tracker.noteInput('s1', '\r');
+  assert.equal(h.timers.size, 0, 'the scheduled read is cancelled');
+  await h.advance(AWAITING_INPUT_MAX_WAIT_MS);
+  assert.deepEqual(h.changes, [['s1', true], ['s1', false]]);
+  assert.equal(h.reads.length, 1);
+});
+
+test('FR-AITUI-024 AC-4: a session closed while waiting reports not waiting, so its tab drops the mark', async () => {
+  const h = harness();
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
+  h.tracker.forget('s1');
+  assert.deepEqual(h.changes, [['s1', true], ['s1', false]]);
+  assert.equal(h.tracker.isAwaiting('s1'), false);
+});

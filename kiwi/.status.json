@@ -1,28 +1,28 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-17T12:39:10.951Z",
+  "generatedAt": "2026-11-17T12:57:46.487Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "4b3458628f17c980fc9a63525863d17692ed9265e7dae06d0cc53adae9ac9349",
+    "value": "795f83e9452a9f031e9b9745979dc5f491bee24667912928de69dfa2579165b7",
     "files": [
       {
         "path": "docs/spec/00.index.md",
         "sha256": "c9344e20f2f0ed33eb1d601bc79c8a42e5ede4b4697333eccba0e8cc8347957f",
         "size": 17124,
-        "mtimeMs": 1794919137890.381
+        "mtimeMs": 1794919189925.3357
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "b29a2fd3501c78a3e9fe1914217aaa00de0000fd067b33152d95ba529dfd82e9",
-        "size": 91300,
-        "mtimeMs": 1794919092108.911
+        "sha256": "2d34fc039851823bbdfba6930714ea9d53d83b95241e02145ef721e3f1c437ac",
+        "size": 91819,
+        "mtimeMs": 1794920262794.83
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "bb284667c6e96f66b3e84549b0018e24f4c9a2a3f53d1b2a04a62f5b2dbd66fd",
-        "size": 126081,
-        "mtimeMs": 1794919137893.405
+        "sha256": "d2b4b0bba42331f271be8ce6239ff2fe90021cf2a81a3b817830564431af30a7",
+        "size": 126884,
+        "mtimeMs": 1794920259749.568
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
@@ -70,7 +70,7 @@
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "455b912fbf1e37cf1dbc4ce5e0ec9f28c1a538e1d2f2595f36323424e2abecf2",
         "size": 91478,
-        "mtimeMs": 1794919098989.8794
+        "mtimeMs": 1794919189721.7449
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
