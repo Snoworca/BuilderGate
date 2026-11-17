@@ -13,6 +13,7 @@ import type { ShellInfo } from '../../types';
 import './WorkspaceTabBar.css';
 import { t, tn } from '../../i18n/i18n.ts';
 import { roomDotLabelInput } from '../Messenger/messengerWindowModel.ts';
+import { TabAwaitingInputBadge } from './AwaitingInputBadge.tsx';
 
 interface Props {
   tabs: WorkspaceTabRuntime[];
@@ -151,6 +152,7 @@ export function WorkspaceTabBar({
                 title={tn('messenger.tabDot', roomDot.count, { rooms: roomDot.rooms })}
               />
             )}
+            {tab.awaitingInput && <TabAwaitingInputBadge />}
             {isEditing ? (
               <input
                 ref={inputRef}

@@ -204,6 +204,21 @@
   z-index: 9999;
 }
 
+/* FR-AITUI-024 AC-5: the tab's agent waits on a choice prompt. Orange, apart
+ * from the amber running count and the purple room dot. */
+.workspace-tab-awaiting {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--attention);
+  color: var(--bg-app);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  line-height: 14px;
+  text-align: center;
+}
+
 /* FR-MSG-013 AC-3: this tab's session is in a messenger room. */
 .workspace-tab-room-dot {
   width: 7px;

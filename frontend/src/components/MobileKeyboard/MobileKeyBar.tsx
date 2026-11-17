@@ -25,11 +25,17 @@ export interface MobileKeyBarProps {
    * Not called while the panel is open: the terminal must stay blurred then.
    */
   onRestoreFocus?: () => void;
+  /**
+   * Docked at the bottom with the system keyboard down (FR-MKB-013 AC-6): the
+   * switch reads Keyboard and raises the system keyboard instead of opening the
+   * special panel.
+   */
+  docked?: boolean;
 }
 
 // @req FR-MKB-006
 // @req FR-MKB-008
-export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen, onRestoreFocus }: MobileKeyBarProps): ReactElement {
+export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen, onRestoreFocus, docked = false }: MobileKeyBarProps): ReactElement {
   const onTap = useCallback((element: Element): void => {
     if (element.getAttribute('data-mobile-action') === 'toggle-keyboard') {
       onToggleKeyboard();
@@ -51,12 +57,16 @@ export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen, onRest
     if (focused !== null && bar.contains(focused)) onRestoreFocus();
   }, [pressUp, keyboardOpen, onRestoreFocus]);
 
-  const toggleAria = t(keyboardOpen ? 'mobileKeyboard.switch.toSystem' : 'mobileKeyboard.switch.toSpecial');
-  const toggleText = t(keyboardOpen ? 'mobileKeyboard.switch.systemLabel' : 'mobileKeyboard.switch.specialLabel');
+  const toggleAria = t(docked
+    ? 'mobileKeyboard.switch.showKeyboard'
+    : keyboardOpen ? 'mobileKeyboard.switch.toSystem' : 'mobileKeyboard.switch.toSpecial');
+  const toggleText = t(docked
+    ? 'mobileKeyboard.switch.keyboardLabel'
+    : keyboardOpen ? 'mobileKeyboard.switch.systemLabel' : 'mobileKeyboard.switch.specialLabel');
 
   return (
     <div
-      className="mobile-key-bar"
+      className={docked ? 'mobile-key-bar mobile-key-bar--docked' : 'mobile-key-bar'}
       role="toolbar"
       aria-label={t('mobileKeyboard.bar')}
       style={{ touchAction: 'pan-x' }}

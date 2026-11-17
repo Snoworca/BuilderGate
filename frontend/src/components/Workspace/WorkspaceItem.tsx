@@ -5,6 +5,7 @@ import { useContextMenu } from '../../hooks/useContextMenu';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { workspaceActivity } from './workspaceActivity.ts';
+import { WorkspaceAwaitingInputBadge } from './AwaitingInputBadge.tsx';
 import './Workspace.css';
 import { t } from '../../i18n/i18n.ts';
 
@@ -12,6 +13,8 @@ interface Props {
   workspace: Workspace;
   isActive: boolean;
   runningCount: number;
+  /** FR-AITUI-024 AC-5: tabs whose agent waits on a choice prompt. */
+  awaitingCount: number;
   isLast: boolean;
   onClick: () => void;
   onRename: (id: string, name: string) => void;
@@ -24,7 +27,7 @@ interface Props {
 }
 
 export function WorkspaceItem({
-  workspace, isActive, runningCount, isLast,
+  workspace, isActive, runningCount, awaitingCount, isLast,
   onClick, onRename, onDelete, onAddTab, tabCount, maxTabs,
   dragHandlers, isDragTarget,
 }: Props) {
@@ -96,6 +99,7 @@ export function WorkspaceItem({
             {workspace.name}
           </span>
         )}
+        <WorkspaceAwaitingInputBadge count={awaitingCount} />
         {runningCount > 0 && (
           <span className="ui-badge workspace-item-running">
             {runningCount}

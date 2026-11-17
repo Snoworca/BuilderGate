@@ -201,6 +201,7 @@ import { accumulatePanRows, mobilePanSpeed, panWheelSteps, routeMobilePan } from
 import { readBrowserMobileScrollSpeed } from '../../utils/mobileScrollSettings.ts';
 import { applyLatchToTypedData, takeLatchedPaste } from '../../utils/mobileModifierLatch.ts';
 import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoint } from '../../utils/terminalPathLinks.ts';
+import { readTerminalTapRows, type TerminalTapRows } from '../../utils/terminalTouchTapPolicy.ts';
 import { readTerminalBufferText } from '../../utils/terminalTextExport.ts';
 
 const FONT_MIN = 8;
@@ -332,6 +333,12 @@ export interface TerminalHandle {
   /** While on, every focus entry is ignored and a self-focus is undone; only false clears it (FR-MKB-008 AC-3 AC-4). */
   // @req FR-MKB-008
   setFocusSuppressed: (on: boolean) => void;
+  /** The tapped row and the cursor row on the visible screen (FR-ARCH-010 AC-8). */
+  // @req FR-ARCH-010
+  getTapRows: (clientX: number, clientY: number) => TerminalTapRows | null;
+  /** Holds off focus for one click-only tap, so the focus xterm takes on mousedown raises no keyboard (FR-ARCH-010 AC-8). */
+  // @req FR-ARCH-010
+  setTapFocusSuppressed: (on: boolean) => void;
   hasSelection: () => boolean;
   getSelection: () => string;
   getMouseTrackingActive: () => boolean;
@@ -529,6 +536,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     // Set while the mobile special keyboard panel is open; only
     // setFocusSuppressed(false) clears it (FR-MKB-008 AC-3).
     const focusSuppressedRef = useRef(false);
+    // FR-ARCH-010 AC-8: set from the mousedown to the click of a click-only tap.
+    const tapFocusSuppressedRef = useRef(false);
+    const tapFocusReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const webglRendererRef = useRef<TerminalWebglRenderer | null>(null);
     const scheduleWebglScaleCheckRef = useRef<(() => void) | null>(null);
     const isVisibleRef = useRef(isVisible);
@@ -591,7 +601,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     } | null>(null);
     const imeTransaction = useMemo(() => new ImeTransaction(), []);
     const imeTransactionRef = useRef<ImeTransaction | null>(imeTransaction);
-    const { isMobile } = useResponsive();
+    const { isMobile, isTouchInput } = useResponsive();
     const {
       send,
       registerTerminalCheckpointDispatcher,
@@ -766,7 +776,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     // panel shuts them all in one place while it is open.
     // @req FR-MKB-008
     const focusTerminalInput = useCallback((reason: string) => {
-      if (focusSuppressedRef.current) {
+      if (focusSuppressedRef.current || tapFocusSuppressedRef.current) {
         recordTerminalDebugEvent(sessionId, 'focus_suppressed', { reason });
         return;
       }
@@ -813,7 +823,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (!pendingFocusRestoreRef.current || !captureAllowedRef.current || !isVisibleRef.current) {
         return;
       }
-      if (focusSuppressedRef.current) {
+      if (focusSuppressedRef.current || tapFocusSuppressedRef.current) {
         pendingFocusRestoreRef.current = false;
         recordTerminalDebugEvent(sessionId, 'focus_suppressed', { reason: `restore-${reason}` });
         return;
@@ -3365,6 +3375,33 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         focusSuppressedRef.current = on;
         if (on) pendingFocusRestoreRef.current = false;
       },
+      // @req FR-ARCH-010
+      getTapRows: (clientX, clientY) => (
+        xtermRef.current ? readTerminalTapRows(xtermRef.current, clientX, clientY) : null
+      ),
+      // @req FR-ARCH-010
+      setTapFocusSuppressed: (on: boolean) => {
+        if (tapFocusReleaseTimerRef.current !== null) {
+          clearTimeout(tapFocusReleaseTimerRef.current);
+          tapFocusReleaseTimerRef.current = null;
+        }
+        tapFocusSuppressedRef.current = on;
+        const helperTextarea = getHelperTextarea();
+        if (on) {
+          pendingFocusRestoreRef.current = false;
+          // inputmode none as well, so a focus the blur cannot undo in time still raises no keyboard.
+          helperTextarea?.setAttribute('inputmode', 'none');
+          // A tap whose click never comes must not hold focus off for good.
+          tapFocusReleaseTimerRef.current = setTimeout(() => {
+            tapFocusReleaseTimerRef.current = null;
+            tapFocusSuppressedRef.current = false;
+            getHelperTextarea()?.removeAttribute('inputmode');
+          }, 1000);
+        } else {
+          helperTextarea?.removeAttribute('inputmode');
+        }
+        recordTerminalDebugEvent(sessionId, on ? 'tap_focus_suppressed' : 'tap_focus_released');
+      },
       hasSelection: () => !!(
         xtermRef.current?.hasSelection()
         || (
@@ -4568,7 +4605,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         pendingFocusRestoreRef.current = false;
         // FR-MKB-008 AC-4: xterm (or a fallback) focusing its own textarea while
         // the special keyboard is open would raise the system keyboard over it.
-        if (focusSuppressedRef.current) {
+        // FR-ARCH-010 AC-8: the same for the mousedown of a click-only tap.
+        if (focusSuppressedRef.current || tapFocusSuppressedRef.current) {
           if (event.target instanceof HTMLElement) event.target.blur();
           containerRef.current?.classList.remove('terminal-focused');
           return;
@@ -5224,9 +5262,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return () => container.removeEventListener('wheel', handleWheel, { capture: true });
     }, [isMobile, handleFontSizeChange]);
 
-    // Mobile: single-touch pan scroll + two-touch pinch zoom
+    // Touch input (a phone, or a tablet that keeps the desktop layout): single-touch pan
+    // scroll + two-touch pinch zoom (FR-ARCH-008 AC-4).
     useEffect(() => {
-      if (!isMobile) return;
+      if (!isTouchInput) return;
       const container = containerRef.current;
       if (!container) return;
       const onTouchEnd = () => finishMobileTouchGesture('touchend');
@@ -5243,7 +5282,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         container.removeEventListener('touchend', onTouchEnd);
         container.removeEventListener('touchcancel', onTouchCancel);
       };
-    }, [isMobile, handleMobileTouchStart, handleMobileTouchMove, finishMobileTouchGesture]);
+    }, [isTouchInput, handleMobileTouchStart, handleMobileTouchMove, finishMobileTouchGesture]);
 
 
 
@@ -5281,7 +5320,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         className="terminal-view"
         ref={containerRef}
         data-terminal-view="true"
-        style={isMobile ? { touchAction: 'none' } : undefined}
+        style={isTouchInput ? { touchAction: 'none' } : undefined}
         onClick={handleClick}
         onPointerDownCapture={handleManualRepairPointerEvent}
         onMouseDownCapture={handleManualRepairMouseEvent}

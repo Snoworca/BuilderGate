@@ -2,9 +2,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  INPUT_LINE_TAP_ROWS,
   TOUCH_TAP_MOVE_TOLERANCE_PX,
   createTouchTapTracker,
+  readTerminalTapRows,
   shouldFocusTerminalOnPointerDown,
+  shouldTapOpenKeyboard,
 } from '../../src/utils/terminalTouchTapPolicy.ts';
 
 const at = (clientX: number, clientY: number) => ({ clientX, clientY });
@@ -69,4 +72,36 @@ test('FR-ARCH-010: a new single contact after a gesture starts a fresh tap decis
 
 test('FR-ARCH-010: a click with no recorded contact is not a tap', () => {
   assert.equal(createTouchTapTracker().consumeTap(), false);
+});
+
+test('FR-ARCH-010 AC-8: with mouse tracking and the keyboard down, only a tap on the input line opens the keyboard', () => {
+  assert.equal(INPUT_LINE_TAP_ROWS, 1);
+  const down = { mouseTracking: true, keyboardUp: false };
+  assert.equal(shouldTapOpenKeyboard({ ...down, rows: { tapRow: 10, cursorRow: 30 } }), false, 'a choice far above the input line');
+  assert.equal(shouldTapOpenKeyboard({ ...down, rows: { tapRow: 29, cursorRow: 30 } }), true, 'the border line next to the caret');
+  assert.equal(shouldTapOpenKeyboard({ ...down, rows: { tapRow: 30, cursorRow: 30 } }), true, 'the caret line itself');
+  assert.equal(shouldTapOpenKeyboard({ ...down, rows: { tapRow: 32, cursorRow: 30 } }), false, 'two rows below');
+});
+
+test('FR-ARCH-010 AC-8: every tap opens the keyboard as before without mouse tracking, with the keyboard up, or with no rows', () => {
+  const far = { tapRow: 0, cursorRow: 30 };
+  assert.equal(shouldTapOpenKeyboard({ mouseTracking: false, keyboardUp: false, rows: far }), true, 'a plain shell');
+  assert.equal(shouldTapOpenKeyboard({ mouseTracking: true, keyboardUp: true, rows: far }), true, 'the keyboard is already up');
+  assert.equal(shouldTapOpenKeyboard({ mouseTracking: true, keyboardUp: false, rows: null }), true, 'the tap could not be placed');
+});
+
+test('FR-ARCH-010 AC-8: the tap row and the cursor row are both counted from the top of the visible screen', () => {
+  const screen = { getBoundingClientRect: () => ({ left: 0, top: 100, width: 800, height: 400 }) };
+  const term = {
+    cols: 80,
+    rows: 20,
+    element: { querySelector: (selector: string) => (selector === '.xterm-screen' ? screen : null) },
+    buffer: { active: { baseY: 50, viewportY: 50, cursorY: 18 } },
+  };
+  // 20 px rows from y = 100: y = 145 is row 2.
+  assert.deepEqual(readTerminalTapRows(term, 40, 145), { tapRow: 2, cursorRow: 18 });
+  // Scrolled up five rows: the cursor is five rows lower on the screen (off it).
+  assert.deepEqual(readTerminalTapRows({ ...term, buffer: { active: { baseY: 50, viewportY: 45, cursorY: 18 } } }, 40, 145), { tapRow: 2, cursorRow: 23 });
+  assert.equal(readTerminalTapRows(term, 40, 90), null, 'above the screen');
+  assert.equal(readTerminalTapRows({ ...term, element: undefined }, 40, 145), null, 'not mounted');
 });

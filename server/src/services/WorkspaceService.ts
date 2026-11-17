@@ -128,6 +128,11 @@ export class WorkspaceService {
       }
     });
 
+    // FR-AITUI-024 AC-4: optional so session-manager stubs without it still work.
+    this.sessionManager.onAwaitingInputChange?.((sessionId: string, awaiting: boolean) => {
+      this.applyAwaitingInput(sessionId, awaiting);
+    });
+
     this.sessionManager.onTerminalTitleChange((sessionId: string, title: string) => {
       this.applyTerminalTitle(sessionId, title).catch((error) => {
         console.warn('[WorkspaceService] Failed to apply terminal title:', error);
@@ -784,6 +789,9 @@ export class WorkspaceService {
 
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
+    // FR-AITUI-024 AC-4: the old session's "not waiting" comes after the tab has moved
+    // on and no longer finds it, so the mark is dropped here.
+    this.applyAwaitingInput(oldSessionId, false);
     tab.sessionId = sessionDTO.id;
     this.bindCurrentSessionId(tab, sessionDTO.id, oldSessionId);
     this.markTabActive(tab, 'tab-restart');
@@ -882,6 +890,16 @@ export class WorkspaceService {
 
   onTabUpdated(cb: (event: TabUpdatedEvent) => void): void {
     this.tabUpdatedCallback = cb;
+  }
+
+  // FR-AITUI-024 AC-4: reaches every connection through tab:updated and the state a
+  // client loads, but is not saved (writeStateToDisk drops it).
+  private applyAwaitingInput(sessionId: string, awaiting: boolean): void {
+    const tab = this.state.tabs.find(t => t.sessionId === sessionId);
+    if (!tab || (tab.awaitingInput === true) === awaiting) return;
+    if (awaiting) tab.awaitingInput = true;
+    else delete tab.awaitingInput;
+    this.emitTabUpdated({ tab, changes: { awaitingInput: awaiting } });
   }
 
   async applyTerminalTitle(sessionId: string, rawTitle: string): Promise<void> {
@@ -1687,7 +1705,10 @@ export class WorkspaceService {
     // process sharing the checkout cannot consume or overwrite it. The raw error
     // is still what reaches the caller here; REL-BGSTAB-021's rollback reads it.
     try {
-      await publishStoreAtomically(this.dataFilePath, JSON.stringify(file, null, 2));
+      await publishStoreAtomically(
+        this.dataFilePath,
+        JSON.stringify(file, (key, value) => (key === 'awaitingInput' ? undefined : value), 2),
+      );
     } catch (err: any) {
       console.error('[WorkspaceService] Flush failed:', err.message);
       throw err;

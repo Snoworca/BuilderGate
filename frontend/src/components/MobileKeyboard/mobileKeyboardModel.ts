@@ -73,6 +73,71 @@ export function decideMobileKeyBar(v: MobileKeyBarKeyboardVisibility): MobileKey
   return v.keyboardUp ? 'show' : 'pending';
 }
 
+export interface DockedKeyBarInput {
+  isTouchInput: boolean;
+  screen: string;
+  hasActiveTab: boolean;
+  /** The active terminal's program tracks the mouse (Claude Code, a TUI menu). */
+  mouseTracking: boolean;
+  keyboardUp: boolean;
+  /** The bar above the keyboard (decideMobileKeyBar) is shown. */
+  keyBarShown: boolean;
+}
+
+/**
+ * FR-MKB-013 AC-6: the key bar docked at the bottom of the screen with the
+ * keyboard down. A tap on a choice only clicks (FR-ARCH-010 AC-8), so without
+ * it the arrow keys were out of reach while a program showed choices.
+ */
+// @req FR-MKB-013
+export function shouldDockMobileKeyBar(v: DockedKeyBarInput): boolean {
+  return v.isTouchInput && v.screen === 'workspace' && v.hasActiveTab
+    && v.mouseTracking && !v.keyboardUp && !v.keyBarShown;
+}
+
+/** How often the active terminal's mouse tracking is read on a touch device. */
+export const MOUSE_TRACKING_POLL_MS = 500;
+
+export interface MouseTrackingTarget {
+  getMouseTrackingActive(): boolean;
+}
+
+/**
+ * Whether the active tab's program tracks the mouse, re-rendering only when that
+ * flips. xterm reports no event for a mode change, so the value is read on a
+ * short poll, and at once on a tab change. Disabled (a desktop), it reads nothing.
+ */
+// @req FR-MKB-013
+export function useActiveTerminalMouseTracking(
+  tabId: string | null,
+  enabled: boolean,
+  getHandle: (tabId: string) => MouseTrackingTarget | null,
+): boolean {
+  const getHandleRef = useRef(getHandle);
+  useEffect(() => {
+    getHandleRef.current = getHandle;
+  });
+  const [tracking, setTracking] = useState(false);
+  // Only a flip reaches setState: App re-renders on it, and a same-value set can still render once.
+  const trackingRef = useRef(false);
+  useEffect(() => {
+    const set = (next: boolean) => {
+      if (trackingRef.current === next) return;
+      trackingRef.current = next;
+      setTracking(next);
+    };
+    if (!enabled || tabId === null) {
+      set(false);
+      return undefined;
+    }
+    const read = () => set(getHandleRef.current(tabId)?.getMouseTrackingActive() ?? false);
+    read();
+    const timer = setInterval(read, MOUSE_TRACKING_POLL_MS);
+    return () => clearInterval(timer);
+  }, [tabId, enabled]);
+  return tracking;
+}
+
 /** How long a shown bar waits for the keyboard to come back before it hides. */
 export const MOBILE_KEY_BAR_HIDE_GRACE_MS = 400;
 
@@ -371,6 +436,8 @@ export interface SpecialKeyboardPanel {
   close: () => void;
   /** Sends one bar or panel key to the active terminal. */
   sendKey: (key: MobileKeyName | string) => void;
+  /** Sends one key without focusing the terminal, so the keyboard stays down (the docked bar, FR-MKB-013 AC-6). */
+  sendKeyWithoutFocus: (key: MobileKeyName | string) => void;
   /** Hands focus back to the terminal after a bar button took it, unless the panel is open. */
   restoreFocus: () => void;
 }
@@ -466,6 +533,12 @@ export function useSpecialKeyboardPanel({
     if (!(document.activeElement instanceof HTMLTextAreaElement)) handle?.focus();
   }, [activeTabId, handleFor, openRef]);
 
+  // FR-MKB-013 AC-6: the docked bar sends with the keyboard down and keeps it down.
+  const sendKeyWithoutFocus = useCallback((key: MobileKeyName | string): void => {
+    if (activeTabId === null) return;
+    sendMobileKeyTo(handleFor(activeTabId), key as MobileKeyName);
+  }, [activeTabId, handleFor]);
+
   // Ctrl/Alt and the switch hand focus back the same way (the bar calls this
   // only when focus sits on one of its buttons).
   const restoreFocus = useCallback((): void => {
@@ -473,5 +546,5 @@ export function useSpecialKeyboardPanel({
     handleFor(activeTabId)?.focus();
   }, [activeTabId, handleFor, openRef]);
 
-  return { open, height, toggle, close, sendKey, restoreFocus };
+  return { open, height, toggle, close, sendKey, sendKeyWithoutFocus, restoreFocus };
 }

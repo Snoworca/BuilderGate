@@ -90,3 +90,16 @@ test('FR-ARCH-013 AC-10: the terminal tap handler tries the latched open before 
   assert.ok(handler.indexOf('consumeTap()') < opened, 'the latched open runs only for a confirmed tap');
   assert.ok(opened < handler.indexOf('focusTerminal('), 'a latched open must come before the focus');
 });
+
+test('FR-ARCH-013 AC-10: a latched open still runs when the tap was click-only (FR-ARCH-010 AC-8)', () => {
+  // PR #241 review: with the keyboard down on a program that tracks the mouse (the
+  // docked key bar's state) the click-only return came first and the path never opened.
+  const source = readFileSync(new URL('../../src/components/Terminal/TerminalRuntimeLayer.tsx', import.meta.url), 'utf8');
+  const click = source.indexOf('onClickCapture=');
+  const handler = source.slice(click, source.indexOf('onContextMenu=', click));
+  const opened = handler.indexOf('openPathOnLatchedTap(');
+  const clickOnlyReturn = handler.indexOf('if (clickOnly)');
+  assert.ok(clickOnlyReturn > 0, 'the click-only tap still stops the focus');
+  assert.ok(opened < clickOnlyReturn, 'the latched open runs before the click-only return');
+  assert.ok(handler.indexOf('releaseClickOnlyTap()') < opened, 'the click-only state is released on every confirmed tap');
+});

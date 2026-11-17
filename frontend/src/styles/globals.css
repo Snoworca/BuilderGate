@@ -7,6 +7,9 @@
 html, body, #root {
   height: 100%;
   overflow: hidden;
+  /* FR-ARCH-008 AC-4: iOS Safari still rubber-bands an overflow-hidden document on a drag
+   * nothing consumed (an iPad in the desktop layout moved the whole app up and down). */
+  overscroll-behavior: none;
 }
 
 body {
@@ -34,6 +37,37 @@ body {
   right: 0;
   top: var(--app-viewport-top, 0px);
   height: var(--app-viewport-height, 100%);
+}
+
+/* FR-ARCH-016 AC-6: opened from the iPhone home screen the page covers the whole
+ * screen (translucent status bar, viewport-fit=cover, utils/standaloneViewport.ts).
+ * The root keeps the app out of the status bar and the home indicator; the strips
+ * stay dark like the opaque status bar before. With the opaque bar iOS 26 started
+ * the page below the status bar but sized it to the whole screen, so the bottom
+ * rows fell off the screen. */
+html.standalone-app {
+  background-color: #1e1e1e;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+}
+
+/* While the keyboard is open --app-height is the visible height of the whole
+ * screen; the root's top inset is already taken above the app. */
+html.standalone-app .app {
+  height: calc(var(--app-height, calc(100% + env(safe-area-inset-top, 0px))) - env(safe-area-inset-top, 0px));
+}
+
+/* The keyboard-locked app is fixed to the visual viewport, outside the root's
+ * padding: it clears the status bar itself, and the keyboard covers the home
+ * indicator, so no bottom inset. */
+html.standalone-app .app.app--viewport-locked {
+  height: var(--app-viewport-height, 100%);
+  padding-top: env(safe-area-inset-top, 0px);
+  left: env(safe-area-inset-left, 0px);
+  right: env(safe-area-inset-right, 0px);
 }
 
 .main {
