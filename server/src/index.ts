@@ -1670,6 +1670,8 @@ async function startServer(): Promise<void> {
     });
     await sessionSnapshotService.initialize();
     workspaceService.setAgentResumePendingChecker((tabId) => sessionSnapshotService.hasPendingForTab(tabId));
+    // FR-AITUI-014 AC-8 (#242): a tab whose shell died after the save being restored comes back.
+    workspaceService.setStoppedTabRecoveryChecker((tabId, stoppedAt) => sessionSnapshotService.stoppedAfterRestoreSave(tabId, stoppedAt));
     // FR-AITUI-014 AC-1: a saved tab reopens in the folder it was saved in.
     workspaceService.setRestoreCwdResolver((tabId) => sessionSnapshotService.restoreCwdFor(tabId));
     // PERF-BGSTAB-025 AC-3: the shell probe runs asynchronously; recovered tabs and the

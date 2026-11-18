@@ -100,3 +100,44 @@ test('FR-AITUI-014 AC-1: a tab in the snapshot reopens in the saved folder, the 
   assert.deepEqual(cwds, ['/work/saved', '/work']);
   assert.equal(service.getTab('t1').lastCwd, '/work/saved', 'the tab remembers the folder it reopened in');
 });
+
+// #242: the shells die in the last seconds before the server does; those exits are saved
+// as stopped tabs. A tab the restored save holds, stopped after that save was taken, was live
+// when it was saved, so it is recovered like any orphan. A tab stopped before the save was
+// stopped by the user, and stays stopped.
+test('FR-AITUI-014 AC-8: a tab stopped by a process exit after the restored save is recovered', async () => {
+  const { service } = await makeService();
+  const state = (service as any).state;
+  const stop = (tab: any, at: string) => Object.assign(tab, { lifecycleState: 'stopped', recoverable: false, lifecycleReason: 'process-exit', lastExitCode: 0, lifecycleUpdatedAt: at });
+  stop(state.tabs[0], '2026-11-17T23:41:10.000Z');
+  stop(state.tabs[1], '2026-11-17T23:41:10.000Z');
+  const asked: Array<[string, string | undefined]> = [];
+  service.setStoppedTabRecoveryChecker((tabId, stoppedAt) => {
+    asked.push([tabId, stoppedAt]);
+    return tabId === 't1';
+  });
+  const recovered = await service.checkOrphanTabs();
+  assert.deepEqual(recovered, ['t1'], 'only the tab the checker accepts');
+  assert.deepEqual(asked, [['t1', '2026-11-17T23:41:10.000Z'], ['t2', '2026-11-17T23:41:10.000Z']], 'asked with the time the tab stopped');
+  const t1 = state.tabs.find((tab: any) => tab.id === 't1');
+  assert.equal(t1.lifecycleState, 'active');
+  assert.equal(t1.recoverable, true);
+  assert.equal(state.tabs.find((tab: any) => tab.id === 't2').lifecycleState, 'stopped');
+});
+
+test('FR-AITUI-014 AC-8: a tab stopped by a delete is not recovered even when the checker accepts it', async () => {
+  const { service } = await makeService();
+  const state = (service as any).state;
+  Object.assign(state.tabs[0], { lifecycleState: 'stopped', recoverable: false, lifecycleReason: 'direct-session-delete' });
+  Object.assign(state.tabs[1], { lifecycleState: 'stopped', recoverable: false, lifecycleReason: 'tab-delete' });
+  service.setStoppedTabRecoveryChecker(() => true);
+  assert.deepEqual(await service.checkOrphanTabs(), []);
+});
+
+test('FR-AITUI-014 AC-8: without a checker a stopped tab stays stopped', async () => {
+  const { service } = await makeService();
+  const state = (service as any).state;
+  Object.assign(state.tabs[0], { lifecycleState: 'stopped', recoverable: false, lifecycleReason: 'process-exit' });
+  service.setAgentResumePendingChecker(() => true);
+  assert.deepEqual(await service.checkOrphanTabs(), ['t2']);
+});
