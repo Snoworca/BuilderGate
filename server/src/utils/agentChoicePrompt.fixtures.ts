@@ -12,6 +12,52 @@ export const CAPTURED_POSITIVE_SCREENS: Record<string, string> = {
   // Captured 2026-11-17 in an environment like the 2002 daemon: no TERM, WT_SESSION or
   // TERM_PROGRAM, so Claude Code falls back to ASCII figures and its menu cursor is '>'.
   claudeTrustFolderAscii: "\n C:\\work\\probe\n\n Quick safety check: Is this a project you created or one you trust? (Like your\n own code, a well-known open source project, or work from your team). If not,\n take a moment to review what's in this folder first.\n\n Claude Code'll be able to read, edit, and execute files here.\n\n Security guide\n\n > No, exit\n   Yes, I trust this folder\n\n Enter to confirm · Esc to cancel",
+  // Captured 2026-11-18 from two live sessions on the 2002 daemon (0.11.7) with the
+  // BuilderGate MCP terminal.read, where the badge did not show. terminal.read joins a
+  // full-width rule with the row after it, so those rows are split back here; the rules
+  // are written with repeat() instead of 200 literal characters. Three described options,
+  // the question bar of a multi-question form, and the border a named (-n) session draws
+  // under the footer: ten rows below the cursor.
+  claudeAskUserQuestionThreeOptionsNamedSession: [
+    '  7. 이후 진행: 답을 주시면 병합 승인을 요청할 때까지 더 묻지 않고 진행합니다.',
+    '─'.repeat(200),
+    '←  ☐ 회수 범위  ☐ 범위  ✔ Submit  →',
+    '',
+    '│ #2221: 관리 화면(회원 상세 「토큰 대신 발급」)은 어떤 회수 범위로 발급할까요? 서버 #6147 이후 revokeScope 를 빼면 같은 이름(label)의 토큰만 교체됩니다.',
+    '',
+    '❯ 1. "all" 명시 — 지금 UX 유지 (권장)',
+    '     회원 대상 발급에 revokeScope:"all" 을 보내 모두 회수 + 에이전트 연결 삭제. 확인 창 · 시안 05 문구 유지, 0.9.6 서버와도 동작 일치',
+    '  2. 서버 기본(같은 이름만 교체)',
+    '     인자를 빼고 확인 창 · 양식 순서와 문구, 멈추는 토큰 수 계산을 이름 기준으로 다시 설계(시안 05 변경)',
+    '  3. 양식에서 관리자가 고름',
+    '     「같은 이름만 교체 / 모두 회수」 선택지를 새로 두고 확인 문장도 나눔(새 UI 설계)',
+    '  4. Type something.',
+    '─'.repeat(200),
+    '  5. Chat about this',
+    '',
+    'Enter to select · Tab/Arrow keys to navigate · Esc to cancel',
+    `${'─'.repeat(180)} og-flow 지휘 2221 ─`,
+  ].join('\n'),
+  claudeAskUserQuestionFourQuestionFormNamedSession: [
+    '  7. 이후 진행: 답을 주시면 병합 승인 요청까지 묻지 않고 진행합니다.',
+    '─'.repeat(200),
+    '←  ☐ 게시 동작  ☐ 일반 편집기  ☐ 이벤트 모양  ☐ 범위와 PR  ✔ Submit  →',
+    '',
+    '│ #2224 결정 1: 저장하지 않은 편집이 있을 때 게시 단추는 어떻게 동작해야 합니까? (임베드 캔버스에는 저장 단추가 없습니다)',
+    '',
+    '❯ 1. 먼저 저장 후 게시 (권장)',
+    '     저장이 성공했을 때만 게시하고, 실패하거나 막히면 게시하지 않고 이유를 알립니다. 캔버스 안에서 바로 끝나는 유일한 안입니다.',
+    '  2. 게시를 막고 안내',
+    '     「먼저 저장하세요」라고만 알립니다. 임베드에서는 바깥 페이지가 ogEmbed.save() 를 불러야만 풀립니다.',
+    '  3. 확인 창으로 고르기',
+    '     「저장하고 게시」·「저장된 판만 게시」를 고르게 합니다. 게시에 창이 하나 늘어납니다.',
+    '  4. Type something.',
+    '─'.repeat(200),
+    '  5. Chat about this',
+    '',
+    'Enter to select · Tab/Arrow keys to navigate · Esc to cancel',
+    `${'─'.repeat(176)} og-flow 지휘 2224·2225 ─`,
+  ].join('\n'),
 };
 
 export const CAPTURED_NEGATIVE_SCREENS: Record<string, string> = {

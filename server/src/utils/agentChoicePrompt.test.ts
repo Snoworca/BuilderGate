@@ -74,6 +74,78 @@ test('FR-AITUI-024 AC-1: a working agent ("esc to interrupt") does not count', (
   assert.equal(isAgentChoicePrompt(screen), false);
 });
 
+test('FR-AITUI-024 AC-1: a long menu counts when its footer is at the bottom, however many rows sit under the cursor', () => {
+  // Seen on 2002 (0.11.7): four described options, Type something / Chat about this
+  // and a named session's border put ten rows under the cursor, and the old
+  // eight-row limit answered "not waiting" with the footer on screen.
+  const lines = ['❯ 1. Alpha'];
+  for (let i = 1; i <= 4; i += 1) {
+    if (i > 1) lines.push(`  ${i}. Option ${i}`);
+    lines.push(`     first line of the description of option ${i}`, '     second line of it');
+  }
+  lines.push('  5. Type something.', '─────', '  6. Chat about this', '', 'Enter to select · ↑/↓ to navigate · Esc to cancel', '───── named session ─');
+  assert.equal(isAgentChoicePrompt(lines.join('\n')), true);
+});
+
+test('FR-AITUI-024 AC-1: a footer with no cursor row above it does not count', () => {
+  assert.equal(isAgentChoicePrompt(['Some answer text', '1. build', '2. test', '', 'Enter to confirm · Esc to cancel'].join('\n')), false);
+});
+
+test('FR-AITUI-024 AC-1: footer words in the transcript above the composer do not count', () => {
+  // The agent quoting a footer in its answer: the composer and status rows follow it.
+  const screen = [
+    '❯ how does the menu footer read?',
+    '● It reads "Enter to select · Esc to cancel".',
+    '',
+    '─────',
+    '❯ ',
+    '─────',
+    '  session | builder-gate | Opus',
+    '  ⏵⏵ bypass permissions on (shift+tab to cycle)',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(screen), false);
+});
+
+test('FR-AITUI-024 AC-1: footer words typed into the composer do not count (Claude Code and Codex)', () => {
+  const claude = [
+    '❯ 배지 고쳐줘',
+    '● 고쳤습니다.',
+    '─────',
+    '❯ make "Enter to select · Esc to cancel" light the badge',
+    '─────',
+    '  probe | Opus',
+    '  ⏵⏵ auto mode on (shift+tab to cycle)',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(claude), false);
+  const codex = [
+    '› earlier',
+    '• done',
+    '› explain why Enter to confirm shows',
+    '',
+    '  GPT-6-Astra high · ~\\work\\probe',
+    '  ← for agents · ? for shortcuts',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(codex), false);
+});
+
+test('FR-AITUI-024 AC-1: footer words quoted in an answer do not count even with no status rows under the composer', () => {
+  const screen = ['❯ how does the footer read?', '● It reads "Enter to select · Esc to cancel".', '─────', '❯ ', '─────'].join('\n');
+  assert.equal(isAgentChoicePrompt(screen), false);
+});
+
+test('FR-AITUI-024 AC-1: a menu with a few rows under its footer still counts', () => {
+  const screen = [
+    ' ❯ No, exit',
+    '   Yes, I trust this folder',
+    ' Enter to confirm · Esc to cancel',
+    '  ● main',
+    '  ◯ general-purpose  checking files',
+    '  ◯ general-purpose  reading tests',
+    '  ◯ general-purpose  writing notes',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(screen), true);
+});
+
 test('FR-AITUI-024 AC-1: a menu scrolled up away from the bottom does not count', () => {
   const lines = ['❯ 1. Yes', '  2. No', 'Esc to cancel'];
   for (let i = 0; i < 10; i += 1) lines.push(`output line ${i}`);
@@ -129,6 +201,27 @@ test('FR-AITUI-024 AC-2: a menu drawn high on a tall screen with blank rows belo
     assert.ok(rows.includes('> No, exit'), rows);
     assert.equal(isAgentChoicePrompt(rows), true);
     assert.ok(rows.split('\n').length <= CHOICE_PROMPT_SCAN_ROWS, 'never more than the requested rows');
+  } finally {
+    state.terminal.dispose();
+  }
+});
+
+test('FR-AITUI-024 AC-2: a described menu wrapped on a narrow screen is still read whole', async () => {
+  // A phone-width terminal wraps each description over several rows, which puts the
+  // cursor row more than 16 rows above the footer.
+  const state = createHeadlessTerminalState({ cols: 40, rows: 40, scrollbackLines: 500 });
+  try {
+    const description = 'a description long enough to wrap over three rows of a forty column terminal';
+    let text = 'Which one?\r\n\r\n❯ 1. Alpha\r\n';
+    for (let i = 1; i <= 4; i += 1) {
+      if (i > 1) text += `  ${i}. Option ${i}\r\n`;
+      text += `     ${description}\r\n`;
+    }
+    text += '  5. Type something.\r\n  6. Chat about this\r\n\r\nEnter to select · Esc to cancel';
+    await writeHeadlessTerminal(state, text);
+    const rows = readHeadlessBottomRows(state, CHOICE_PROMPT_SCAN_ROWS);
+    assert.ok(rows.includes('❯ 1. Alpha'), rows);
+    assert.equal(isAgentChoicePrompt(rows), true);
   } finally {
     state.terminal.dispose();
   }
