@@ -100,3 +100,30 @@ test('FR-AITUI-014 AC-1: a tab in the snapshot reopens in the saved folder, the 
   assert.deepEqual(cwds, ['/work/saved', '/work']);
   assert.equal(service.getTab('t1').lastCwd, '/work/saved', 'the tab remembers the folder it reopened in');
 });
+
+// #242: the shells die in the last seconds before the server does; those exits are saved
+// as stopped tabs. A tab the session save still holds a pending entry for was live at that
+// save, so it is recovered like any orphan.
+test('FR-AITUI-014 AC-8: a tab stopped by a process exit is recovered when the save holds a pending entry for it', async () => {
+  const { service } = await makeService();
+  const state = (service as any).state;
+  for (const tab of state.tabs) {
+    Object.assign(tab, { lifecycleState: 'stopped', recoverable: false, lifecycleReason: 'process-exit', lastExitCode: 0 });
+  }
+  service.setAgentResumePendingChecker((tabId) => tabId === 't1');
+  const recovered = await service.checkOrphanTabs();
+  assert.deepEqual(recovered, ['t1'], 'only the tab the save holds');
+  const t1 = state.tabs.find((tab: any) => tab.id === 't1');
+  assert.equal(t1.lifecycleState, 'active');
+  assert.equal(t1.recoverable, true);
+  assert.equal(state.tabs.find((tab: any) => tab.id === 't2').lifecycleState, 'stopped', 'a stopped tab outside the save stays stopped');
+});
+
+test('FR-AITUI-014 AC-8: a tab stopped by a delete is not recovered even when the save holds it', async () => {
+  const { service } = await makeService();
+  const state = (service as any).state;
+  Object.assign(state.tabs[0], { lifecycleState: 'stopped', recoverable: false, lifecycleReason: 'direct-session-delete' });
+  Object.assign(state.tabs[1], { lifecycleState: 'stopped', recoverable: false, lifecycleReason: 'tab-delete' });
+  service.setAgentResumePendingChecker(() => true);
+  assert.deepEqual(await service.checkOrphanTabs(), []);
+});

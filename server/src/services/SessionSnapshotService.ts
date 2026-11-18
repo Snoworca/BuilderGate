@@ -17,6 +17,7 @@ import {
   agentFromCommand,
   descendantsOf,
   detectAgentFromProcesses,
+  findClaudeAttachSession,
   isValidAgentSessionId,
   listAgentSessionCandidates,
   loadAgentStateCache,
@@ -31,7 +32,7 @@ import {
   type ResolvedAgentSession,
   type TabAgentContext,
 } from './agentSession/agentSessionResolver.js';
-import { buildResumeCommand, stripSessionSelectors } from './agentSession/resumeCommand.js';
+import { buildResumeCommand, claudeAttachTarget, stripSessionSelectors } from './agentSession/resumeCommand.js';
 import {
   normalizeRecoveryExecutable,
   splitLaunchCommand,
@@ -661,7 +662,17 @@ export class SessionSnapshotService {
     // Exact answers first; an estimated one that collides is resolved again
     // with the ids already taken set aside.
     const resolved = new Map<string, ResolvedAgentSession | null>();
-    for (const { ctx } of contexts) resolved.set(ctx.tabId, await resolveOne(ctx, new Set()));
+    // FR-AITUI-016 AC-9 (#242): an attach tab names its session; its folder is no clue to it.
+    const attachTabs = new Set<string>();
+    for (const { record, ctx } of contexts) {
+      const target = this.attachTargetOf(record);
+      if (target) {
+        attachTabs.add(ctx.tabId);
+        resolved.set(ctx.tabId, await this.resolveAttach(target, ctx));
+        continue;
+      }
+      resolved.set(ctx.tabId, await resolveOne(ctx, new Set()));
+    }
     // FR-AITUI-021 AC-2: an "exact" id two tabs both read (no process list, a WSL agent, a lone
     // candidate in a shared folder) is exact for neither. It goes through the collision pass below.
     const exactTabs = new Map<string, number>();
@@ -669,6 +680,7 @@ export class SessionSnapshotService {
       if (result?.confidence === 'exact') exactTabs.set(result.sessionId, (exactTabs.get(result.sessionId) ?? 0) + 1);
     }
     for (const [tabId, result] of resolved) {
+      if (attachTabs.has(tabId)) continue;
       if (result?.confidence === 'exact' && (exactTabs.get(result.sessionId) ?? 0) > 1) {
         resolved.set(tabId, { ...result, confidence: 'estimated' });
       }
@@ -680,7 +692,7 @@ export class SessionSnapshotService {
     }
     for (const { ctx } of contexts) {
       const result = resolved.get(ctx.tabId);
-      if (!result || result.confidence === 'exact') continue;
+      if (!result || result.confidence === 'exact' || attachTabs.has(ctx.tabId)) continue;
       if (claimed.has(result.sessionId)) {
         const retry = await resolveOne(ctx, claimed);
         resolved.set(ctx.tabId, retry);
@@ -690,6 +702,52 @@ export class SessionSnapshotService {
       }
     }
     return { contexts, resolved };
+  }
+
+  /** #242: the target of the `claude attach` this tab runs, from the command that started it. */
+  private attachTargetOf(record: SnapshotTabRecord): string | null {
+    const runtime = this.deps.getRuntime(record.tab.sessionId);
+    if (!runtime?.launchCommand || runtime.foregroundAppId !== 'claude') return null;
+    const launched = splitLaunchCommand(runtime.launchCommand);
+    return launched && agentFromCommand(launched.command) === 'claude' ? claudeAttachTarget(launched.args) : null;
+  }
+
+  /** FR-AITUI-016 AC-9: the background session an attach shows, or the target as named. */
+  private async resolveAttach(target: string, ctx: TabAgentContext): Promise<ResolvedAgentSession | null> {
+    const roots = this.deps.rootsFor ? await this.deps.rootsFor(ctx.cwd) : undefined;
+    const found = roots
+      ? await findClaudeAttachSession(target, { roots, ...(this.deps.isPidAlive ? { isPidAlive: this.deps.isPidAlive } : {}) })
+      : null;
+    const sessionId = found?.sessionId ?? target;
+    if (!isValidAgentSessionId('claude', sessionId)) return null;
+    return { agent: 'claude', sessionId, method: 'claude-attach', confidence: 'exact' };
+  }
+
+  /**
+   * FR-AITUI-014 AC-9 (#242): an attach is typed as it was launched (an older save added a
+   * guessed --resume, which attach ignores). When its background session has ended there is
+   * nothing to attach to, so the session is resumed in the tab by its full id.
+   */
+  private async attachCommandFor(entry: SnapshotEntry): Promise<SnapshotEntry> {
+    if (entry.mode !== 'agent' || entry.agent !== 'claude' || agentFromCommand(entry.resumeCommand) !== 'claude') return entry;
+    const target = claudeAttachTarget(entry.resumeArguments);
+    if (!target) return entry;
+    const attach: SnapshotEntry = { ...entry, resumeArguments: ['attach', target] };
+    let roots: AgentRoots | undefined;
+    try {
+      roots = this.deps.rootsFor ? await this.deps.rootsFor(entry.cwd) : undefined;
+    } catch {
+      roots = undefined;
+    }
+    if (!roots) return attach;
+    const found = await findClaudeAttachSession(target, { roots, ...(this.deps.isPidAlive ? { isPidAlive: this.deps.isPidAlive } : {}) });
+    if (found?.live) return attach;
+    const saved = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.sessionId)
+      && entry.sessionId.toLowerCase().startsWith(target.toLowerCase())
+      ? entry.sessionId
+      : null;
+    const ended = found?.sessionId ?? saved;
+    return ended ? { ...attach, sessionId: ended, resumeArguments: ['--resume', ended] } : attach;
   }
 
   /** The agent entry for a resolved id, resumed with the command the agent was launched with. */
@@ -1225,7 +1283,7 @@ export class SessionSnapshotService {
       if (typed === false) return this.reportItemOf(placed, 'failed', 'command-invalid');
       return this.reportItemOf(typed ? { ...placed, mode: 'command' } : placed, typed ? 'typed' : 'shell');
     }
-    return this.runEntry(placed, new Set([tabId]));
+    return this.runEntry(await this.attachCommandFor(placed), new Set([tabId]));
   }
 
   private rememberHandResult(item: RestoreReportItem): void {
@@ -1367,7 +1425,7 @@ export class SessionSnapshotService {
     this.reportId = randomUUID();
     this.reportSource = { origin: source.origin ?? 'manual', id: String(source.id), savedAt: source.savedAt };
     for (const entry of source.entries) {
-      const item = this.runEntry(entry, tabIds);
+      const item = this.runEntry(await this.attachCommandFor(entry), tabIds);
       entry.restore = item.result === 'failed' ? 'failed' : 'restored';
       entry.processedAt = processedAt;
       this.report.push(item);
