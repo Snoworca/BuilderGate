@@ -66,6 +66,16 @@ export function stripSessionSelectors(agent: AgentKind, args: readonly string[])
   return agent === 'codex' ? stripCodexResume(args) : stripSelectors(args, RULES[agent]);
 }
 
+/**
+ * #242: the background session `claude attach <id|name>` shows, or null when the
+ * launch is not an attach. Anything after the target is not part of the attach.
+ */
+export function claudeAttachTarget(args: readonly string[]): string | null {
+  if (args[0] !== 'attach') return null;
+  const target = args[1];
+  return typeof target === 'string' && target.length > 0 && !target.startsWith('-') ? target : null;
+}
+
 export function buildResumeCommand(
   agent: AgentKind,
   sessionId: string,
@@ -73,6 +83,13 @@ export function buildResumeCommand(
 ): ResumeCommand {
   const command = option?.command?.trim() || agent;
   const args = option ? [...option.args] : [];
+  // FR-AITUI-016 AC-9: an attach is resumed by attaching again; it takes no session selector.
+  // A session other than the one it shows (picked by hand) is resumed instead.
+  const attachTarget = agent === 'claude' ? claudeAttachTarget(args) : null;
+  if (attachTarget) {
+    if (sessionId.toLowerCase().startsWith(attachTarget.toLowerCase())) return { command, args: ['attach', attachTarget] };
+    return { command, args: [...args.slice(2), '--resume', sessionId] };
+  }
   if (agent === 'codex') {
     return { command, args: [...stripCodexResume(args), 'resume', sessionId] };
   }
