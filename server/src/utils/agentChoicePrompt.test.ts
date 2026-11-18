@@ -9,8 +9,13 @@ import {
   isAgentChoicePrompt,
   isChoiceAnsweringInput,
   readHeadlessBottomRows,
+  showsAgentPromptOrWork,
 } from './agentChoicePrompt.js';
-import { CAPTURED_NEGATIVE_SCREENS, CAPTURED_POSITIVE_SCREENS } from './agentChoicePrompt.fixtures.js';
+import {
+  CAPTURED_NEGATIVE_SCREENS,
+  CAPTURED_POSITIVE_SCREENS,
+  CAPTURED_SCROLLED_MENU_SCREEN,
+} from './agentChoicePrompt.fixtures.js';
 import { createHeadlessTerminalState, writeHeadlessTerminal } from './headlessTerminal.js';
 
 /** The rows the server actually reads: the bottom of a 32-row screen. */
@@ -29,6 +34,63 @@ for (const [name, screen] of Object.entries(CAPTURED_NEGATIVE_SCREENS)) {
     assert.equal(isAgentChoicePrompt(bottomRows(screen)), false, screen);
   });
 }
+
+// FR-AITUI-024 AC-6: what tells a waiting mark that the agent has moved on. A menu
+// that is merely out of view (scrolled) must not.
+for (const [name, screen] of Object.entries(CAPTURED_NEGATIVE_SCREENS)) {
+  if (screen === '') continue; // an empty screen tells nothing either way
+  test(`FR-AITUI-024 AC-6: the captured screen ${name} shows the agent at its prompt or at work`, () => {
+    assert.equal(showsAgentPromptOrWork(bottomRows(screen)), true, screen);
+  });
+}
+
+for (const [name, screen] of Object.entries(CAPTURED_POSITIVE_SCREENS)) {
+  test(`FR-AITUI-024 AC-6: the captured menu ${name} does not show the agent at its prompt`, () => {
+    assert.equal(showsAgentPromptOrWork(bottomRows(screen)), false, screen);
+  });
+}
+
+test('FR-AITUI-024 AC-6: a waiting menu scrolled so its footer is off screen does not show the agent back', () => {
+  assert.equal(showsAgentPromptOrWork(CAPTURED_SCROLLED_MENU_SCREEN), false);
+  // Scrolled further, the options under the selected one leave the screen too, and
+  // the screen no longer reads as a menu: only the kept mark carries the tab.
+  const further = CAPTURED_SCROLLED_MENU_SCREEN.split('\n').filter(row => !/^ {2}[234]\.|^ {5}(인자를|「같은)/.test(row)).join('\n');
+  assert.equal(isAgentChoicePrompt(further), false, further);
+  assert.equal(showsAgentPromptOrWork(further), false);
+});
+
+test('FR-AITUI-024 AC-6: a scrolled menu with the cursor on its last option between rules is not a composer', () => {
+  // Review of the sticky mark: the rule above "Chat about this" and the "Jump to
+  // bottom" rule under it framed the selected option like a composer.
+  const screen = [
+    '  4. Type something.',
+    '─'.repeat(200),
+    '❯ 5. Chat about this',
+    `${'─'.repeat(90)} Jump to bottom (ctrl+End) ↓ ${'─'.repeat(80)}`,
+    `${'─'.repeat(180)} og-flow 지휘 2221 ─`,
+  ].join('\n');
+  assert.equal(showsAgentPromptOrWork(screen), false);
+});
+
+test('FR-AITUI-024 AC-6: less common prompts and layouts still show the agent has moved on', () => {
+  assert.equal(showsAgentPromptOrWork(['some output', '~/work on main', '❯'].join('\n')), true, 'starship');
+  assert.equal(showsAgentPromptOrWork(['some output', 'host%'].join('\n')), true, 'zsh');
+  assert.equal(showsAgentPromptOrWork(['● done', `─ og-flow 2136 ${'─'.repeat(60)}`, '❯ ', '─'.repeat(80), '  status'].join('\n')), true, 'a name on the left of the rule');
+  const panel = ['● done', '─'.repeat(80), '❯ ', '─'.repeat(80), '  name | repo | Opus', '  ⏵⏵ bypass permissions on · ← 5 agents · ↓ to manage', '', '  ● main'];
+  for (let i = 0; i < 8; i += 1) panel.push(`  ◯ general-purpose  task ${i}`);
+  assert.equal(showsAgentPromptOrWork(panel.join('\n')), true, 'a long background-agents panel under the composer');
+  assert.equal(showsAgentPromptOrWork(['● done', '─'.repeat(80), '❯ first line of a long draft that', '  wraps onto a second row', '─'.repeat(80)].join('\n')), true, 'a draft over two rows');
+  assert.equal(showsAgentPromptOrWork(['› Ask Codex to do anything', '', '  GPT-6-Astra high · ~\\work\\probe', '  100% context left'].join('\n')), true, 'Codex without the shortcut hint');
+  assert.equal(showsAgentPromptOrWork(['› Ask Codex to do anything', '  GPT-6 · ~\\work', '  ← for agents · ? for shortc…'].join('\n')), true, 'Codex on a narrow screen');
+});
+
+test('FR-AITUI-024 AC-6: a working agent and a shell prompt show the agent has moved on', () => {
+  assert.equal(showsAgentPromptOrWork(['● Running tests', '', '✻ Thinking… (12s · esc to interrupt)'].join('\n')), true);
+  assert.equal(showsAgentPromptOrWork(['some output', 'PS C:\\work> '].join('\n')), true);
+  assert.equal(showsAgentPromptOrWork(['some output', 'C:\\work>'].join('\n')), true);
+  assert.equal(showsAgentPromptOrWork(['some output', 'user@host:~/work$ '].join('\n')), true);
+  assert.equal(showsAgentPromptOrWork(''), false);
+});
 
 // Not captured: codex-cli 0.167.0 on this machine ran the command without asking.
 // Reconstructed from the approval overlay's wording so the second cursor glyph (›)
