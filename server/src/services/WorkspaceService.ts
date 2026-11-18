@@ -1249,9 +1249,9 @@ export class WorkspaceService {
   private isRecoverableOrphanTab(tab: WorkspaceTab): boolean {
     if (tab.lifecycleState === 'stopped') {
       // FR-AITUI-014 AC-8 (#242): shells die in the last seconds before the server does, and
-      // those exits are saved as stopped tabs. A tab the session save still holds was live at
-      // that save, so its exit is not the user's doing.
-      return tab.lifecycleReason === 'process-exit' && this.agentResumePending?.(tab.id) === true;
+      // those exits are saved as stopped tabs. A tab that stopped after the save being restored
+      // was live at that save; one that stopped before it was stopped by the user.
+      return tab.lifecycleReason === 'process-exit' && this.stoppedTabRecoverable?.(tab.id, tab.lifecycleUpdatedAt) === true;
     }
     if (tab.recoverable === false) {
       return false;
@@ -1362,6 +1362,13 @@ export class WorkspaceService {
   /** FR-AITUI-008 AC-1: set before checkOrphanTabs so saved tabs are not auto-recovered. */
   setAgentResumePendingChecker(checker: ((tabId: string) => boolean) | null): void {
     this.agentResumePending = checker;
+  }
+
+  private stoppedTabRecoverable: ((tabId: string, stoppedAt: string | undefined) => boolean) | null = null;
+
+  /** FR-AITUI-014 AC-8: set before checkOrphanTabs; whether a tab stopped by a process exit comes back. */
+  setStoppedTabRecoveryChecker(checker: ((tabId: string, stoppedAt: string | undefined) => boolean) | null): void {
+    this.stoppedTabRecoverable = checker;
   }
 
   /**

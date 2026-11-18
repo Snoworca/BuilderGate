@@ -9,7 +9,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { SessionSnapshotService, type SnapshotTabRecord, type SnapshotTabRuntime } from './SessionSnapshotService.js';
-import type { AgentRoots, ProcessInfo } from './agentSession/agentSessionResolver.js';
+import { findClaudeAttachSession, type AgentRoots, type ProcessInfo } from './agentSession/agentSessionResolver.js';
+import { buildResumeCommand } from './agentSession/resumeCommand.js';
 
 const SHARED = process.platform === 'win32' ? 'C:\\Work\\og' : '/work/og';
 const WORKTREE = process.platform === 'win32' ? 'C:\\Work\\og-2136' : '/work/og-2136';
@@ -124,6 +125,7 @@ test('FR-AITUI-016 AC-9: an attach tab is saved as the attach of its background 
     assert.equal(attach.confidence, 'exact');
     assert.equal(attach.resumeCommand, 'claude');
     assert.deepEqual(attach.resumeArguments, ['attach', '63cdfaba'], 'attached again as it was, no --resume');
+    assert.equal(attach.cwd, WORKTREE, 'reopened where the background session runs, so a resume there finds it');
     const mine = entryOf(f, 'tb');
     assert.equal(mine.sessionId, MINE_ID, 'the other tab keeps its own session');
     assert.deepEqual(mine.resumeArguments, ['--dangerously-skip-permissions', '--resume', MINE_ID]);
@@ -174,5 +176,34 @@ test('FR-AITUI-014 AC-9: an older save of an ended attach is resumed by the id i
     await restarted.initialize();
     await restarted.autoRestore();
     assert.deepEqual(f.scheduled.find((s) => s.tabId === 'ta')?.args, ['--resume', BG_ID]);
+  });
+});
+
+test('FR-AITUI-016 AC-9: a session picked by hand that is not the attach target is resumed, not attached', () => {
+  assert.deepEqual(buildResumeCommand('claude', BG_ID, { command: 'claude', args: ['attach', '63cdfaba'] }).args, ['attach', '63cdfaba']);
+  assert.deepEqual(buildResumeCommand('claude', OTHER_ID, { command: 'claude', args: ['attach', '63cdfaba'] }).args, ['--resume', OTHER_ID]);
+});
+
+test('FR-AITUI-016 AC-9: an attach target shorter than a short id is a name, not an id prefix', async () => {
+  await withFixture(async (f) => {
+    const project = path.join(f.roots.claudeHome, 'projects', 'C--Work-og');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(path.join(project, 'cafe0000-1111-4222-8333-444455556666.jsonl'), '{}');
+    assert.equal(await findClaudeAttachSession('cafe', { roots: f.roots, isPidAlive: (pid) => f.alive.has(pid) }), null);
+    assert.equal((await findClaudeAttachSession('cafe0000', { roots: f.roots, isPidAlive: (pid) => f.alive.has(pid) }))?.sessionId, 'cafe0000-1111-4222-8333-444455556666');
+  });
+});
+
+test('FR-AITUI-014 AC-8: a tab counts as live at the restored save only when it stopped after that save', async () => {
+  await withFixture(async (f) => {
+    const restarted = await saveAndRestart(f);
+    await restarted.initialize();
+    // The save above was taken at 2026-11-18T00:00:00Z.
+    assert.equal(restarted.stoppedAfterRestoreSave('ta', '2026-11-18T00:00:05.000Z'), true, 'stopped after the save');
+    assert.equal(restarted.stoppedAfterRestoreSave('ta', '2026-11-17T23:59:00.000Z'), false, 'stopped before the save: the user stopped it');
+    assert.equal(restarted.stoppedAfterRestoreSave('ta', undefined), false, 'no stop time');
+    assert.equal(restarted.stoppedAfterRestoreSave('missing', '2026-11-18T00:00:05.000Z'), false, 'not in the save');
+    await restarted.autoRestore();
+    assert.equal(restarted.stoppedAfterRestoreSave('ta', '2026-11-18T00:00:05.000Z'), false, 'once the save is restored');
   });
 });

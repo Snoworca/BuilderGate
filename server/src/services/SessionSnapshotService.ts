@@ -664,11 +664,15 @@ export class SessionSnapshotService {
     const resolved = new Map<string, ResolvedAgentSession | null>();
     // FR-AITUI-016 AC-9 (#242): an attach tab names its session; its folder is no clue to it.
     const attachTabs = new Set<string>();
-    for (const { record, ctx } of contexts) {
+    for (const item of contexts) {
+      const { record, ctx } = item;
       const target = this.attachTargetOf(record);
       if (target) {
         attachTabs.add(ctx.tabId);
-        resolved.set(ctx.tabId, await this.resolveAttach(target, ctx));
+        const attach = await this.resolveAttach(target, ctx);
+        resolved.set(ctx.tabId, attach?.session ?? null);
+        // A resume finds a session only in its own folder, so the tab reopens there.
+        if (attach?.cwd) item.ctx = { ...ctx, cwd: attach.cwd };
         continue;
       }
       resolved.set(ctx.tabId, await resolveOne(ctx, new Set()));
@@ -713,14 +717,14 @@ export class SessionSnapshotService {
   }
 
   /** FR-AITUI-016 AC-9: the background session an attach shows, or the target as named. */
-  private async resolveAttach(target: string, ctx: TabAgentContext): Promise<ResolvedAgentSession | null> {
+  private async resolveAttach(target: string, ctx: TabAgentContext): Promise<{ session: ResolvedAgentSession; cwd: string | null } | null> {
     const roots = this.deps.rootsFor ? await this.deps.rootsFor(ctx.cwd) : undefined;
     const found = roots
       ? await findClaudeAttachSession(target, { roots, ...(this.deps.isPidAlive ? { isPidAlive: this.deps.isPidAlive } : {}) })
       : null;
     const sessionId = found?.sessionId ?? target;
     if (!isValidAgentSessionId('claude', sessionId)) return null;
-    return { agent: 'claude', sessionId, method: 'claude-attach', confidence: 'exact' };
+    return { session: { agent: 'claude', sessionId, method: 'claude-attach', confidence: 'exact' }, cwd: found?.cwd || null };
   }
 
   /**
@@ -1466,6 +1470,17 @@ export class SessionSnapshotService {
   }
 
   /** FR-AITUI-008 AC-1: the tab is a saved one the start has not restored yet. */
+  /**
+   * FR-AITUI-014 AC-8 (#242): whether a tab stopped after the save being restored was taken.
+   * The save holds every tab, stopped ones too, so being in it says nothing about being live.
+   */
+  stoppedAfterRestoreSave(tabId: string, stoppedAt: string | undefined): boolean {
+    if (!this.restoreSource || this.restoreSourceDone || !stoppedAt) return false;
+    const at = Date.parse(stoppedAt);
+    if (!Number.isFinite(at) || at <= timeOf(this.restoreSource)) return false;
+    return this.restoreSource.entries.some((entry) => entry.tabId === tabId);
+  }
+
   hasPendingForTab(tabId: string): boolean {
     if (!this.restoreSource || this.restoreSourceDone) return false;
     return this.restoreSource.entries.some((entry) => entry.tabId === tabId);

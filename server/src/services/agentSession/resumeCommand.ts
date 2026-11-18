@@ -84,8 +84,12 @@ export function buildResumeCommand(
   const command = option?.command?.trim() || agent;
   const args = option ? [...option.args] : [];
   // FR-AITUI-016 AC-9: an attach is resumed by attaching again; it takes no session selector.
+  // A session other than the one it shows (picked by hand) is resumed instead.
   const attachTarget = agent === 'claude' ? claudeAttachTarget(args) : null;
-  if (attachTarget) return { command, args: ['attach', attachTarget] };
+  if (attachTarget) {
+    if (sessionId.toLowerCase().startsWith(attachTarget.toLowerCase())) return { command, args: ['attach', attachTarget] };
+    return { command, args: [...args.slice(2), '--resume', sessionId] };
+  }
   if (agent === 'codex') {
     return { command, args: [...stripCodexResume(args), 'resume', sessionId] };
   }

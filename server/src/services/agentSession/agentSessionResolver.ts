@@ -252,7 +252,8 @@ async function resolveClaude(ctx: TabAgentContext, env: ResolveEnv, treePids: Re
   return { agent: 'claude', sessionId: best.sessionId, method: 'claude-pid-file', confidence: 'estimated' };
 }
 
-const ATTACH_ID_PREFIX = /^[0-9a-f][0-9a-f-]{3,35}$/i;
+// `claude agents` prints 8 hex digits; anything shorter is taken as a session name.
+const ATTACH_ID_PREFIX = /^[0-9a-f]{8}[0-9a-f-]{0,28}$/i;
 
 /**
  * #242 (FR-AITUI-016 AC-9 / FR-AITUI-014 AC-9): the session `claude attach <target>` shows.
@@ -260,14 +261,15 @@ const ATTACH_ID_PREFIX = /^[0-9a-f][0-9a-f-]{3,35}$/i;
  * under its full id, which starts with the short id `claude agents` prints. A session that
  * has ended has no running pid file left, so its id is read from its transcript.
  */
-export async function findClaudeAttachSession(target: string, env: ResolveEnv): Promise<{ sessionId: string; live: boolean } | null> {
+export async function findClaudeAttachSession(target: string, env: ResolveEnv): Promise<{ sessionId: string; live: boolean; cwd?: string } | null> {
   if (!ATTACH_ID_PREFIX.test(target)) return null;
   const wanted = target.toLowerCase();
   const matches = (sessionId: string) => UUID.test(sessionId) && sessionId.toLowerCase().startsWith(wanted);
   try {
     const recorded = (await claudeEntries(env)).filter((entry) => matches(entry.sessionId));
-    const live = [...new Set((await liveClaudeEntries(recorded, env)).map((entry) => entry.sessionId))];
-    if (live.length === 1) return { sessionId: live[0], live: true };
+    const running = await liveClaudeEntries(recorded, env);
+    const live = [...new Set(running.map((entry) => entry.sessionId))];
+    if (live.length === 1) return { sessionId: live[0], live: true, cwd: running[0].cwd };
     if (live.length > 1) return null;
     const transcripts = new Set<string>();
     const projects = path.join(env.roots.claudeHome, 'projects');
