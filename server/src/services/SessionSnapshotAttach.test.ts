@@ -207,3 +207,16 @@ test('FR-AITUI-014 AC-8: a tab counts as live at the restored save only when it 
     assert.equal(restarted.stoppedAfterRestoreSave('ta', '2026-11-18T00:00:05.000Z'), false, 'once the save is restored');
   });
 });
+
+test('FR-AITUI-016 AC-9: an attach tab saved from the save dialog is saved in its background session folder too', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    const { snapshot } = await service.saveAll([
+      { tabId: 'ta', mode: 'agent', agent: 'claude', sessionId: BG_ID, launcher: 'claude', args: ['attach', '63cdfaba'] },
+    ]);
+    const entry = snapshot.entries.find((e) => e.tabId === 'ta');
+    assert.deepEqual(entry?.resumeArguments, ['attach', '63cdfaba']);
+    assert.equal(entry?.cwd, WORKTREE);
+  });
+});

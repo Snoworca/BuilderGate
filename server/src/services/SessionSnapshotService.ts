@@ -727,6 +727,21 @@ export class SessionSnapshotService {
     return { session: { agent: 'claude', sessionId, method: 'claude-attach', confidence: 'exact' }, cwd: found?.cwd || null };
   }
 
+  /** FR-AITUI-016 AC-9: an attach entry reopens where its background session runs, so a resume there finds it. */
+  private async inAttachFolder(entry: SnapshotEntry): Promise<SnapshotEntry> {
+    const target = entry.mode === 'agent' && entry.agent === 'claude' ? claudeAttachTarget(entry.resumeArguments) : null;
+    if (!target) return entry;
+    try {
+      const roots = this.deps.rootsFor ? await this.deps.rootsFor(entry.cwd) : undefined;
+      const found = roots
+        ? await findClaudeAttachSession(target, { roots, ...(this.deps.isPidAlive ? { isPidAlive: this.deps.isPidAlive } : {}) })
+        : null;
+      return found?.cwd ? { ...entry, cwd: found.cwd } : entry;
+    } catch {
+      return entry;
+    }
+  }
+
   /**
    * FR-AITUI-014 AC-9 (#242): an attach is typed as it was launched (an older save added a
    * guessed --resume, which attach ignores). When its background session has ended there is
@@ -985,7 +1000,7 @@ export class SessionSnapshotService {
       const record = records.get(tabId);
       try {
         if (!record) throw new EntryError('tab-missing');
-        entries.push(this.entryFor(record, item));
+        entries.push(await this.inAttachFolder(this.entryFor(record, item)));
       } catch (error) {
         bad.push(tabId);
         reasons[tabId] = error instanceof EntryError ? error.message : 'invalid';
