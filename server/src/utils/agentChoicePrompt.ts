@@ -62,6 +62,51 @@ export function isAgentChoicePrompt(screenText: string): boolean {
   return below.some(row => NUMBERED_OPTION.exec(row)?.[1] === next);
 }
 
+/**
+ * Bottom rows searched for signs that the agent has moved on from a menu: the
+ * composer, its two status rows and an expanded background-agents panel.
+ */
+const MOVED_ON_SCAN_ROWS = 20;
+// A rule, plain or with a session name on either end ("─ og-flow 2136 ────").
+const RULE_ROW = /^\s*─(?:─{2,}|.*─{3,})/u;
+// A rule with the composer on the same row, as a read that joins wrapped rows gives it.
+const RULE_THEN_COMPOSER = new RegExp(`^\\s*─{3,}[^❯›>]*?${CURSOR_GLYPH}`, 'u');
+// A selected numbered option is a menu row even when rules frame it (a scrolled
+// menu with the cursor on "Chat about this").
+const NUMBERED_CURSOR = new RegExp(`^\\s*[│┃]?\\s*${CURSOR_GLYPH}\\s*\\d{1,2}[.)]\\s`, 'u');
+const AGENT_AT_WORK = /\besc to interrupt\b|\?\s+for shortcuts\b|\b\d{1,3}% context left\b|← for agents\b/iu;
+/** Rows a composer draft may wrap over before the rule under it. */
+const MAX_COMPOSER_ROWS = 8;
+// A prompt as the last row: PowerShell, cmd, POSIX shells ($ # %), a lone prompt
+// glyph (an empty agent composer, starship, fish), cmder's λ.
+const SHELL_PROMPT = new RegExp(`^PS [^\\n]*>$|^[A-Za-z]:\\\\[^>\\n]*>$|[$#%λ]$|^${CURSOR_GLYPH}$`, 'u');
+
+/**
+ * FR-AITUI-024 AC-6: whether the bottom rows show that the agent has moved on from a
+ * menu: its composer between two rules (Claude Code), its working line ("esc to
+ * interrupt"), its shortcut hint ("? for shortcuts"), or a shell prompt on the last
+ * row. A menu that is only out of view (scrolled, its footer replaced by "Jump to
+ * bottom") shows none of these. Pure: the screen text is all it reads.
+ */
+export function showsAgentPromptOrWork(screenText: string): boolean {
+  const all = screenText.split('\n').map(row => row.replace(/\s+$/u, '')).filter(row => row.trim() !== '');
+  if (all.length === 0) return false;
+  if (SHELL_PROMPT.test(all[all.length - 1].trim())) return true;
+  const rows = all.slice(-MOVED_ON_SCAN_ROWS);
+  if (rows.some(row => AGENT_AT_WORK.test(row))) return true;
+  for (let i = 0; i < rows.length - 1; i += 1) {
+    if (NUMBERED_CURSOR.test(rows[i])) continue;
+    const composer = RULE_THEN_COMPOSER.test(rows[i]) || (i > 0 && CURSOR_LEAD.test(rows[i]) && RULE_ROW.test(rows[i - 1]));
+    if (!composer) continue;
+    // The rule under the composer, after any rows its draft wraps over.
+    for (let j = i + 1; j < rows.length && j <= i + MAX_COMPOSER_ROWS; j += 1) {
+      if (RULE_ROW.test(rows[j])) return true;
+      if (CURSOR_LEAD.test(rows[j])) break;
+    }
+  }
+  return false;
+}
+
 // Input that moves through a menu or that the terminal sends by itself: cursor and
 // paging keys, Tab / Shift+Tab, focus and mouse reports, and replies to queries
 // (cursor position, device attributes, OSC colours, DCS). None of it answers.

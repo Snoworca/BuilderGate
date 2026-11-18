@@ -96,6 +96,25 @@ test('FR-AITUI-024 AC-2: a read that does not change the answer reports nothing'
   assert.deepEqual(h.changes, [['s1', true], ['s1', false]], 'the prompt going away clears it');
 });
 
+test('FR-AITUI-024 AC-6: a menu scrolled out of view keeps the mark until the agent is back', async () => {
+  // Seen on 2002: scrolling a waiting Claude Code menu redraws it with its footer
+  // off screen, and the next read cleared the mark though nothing was answered.
+  const h = harness();
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
+  // Scrolled far enough that only the selected option is left: no footer, no "2.".
+  h.screens.set('s1', ['│ Proceed?', '❯ 1. Yes', '     the first option', '───── Jump to bottom (ctrl+End) ↓ ─────'].join('\n'));
+  h.tracker.noteInput('s1', '\u001b[<65;10;10M'); // the wheel: not an answer
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
+  assert.deepEqual(h.changes, [['s1', true]], 'still waiting');
+  assert.equal(h.tracker.isAwaiting('s1'), true);
+  h.screens.set('s1', ['● Working on it', '✻ Thinking… (3s · esc to interrupt)'].join('\n'));
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
+  assert.deepEqual(h.changes, [['s1', true], ['s1', false]], 'the agent at work clears it');
+});
+
 test('FR-AITUI-024 AC-3: a key that answers clears the mark at once', async () => {
   const h = harness();
   h.tracker.noteOutput('s1');

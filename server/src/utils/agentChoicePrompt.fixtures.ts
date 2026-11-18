@@ -60,6 +60,28 @@ export const CAPTURED_POSITIVE_SCREENS: Record<string, string> = {
   ].join('\n'),
 };
 
+/**
+ * Captured 2026-11-18 from "og-flow 지휘 2221" on 2002 after the user scrolled the
+ * waiting menu: Claude Code draws it shifted up, the options below "4." and the
+ * footer are off screen and a "Jump to bottom" rule takes their place. Rows that
+ * terminal.read joined are split back; rules are written with repeat(). The menu is
+ * still unanswered, so it must not read as the agent being back at its prompt.
+ */
+export const CAPTURED_SCROLLED_MENU_SCREEN = [
+  '  7. 이후 진행: 답을 주시면 병합 승인을 요청할 때까지 더 묻지 않고 진행합니다.',
+  `${'─'.repeat(200)}←  ☐ 회수 범위  ☐ 범위  ✔ Submit  →`,
+  '│ #2221: 관리 화면(회원 상세 「토큰 대신 발급」)은 어떤 회수 범위로 발급할까요? 서버 #6147 이후 revokeScope 를 빼면 같은 이름(label)의 토큰만 교체됩니다.',
+  '❯ 1. "all" 명시 — 지금 UX 유지 (권장)',
+  '     회원 대상 발급에 revokeScope:"all" 을 보내 모두 회수 + 에이전트 연결 삭제. 확인 창 · 시안 05 문구 유지, 0.9.6 서버와도 동작 일치',
+  '  2. 서버 기본(같은 이름만 교체)',
+  '     인자를 빼고 확인 창 · 양식 순서와 문구, 멈추는 토큰 수 계산을 이름 기준으로 다시 설계(시안 05 변경)',
+  '  3. 양식에서 관리자가 고름',
+  '     「같은 이름만 교체 / 모두 회수」 선택지를 새로 두고 확인 문장도 나눔(새 UI 설계)',
+  '  4. Type something.',
+  `${'─'.repeat(90)} Jump to bottom (ctrl+End) ↓ ${'─'.repeat(80)}`,
+  `${'─'.repeat(180)} og-flow 지휘 2221 ─`,
+].join('\n');
+
 export const CAPTURED_NEGATIVE_SCREENS: Record<string, string> = {
   claudeIdlePrompt: "\n ▐▛███▛█   Claude Code v2.1.325\n▝▜██████▀  Haiku 5.5 · Claude Ultra\n ▝▝   ▝▝   ~\\work\\probe\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                                                ◐ medium · /effort\n────────────────────────────────────────────────────────────────────────────────────────────────────\n❯ Try \"write a test for <filepath>\"\n────────────────────────────────────────────────────────────────────────────────────────────────────\n\n  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents",
   claudeTypedPrompt: "\n ▐▛███▛█   Claude Code v2.1.325\n▝▜██████▀  Haiku 5.5 · Claude Ultra\n ▝▝   ▝▝   ~\\work\\probe\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                                                                ◐ medium · /effort\n────────────────────────────────────────────────────────────────────────────────────────────────────\n❯ Use the Bash tool to run exactly this command: echo awaiting-probe . Do nothing else.\n────────────────────────────────────────────────────────────────────────────────────────────────────\n\n  ⏵⏵ auto mode on (shift+tab to cycle)",

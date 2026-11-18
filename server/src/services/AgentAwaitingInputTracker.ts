@@ -1,4 +1,4 @@
-import { isAgentChoicePrompt, isChoiceAnsweringInput } from '../utils/agentChoicePrompt.js';
+import { isAgentChoicePrompt, isChoiceAnsweringInput, showsAgentPromptOrWork } from '../utils/agentChoicePrompt.js';
 
 /** FR-AITUI-024 AC-2: quiet time after the last output before the screen is read. */
 export const AWAITING_INPUT_SETTLE_MS = 250;
@@ -115,7 +115,11 @@ export class AgentAwaitingInputTracker {
       screen = null;
     }
     if (this.entries.get(sessionId) !== entry || entry.generation !== generation) return;
-    this.set(sessionId, entry, screen !== null && isAgentChoicePrompt(screen));
+    const waiting = screen !== null && isAgentChoicePrompt(screen);
+    // AC-6: a menu scrolled out of view is still unanswered. Once marked, a screen
+    // that shows no menu clears the mark only when it shows the agent moved on.
+    if (!waiting && entry.awaiting && screen !== null && !showsAgentPromptOrWork(screen)) return;
+    this.set(sessionId, entry, waiting);
   }
 
   private set(sessionId: string, entry: Entry, awaiting: boolean): void {
