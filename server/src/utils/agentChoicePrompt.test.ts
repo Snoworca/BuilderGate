@@ -106,6 +106,46 @@ test('FR-AITUI-024 AC-1: footer words in the transcript above the composer do no
   assert.equal(isAgentChoicePrompt(screen), false);
 });
 
+test('FR-AITUI-024 AC-1: footer words typed into the composer do not count (Claude Code and Codex)', () => {
+  const claude = [
+    '❯ 배지 고쳐줘',
+    '● 고쳤습니다.',
+    '─────',
+    '❯ make "Enter to select · Esc to cancel" light the badge',
+    '─────',
+    '  probe | Opus',
+    '  ⏵⏵ auto mode on (shift+tab to cycle)',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(claude), false);
+  const codex = [
+    '› earlier',
+    '• done',
+    '› explain why Enter to confirm shows',
+    '',
+    '  GPT-6-Astra high · ~\\work\\probe',
+    '  ← for agents · ? for shortcuts',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(codex), false);
+});
+
+test('FR-AITUI-024 AC-1: footer words quoted in an answer do not count even with no status rows under the composer', () => {
+  const screen = ['❯ how does the footer read?', '● It reads "Enter to select · Esc to cancel".', '─────', '❯ ', '─────'].join('\n');
+  assert.equal(isAgentChoicePrompt(screen), false);
+});
+
+test('FR-AITUI-024 AC-1: a menu with a few rows under its footer still counts', () => {
+  const screen = [
+    ' ❯ No, exit',
+    '   Yes, I trust this folder',
+    ' Enter to confirm · Esc to cancel',
+    '  ● main',
+    '  ◯ general-purpose  checking files',
+    '  ◯ general-purpose  reading tests',
+    '  ◯ general-purpose  writing notes',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(screen), true);
+});
+
 test('FR-AITUI-024 AC-1: a menu scrolled up away from the bottom does not count', () => {
   const lines = ['❯ 1. Yes', '  2. No', 'Esc to cancel'];
   for (let i = 0; i < 10; i += 1) lines.push(`output line ${i}`);

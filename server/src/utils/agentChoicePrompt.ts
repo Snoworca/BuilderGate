@@ -9,11 +9,11 @@ import type { HeadlessTerminalState } from './headlessTerminal.js';
 export const CHOICE_PROMPT_SCAN_ROWS = 40;
 
 /**
- * Rows under a menu's footer: the border a named (-n) Claude Code session draws there.
- * The composer and status rows under an agent's answer are more than this, so footer
- * words quoted in a transcript are not a footer.
+ * Rows a menu's footer may sit above the bottom: the border a named (-n) Claude Code
+ * session draws there, a background-agents panel. Footer words quoted in an answer
+ * are told apart by the composer under them, not by this count.
  */
-const MAX_ROWS_BELOW_FOOTER = 3;
+const MAX_ROWS_BELOW_FOOTER = 6;
 
 /** Without a footer, rows the cursor line may sit above the bottom: options and descriptions. */
 const MAX_ROWS_BELOW_CURSOR = 8;
@@ -25,6 +25,9 @@ const MAX_ROWS_BELOW_CURSOR = 8;
 // starts it; a doubled '>>' is a PowerShell continuation line, not a cursor.
 const CURSOR_GLYPH = '(?:[❯›▶➤]|>(?!>))';
 const CURSOR_OPTION = new RegExp(`^\\s*[│┃]?\\s*${CURSOR_GLYPH}\\s*(?:(\\d{1,2})[.)]\\s+)?\\S`, 'u');
+// A row that starts with a cursor glyph, text or not: a menu option, or an agent's
+// composer ("❯ " empty, "❯ typed text").
+const CURSOR_LEAD = new RegExp(`^\\s*[│┃]?\\s*${CURSOR_GLYPH}`, 'u');
 const NUMBERED_OPTION = new RegExp(`^\\s*[│┃]?\\s*(?:${CURSOR_GLYPH}\\s*)?(\\d{1,2})[.)]\\s+\\S`, 'u');
 // The footer a menu prints. "esc to interrupt" is a working agent, not a menu.
 const MENU_HINT = /(?:\benter\b|⏎).{0,24}?\bto\s+(?:confirm|select|submit|choose|continue|accept)\b|\besc\b.{0,16}?\bto\s+(?:cancel|go\s+back|exit|reject|deny|close|dismiss)\b/iu;
@@ -33,12 +36,14 @@ const MENU_HINT = /(?:\benter\b|⏎).{0,24}?\bto\s+(?:confirm|select|submit|choo
  * FR-AITUI-024 AC-1: whether the bottom rows of a screen show an agent waiting on a
  * choice. Either the menu footer sits at the bottom with a selected option anywhere
  * above it (a menu of any length), or, with no footer, a selected option sits near
- * the bottom and the next numbered option follows it. Pure: the screen text is all
- * it reads.
+ * the bottom and the next numbered option follows it. Footer words in the composer,
+ * or above it in an answer, are not a footer: a menu replaces the composer. Pure:
+ * the screen text is all it reads.
  */
 export function isAgentChoicePrompt(screenText: string): boolean {
   const rows = screenText.split('\n').map(row => row.replace(/\s+$/u, '')).filter(row => row.trim() !== '');
   for (let i = rows.length - 1; i >= 0 && i >= rows.length - 1 - MAX_ROWS_BELOW_FOOTER; i -= 1) {
+    if (CURSOR_LEAD.test(rows[i])) break;
     if (MENU_HINT.test(rows[i])) return rows.slice(0, i).some(row => CURSOR_OPTION.test(row));
   }
   let cursorIndex = -1;
