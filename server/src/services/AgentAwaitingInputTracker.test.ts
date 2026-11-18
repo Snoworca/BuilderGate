@@ -12,6 +12,8 @@ import {
 
 const PROMPT = ['Do you want to proceed?', '❯ 1. Yes', '  2. No', 'Esc to cancel'].join('\n');
 const PLAIN = ['❯ ', '? for shortcuts'].join('\n');
+const NEXT_QUESTION = ['←  ☒ Color  ☐ Size  ✔ Submit  →', 'Which size?', '❯ 1. Small', '  2. Large', 'Enter to select · Esc to cancel'].join('\n');
+const WORKING = ['● Writing the file', '✻ Thinking… (2s · esc to interrupt)'].join('\n');
 
 /** A hand-driven clock: timers fire only when advance() passes them. */
 function harness(initialScreen = PROMPT) {
@@ -115,13 +117,30 @@ test('FR-AITUI-024 AC-6: a menu scrolled out of view keeps the mark until the ag
   assert.deepEqual(h.changes, [['s1', true], ['s1', false]], 'the agent at work clears it');
 });
 
-test('FR-AITUI-024 AC-3: a key that answers clears the mark at once', async () => {
+test('FR-AITUI-024 AC-3: answering one question of a form keeps the mark while the next question waits', async () => {
+  // 2026-11-18 user report: a form of several questions, one answered, the rest
+  // untouched, must keep the ? on; clearing on the key made it blink or vanish.
   const h = harness();
   h.tracker.noteOutput('s1');
   await h.advance(AWAITING_INPUT_SETTLE_MS);
   h.tracker.noteInput('s1', '\r');
+  assert.equal(h.tracker.isAwaiting('s1'), true, 'the key alone does not clear it');
+  h.screens.set('s1', NEXT_QUESTION);
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_MAX_WAIT_MS);
+  assert.deepEqual(h.changes, [['s1', true]], 'no blink between the questions');
+  assert.equal(h.tracker.isAwaiting('s1'), true);
+});
+
+test('FR-AITUI-024 AC-3: after the last answer the mark clears once the agent is shown back at work', async () => {
+  const h = harness();
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
+  h.tracker.noteInput('s1', '\r');
+  h.screens.set('s1', WORKING);
+  h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
   assert.deepEqual(h.changes, [['s1', true], ['s1', false]]);
-  assert.equal(h.tracker.isAwaiting('s1'), false);
 });
 
 test('FR-AITUI-024 AC-3: an arrow key does not clear it, so moving through the menu does not flicker', async () => {
@@ -134,18 +153,14 @@ test('FR-AITUI-024 AC-3: an arrow key does not clear it, so moving through the m
   assert.deepEqual(h.changes, [['s1', true]]);
 });
 
-test('FR-AITUI-024 AC-3: a read that started before the answer cannot set the mark again', async () => {
+test('FR-AITUI-024 AC-3: an answer the agent has not reacted to leaves the mark: the menu is still there', async () => {
   const h = harness();
   h.tracker.noteOutput('s1');
   await h.advance(AWAITING_INPUT_SETTLE_MS);
-  h.holdReads();
-  h.tracker.noteOutput('s1');
-  await h.advance(AWAITING_INPUT_SETTLE_MS);
-  assert.equal(h.reads.length, 2, 'the second read is in flight');
   h.tracker.noteInput('s1', '1');
-  await h.releaseReads();
-  assert.deepEqual(h.changes, [['s1', true], ['s1', false]]);
-  assert.equal(h.tracker.isAwaiting('s1'), false);
+  await h.advance(AWAITING_INPUT_MAX_WAIT_MS);
+  assert.deepEqual(h.changes, [['s1', true]]);
+  assert.equal(h.tracker.isAwaiting('s1'), true);
 });
 
 test('FR-AITUI-024 AC-3: input to a session that is not waiting reports nothing', () => {
@@ -172,19 +187,20 @@ test('FR-AITUI-024 AC-2: a screen that cannot be read (no headless replica) answ
   assert.equal(h.tracker.isAwaiting('s1'), false);
 });
 
-test('FR-AITUI-024 AC-3: an answering key cancels a read already scheduled, so the old menu cannot set the mark again', async () => {
-  // PR #241 review: Down redraws the menu and arms a read; Enter lands before it fires.
-  // The read must not run against the menu still on screen before the agent's reply.
+test('FR-AITUI-024 AC-3: an answering key schedules its own read, so a read in flight against the old menu does not leave the mark stuck', async () => {
   const h = harness();
   h.tracker.noteOutput('s1');
   await h.advance(AWAITING_INPUT_SETTLE_MS);
-  assert.deepEqual(h.changes, [['s1', true]]);
+  h.holdReads();
   h.tracker.noteOutput('s1');
+  await h.advance(AWAITING_INPUT_SETTLE_MS);
+  assert.equal(h.reads.length, 2, 'a read of the old menu is in flight');
   h.tracker.noteInput('s1', '\r');
-  assert.equal(h.timers.size, 0, 'the scheduled read is cancelled');
+  h.screens.set('s1', WORKING);
+  await h.releaseReads();
+  assert.deepEqual(h.changes, [['s1', true]], 'the old menu keeps it for now');
   await h.advance(AWAITING_INPUT_MAX_WAIT_MS);
-  assert.deepEqual(h.changes, [['s1', true], ['s1', false]]);
-  assert.equal(h.reads.length, 1);
+  assert.deepEqual(h.changes, [['s1', true], ['s1', false]], 'the read after the key sees the agent at work');
 });
 
 test('FR-AITUI-024 AC-4: a session closed while waiting reports not waiting, so its tab drops the mark', async () => {

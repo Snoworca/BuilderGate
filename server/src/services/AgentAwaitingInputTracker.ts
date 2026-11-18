@@ -29,8 +29,9 @@ interface Entry {
 /**
  * FR-AITUI-024: whether each session's agent waits on a choice prompt. Output
  * schedules one read of the screen once it settles (or at the latest after the
- * max wait); nothing polls. An answering key clears the mark at once; moving
- * through the menu leaves it to the next read.
+ * max wait); nothing polls. Once set, the mark stays until a read shows the agent
+ * moved on (AC-6) or the session ends: an answering key only arms a read (AC-3), so
+ * a form of several questions keeps it between them and a scrolled menu keeps it.
  */
 export class AgentAwaitingInputTracker {
   private readonly entries = new Map<string, Entry>();
@@ -59,15 +60,13 @@ export class AgentAwaitingInputTracker {
 
   noteInput(sessionId: string, data: string): void {
     const entry = this.entries.get(sessionId);
-    if (!entry || !isChoiceAnsweringInput(data)) return;
+    if (!entry || !entry.awaiting || !isChoiceAnsweringInput(data)) return;
+    // AC-3: an answer does not clear the mark by itself. A form of several questions
+    // goes on to the next one, and the screen read after the agent's reply decides:
+    // another menu keeps the mark, the agent shown moved on clears it (AC-6). A read
+    // already in flight saw the old menu, so the key arms a fresh one after it.
     entry.generation += 1;
-    // A read scheduled before the answer would see the old menu still on screen.
-    // The agent's reply is output, and that output schedules the next read.
-    if (entry.timer !== null) {
-      this.clearTimer(entry.timer);
-      entry.timer = null;
-    }
-    this.set(sessionId, entry, false);
+    this.noteOutput(sessionId);
   }
 
   isAwaiting(sessionId: string): boolean {
@@ -114,7 +113,10 @@ export class AgentAwaitingInputTracker {
     } catch {
       screen = null;
     }
-    if (this.entries.get(sessionId) !== entry || entry.generation !== generation) return;
+    if (this.entries.get(sessionId) !== entry) return;
+    // A read that started before an answer saw the menu as it was: it may keep the
+    // mark but must not decide anything new; the read the answer armed does that.
+    if (entry.generation !== generation) return;
     const waiting = screen !== null && isAgentChoicePrompt(screen);
     // AC-6: a menu scrolled out of view is still unanswered. Once marked, a screen
     // that shows no menu clears the mark only when it shows the agent moved on.
