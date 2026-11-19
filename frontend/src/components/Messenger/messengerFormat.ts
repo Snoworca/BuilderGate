@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { activeLanguage, t } from '../../i18n/i18n.ts';
 import { mcpControlApi } from '../../services/api.ts';
 import type { McpSessionRecord } from '../../types';
+import { readSafeViewportSize } from '../../utils/standaloneViewport.ts';
 
 export const errorText = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason));
 
@@ -42,7 +43,7 @@ export function formatAgo(parts: { value: number; unit: 'minute' | 'hour' | 'day
 
 /** The viewport as a rect, following rotation and the phone's address bar (phone windows fill it). */
 export function useViewportRect(): { x: number; y: number; width: number; height: number } {
-  const read = () => ({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
+  const read = () => ({ x: 0, y: 0, ...readSafeViewportSize() });
   const [rect, setRect] = useState(read);
   useEffect(() => {
     const onResize = () => setRect(read());
