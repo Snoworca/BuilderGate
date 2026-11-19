@@ -53,12 +53,16 @@ test('FR-MSG-003 AC-2/AC-4: session targets only; a person-only mention pastes n
   assert.deepEqual(personOnly, []);
 });
 
-test('FR-MSG-005 AC-2: held messages, system messages and already pasted ones are skipped', () => {
-  const held = msg({ held: true });
+test('FR-MSG-002: system messages and already pasted ones are skipped', () => {
   const sys = msg({ from: { node: 'alice', kind: 'system' }, system: { event: 'joined' } });
   const done = msg();
-  const plan = planDelivery({ room: baseRoom, messages: [held, sys, done], selfNode: 'alice', pasted: new Set([done.clientMsgId]), now: NOW });
+  const plan = planDelivery({ room: baseRoom, messages: [sys, done], selfNode: 'alice', pasted: new Set([done.clientMsgId]), now: NOW });
   assert.deepEqual(plan, []);
+});
+
+test('FR-MSG-016 AC-1: a message an older storage PC marked held is still pasted here', () => {
+  const plan = planDelivery({ room: baseRoom, messages: [msg({ held: true, to: ['alice::s1'] })], selfNode: 'alice', pasted: new Set(), now: NOW });
+  assert.deepEqual(plan.map((p) => p.sessionKey), ['s1']);
 });
 
 test('FR-MSG-004 AC-3: text over 2,000 characters is cut with a pointer to room.history', () => {

@@ -225,7 +225,7 @@ export function RoomView({ summary, state, room, localSessions, showBack, onBack
               {separator}
               {message.system !== undefined || message.from.kind === 'system'
                 ? <SystemLine message={message} me={me} sessions={sessions} onKick={kickable ? (node) => void run(() => messengerApi.removeMember(roomData.id, node)) : undefined} />
-                : <MessageItem message={message} room={mentionRoom} me={me} sessions={sessions} delivery={{ hostOnline, hostNode }} holdLimit={roomData.settings.holdLimit} />}
+                : <MessageItem message={message} room={mentionRoom} me={me} sessions={sessions} delivery={{ hostOnline, hostNode }} />}
             </Fragment>
           );
         })}

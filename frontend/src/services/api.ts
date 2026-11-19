@@ -1168,7 +1168,7 @@ export const messengerApi = {
   removeMember: (id: string, memberId: string) =>
     messengerCall<{ ok: true }>('DELETE', `${roomPath(id)}/members/${encodeURIComponent(memberId)}`),
   leave: (id: string) => messengerCall<{ ok: true }>('POST', `${roomPath(id)}/leave`),
-  updateSettings: (id: string, settings: { invitePolicy?: InvitePolicy; holdLimit?: number }) =>
+  updateSettings: (id: string, settings: { invitePolicy?: InvitePolicy }) =>
     messengerCall<{ ok: true; room: Room }>('PATCH', `${roomPath(id)}/settings`, settings),
   updateSession: (id: string, sessionKey: string, patch: { enter?: boolean; pasteAll?: boolean }) =>
     messengerCall<{ ok: true }>('PATCH', `${roomPath(id)}/sessions/${encodeURIComponent(sessionKey)}`, patch),

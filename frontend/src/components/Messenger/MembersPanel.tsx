@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { WindowDialog } from '../dialog';
 import { Icon } from '../common';
-import { Button, NumberInput, Select, Switch } from '../ui';
+import { Button, Select, Switch } from '../ui';
 import { t } from '../../i18n/i18n.ts';
 import { messengerApi } from '../../services/api.ts';
 import { errorText, useViewportRect } from './messengerFormat.ts';
@@ -35,7 +35,6 @@ export function MembersPanel({ detail, me, contacts, isMobile, focusMove = false
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [moveTo, setMoveTo] = useState('');
-  const [holdLimit, setHoldLimit] = useState(String(room.settings.holdLimit));
   const isCreator = room.createdBy === me;
   const contactNames = new Set(contacts.map((contact) => contact.name.toLowerCase()));
   const connected = new Set(contacts.filter((contact) => contact.state === 'connected').map((contact) => contact.name.toLowerCase()));
@@ -169,18 +168,6 @@ export function MembersPanel({ detail, me, contacts, isMobile, focusMove = false
             ))}
           </div>
           <span className="msgr-hint">{t('messenger.settings.autoHint')}</span>
-          <label className="msgr-faint" htmlFor="msgr-hold-limit">{t('messenger.settings.holdLimit')}</label>
-          <div className="msgr-row">
-            <NumberInput id="msgr-hold-limit" min={1} max={1000} value={holdLimit} disabled={!isCreator || busy} onChange={(event) => setHoldLimit(event.target.value)} />
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!isCreator || busy || Number(holdLimit) === room.settings.holdLimit || !(Number(holdLimit) >= 1)}
-              onClick={() => void run(() => messengerApi.updateSettings(room.id, { holdLimit: Number(holdLimit) }))}
-            >
-              {t('common.save')}
-            </Button>
-          </div>
           {!isCreator && <span className="msgr-hint">{t('messenger.settings.creatorOnly')}</span>}
 
           {isCreator && (

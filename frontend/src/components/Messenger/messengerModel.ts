@@ -392,9 +392,9 @@ export function inviteOutcome(result: { ok: true; status?: string }): 'sent' | '
 // ---------------------------------------------------------------- run count, local paste, Enter, move
 
 /** 「연속 19/20」 for an agent message (mockup ⑥, FR-MSG-005 AC-2). */
-export function agentRunLabel(message: RoomMessage, holdLimit: number): { key: 'messenger.delivery.agentRun'; params: { n: number; limit: number } } | null {
+export function agentRunLabel(message: RoomMessage): { key: 'messenger.delivery.agentRun'; params: { n: number } } | null {
   if (message.from.kind !== 'agent' || typeof message.agentRun !== 'number') return null;
-  return { key: 'messenger.delivery.agentRun', params: { n: message.agentRun, limit: holdLimit } };
+  return { key: 'messenger.delivery.agentRun', params: { n: message.agentRun } };
 }
 
 /** 「붙여넣음 · 이 PC 안」 for a message still waiting for the storage PC (mockup ⑩, FR-MSG-011 AC-1). */

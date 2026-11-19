@@ -306,10 +306,10 @@ test('D7: a multi-line refusal has its own hint', () => {
 // Low batch: run count, local paste of an outbox message, per-session Enter, move suggestion.
 import { agentRunLabel, localReceiptLabel, moveSuggestion, sessionSelections } from '../../src/components/Messenger/messengerModel.ts';
 
-test('FR-MSG-005 AC-2: an agent message shows 연속 n/limit; others and messages without a count show nothing', () => {
-  assert.deepEqual(agentRunLabel(msg(5, 'agent', { agentRun: 19 }), 20), { key: 'messenger.delivery.agentRun', params: { n: 19, limit: 20 } });
-  assert.equal(agentRunLabel(msg(5, 'human', { agentRun: 0 }), 20), null);
-  assert.equal(agentRunLabel(msg(5, 'agent'), 20), null);
+test('FR-MSG-016 AC-2: an agent message shows 연속 n with no limit; others and messages without a count show nothing', () => {
+  assert.deepEqual(agentRunLabel(msg(5, 'agent', { agentRun: 19 })), { key: 'messenger.delivery.agentRun', params: { n: 19 } });
+  assert.equal(agentRunLabel(msg(5, 'human', { agentRun: 0 })), null);
+  assert.equal(agentRunLabel(msg(5, 'agent')), null);
 });
 
 test('FR-MSG-011 AC-1: an unsequenced message already pasted on this PC says so', () => {
