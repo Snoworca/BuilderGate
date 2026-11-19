@@ -82,6 +82,12 @@ test('FR-ARCH-016 AC-6: the standalone root keeps content inside the safe area, 
   const locked = css.match(new RegExp(`html\\.${STANDALONE_CLASS} \\.app\\.app--viewport-locked\\s*\\{[^}]*\\}`))?.[0] ?? '';
   assert.match(locked, /padding-top:\s*env\(safe-area-inset-top/, 'the keyboard-locked app also clears the status bar');
 
+  // 2026-11-19 on a real iPhone (iOS 26): the home-screen app sometimes got innerHeight
+  // and 100% = 812 on an 874 screen (the screen minus the status bar) while it was still
+  // drawn from the top, so the whole app sat 62 px too high with an empty strip below.
+  // 100lvh measured 874 in that state and equals 100% when iOS sizes the page right.
+  assert.match(rule, /height:\s*100lvh/, `html.${STANDALONE_CLASS} is as tall as the whole screen`);
+
   const main = readFileSync(new URL('../../src/main.tsx', import.meta.url), 'utf8');
   const install = main.indexOf('installStandaloneViewport(window, document)');
   assert.ok(install >= 0, 'main.tsx installs the standalone viewport');

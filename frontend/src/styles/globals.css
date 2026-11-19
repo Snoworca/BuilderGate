@@ -46,6 +46,10 @@ body {
  * the page below the status bar but sized it to the whole screen, so the bottom
  * rows fell off the screen. */
 html.standalone-app {
+  /* iOS 26 sometimes sizes the home-screen page to the screen minus the status
+   * bar (innerHeight 812 on an 874 screen) while still drawing it from the top,
+   * which left the bottom strip empty. 100lvh stays the whole screen. */
+  height: 100lvh;
   background-color: #1e1e1e;
   padding:
     env(safe-area-inset-top, 0px)
