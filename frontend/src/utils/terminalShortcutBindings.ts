@@ -110,9 +110,11 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
     return { kind: 'skipped', reason: 'reserved' };
   }
   if (!state) {
-    // The redraw is a way out of a broken screen, so it works before the settings load.
-    return matchesRedrawShortcut(event)
-      ? actionResolution(REDRAW_SHORTCUT_BINDING.id, REDRAW_SHORTCUT_BINDING.action, 'profile')
+    // The redraw is a way out of a broken screen, and the composer is reached by its key from
+    // the first moment, so both work before the settings load.
+    const builtIn = matchBuiltInGlobalShortcut(event);
+    return builtIn
+      ? actionResolution(builtIn.id, builtIn.action, 'profile')
       : { kind: 'skipped', reason: 'not-loaded' };
   }
 
@@ -131,7 +133,7 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
   }
 
   const builtInBinding = getBuiltInProfileBindings(activeProfile).find(binding => matchesBinding(event, binding))
-    ?? (matchesRedrawShortcut(event) ? REDRAW_SHORTCUT_BINDING : undefined);
+    ?? matchBuiltInGlobalShortcut(event);
   if (builtInBinding) {
     if (event.repeat && !builtInBinding.allowRepeat) {
       return { kind: 'skipped', reason: 'repeat-disabled' };
@@ -174,6 +176,39 @@ function matchesRedrawShortcut(event: TerminalShortcutKeyDescriptor): boolean {
   // U+3131 (Hangul giyeok) is the same key with the Korean IME in Hangul mode; built from its
   // code point because src keeps no Hangul literals (FR-I18N-003).
   return matchesBinding(event, REDRAW_SHORTCUT_BINDING) && ['r', String.fromCharCode(0x3131)].includes(event.key.toLowerCase());
+}
+
+/**
+ * FR-CMP-001 AC-3: Alt+N opens, focuses or closes the session's composer in every profile.
+ * Matched by the physical key (code), so macOS Option+N -- a dead key that reports no 'n' --
+ * and Hangul mode still match. Built in like the redraw: a user binding on the same key wins,
+ * which is how the key goes back to the program (readline ESC n), and the action can be bound
+ * to another key.
+ */
+export const COMPOSER_SHORTCUT_BINDING: TerminalShortcutBinding = {
+  id: 'builtin:toggle-composer:alt-n',
+  scope: 'global',
+  enabled: true,
+  allowRepeat: false,
+  matchByKeyFallback: false,
+  sortOrder: 0,
+  createdAt: 'builtin',
+  updatedAt: 'builtin',
+  key: 'n',
+  code: 'KeyN',
+  ctrlKey: false,
+  shiftKey: false,
+  altKey: true,
+  metaKey: false,
+  location: 0,
+  action: { type: 'toggle-composer' },
+  description: 'Alt+N -> toggle the composer',
+};
+
+function matchBuiltInGlobalShortcut(event: TerminalShortcutKeyDescriptor): TerminalShortcutBinding | undefined {
+  if (matchesRedrawShortcut(event)) return REDRAW_SHORTCUT_BINDING;
+  if (matchesBinding(event, COMPOSER_SHORTCUT_BINDING)) return COMPOSER_SHORTCUT_BINDING;
+  return undefined;
 }
 
 export function getBuiltInProfileBindings(profile: TerminalShortcutProfile): TerminalShortcutBinding[] {

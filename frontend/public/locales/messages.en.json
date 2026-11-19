@@ -2046,5 +2046,21 @@
   "messenger.delivery.skippedNotReady.one": "{count} session's agent screen was not ready",
   "messenger.delivery.skippedNotReady.other": "{count} sessions' agent screens were not ready",
   "messenger.room.removedNotice": "You are no longer in “{room}”: you were removed or the room ended.",
-  "messenger.room.removedNoticeClose": "Close"
+  "messenger.room.removedNoticeClose": "Close",
+  "shortcut.action.toggleComposer": "Show/hide the input box",
+  "contextMenu.composer.show": "Show input box",
+  "contextMenu.composer.hide": "Hide input box",
+  "composer.toggle.label": "Input",
+  "composer.toggle.open": "Open the input box",
+  "composer.toggle.close": "Close the input box",
+  "composer.toggle.draftPending": "Unsent draft",
+  "composer.inputLabel": "Session input",
+  "composer.placeholder": "Enter to send · Shift+Enter or \\ + Enter for a new line · ↑ previous · Esc to the terminal",
+  "composer.placeholderMobile": "Write here, then tap send",
+  "composer.send": "Send",
+  "composer.resize": "Drag to resize; double-click for the default height",
+  "composer.error.tooLarge": "Too large to send at once (the limit is 64 KB). The draft is kept.",
+  "composer.error.multiline": "This session does not accept several lines. Send one line.",
+  "composer.error.unavailable": "Could not send to the session. The draft is kept.",
+  "composer.error.enterFailed": "The text was pasted, but Enter could not be sent."
 }

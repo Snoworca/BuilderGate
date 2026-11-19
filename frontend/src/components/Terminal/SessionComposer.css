@@ -1,0 +1,152 @@
+/*
+ * FR-CMP-001 FR-CMP-002: the composer between a session's terminal and its status row.
+ * Its height is set inline (the layout height); the pieces below share it in a column.
+ * The sizes add up to sessionComposerModel.ts COMPOSER_CHROME_PX (24): 1px top border, 7px
+ * handle, 6px bottom padding, 2px textarea border and 4px textarea padding; 20px per line.
+ */
+.session-composer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background-color: #1f1f1f;
+  border-top: 1px solid #3a3a3a;
+  min-height: 0;
+}
+
+.session-composer__handle {
+  flex: 0 0 7px;
+  cursor: ns-resize;
+  touch-action: none;
+  position: relative;
+}
+
+.session-composer__handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 36px;
+  height: 3px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background-color: #555;
+}
+
+.session-composer__handle:hover::after {
+  background-color: #888;
+}
+
+.session-composer__error {
+  flex: 0 0 20px;
+  line-height: 20px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #f87171;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-composer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0 8px 6px 8px;
+}
+
+.session-composer__input {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  resize: none;
+  margin: 0;
+  padding: 2px 6px;
+  border: 1px solid #3f3f3f;
+  border-radius: 4px;
+  background-color: #141414;
+  color: #e6e6e6;
+  font-family: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 20px;
+  overflow-y: auto;
+  outline: none;
+}
+
+.session-composer__input:focus {
+  border-color: var(--tab-color, #4a9eff);
+}
+
+.session-composer__input::placeholder {
+  color: #6b6b6b;
+}
+
+.session-composer__send {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--tab-color, #4a9eff);
+  color: #fff;
+  cursor: pointer;
+}
+
+.session-composer__send:disabled {
+  background-color: #3a3a3a;
+  color: #777;
+  cursor: default;
+}
+
+/* Drawn above everything while dragging; the composer's real height changes on release. */
+.session-composer__drag-preview {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  border-top: 2px solid var(--tab-color, #4a9eff);
+  background-color: rgba(74, 158, 255, 0.08);
+  pointer-events: none;
+}
+
+/* FR-CMP-001 AC-2: the toggle at the right end of the session status row. */
+.metadata-composer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 0 6px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #bdbdbd;
+  font-size: 12px;
+  cursor: pointer;
+  position: relative;
+}
+
+.metadata-composer-toggle:hover {
+  background-color: #383838;
+  color: #fff;
+}
+
+.metadata-composer-toggle[aria-pressed="true"] {
+  color: #fff;
+  border-color: #4a4a4a;
+}
+
+.metadata-composer-toggle__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #facc15;
+}

@@ -22,6 +22,9 @@
   },
   "include": ["src"],
   "files": [
+    "./tests/unit/sessionComposerModel.test.ts",
+    "./tests/unit/sessionComposerStore.test.ts",
+    "./tests/unit/sessionComposerShortcut.test.ts",
     "./tests/unit/gitChipModel.test.ts",
     "./tests/unit/gitSummaryStore.test.ts",
     "./tests/unit/gitBranchChip.test.ts",

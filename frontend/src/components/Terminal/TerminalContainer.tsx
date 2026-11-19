@@ -184,6 +184,8 @@ interface Props {
   onAuthError: () => void;
   /** REL-BGSTAB-053: the redraw shortcut was pressed in this terminal. */
   onRedrawShortcut?: () => void;
+  /** FR-CMP-001 AC-3: the composer shortcut was pressed in this terminal. */
+  onComposerShortcut?: () => void;
 }
 
 function propsAreEqual(prev: Props, next: Props): boolean {
@@ -194,7 +196,8 @@ function propsAreEqual(prev: Props, next: Props): boolean {
     && prev.isGridSurface === next.isGridSurface
     && prev.clipboardContextKey === next.clipboardContextKey
     && prev.outputPolicySelectionCoordinator === next.outputPolicySelectionCoordinator
-    && prev.onRedrawShortcut === next.onRedrawShortcut;
+    && prev.onRedrawShortcut === next.onRedrawShortcut
+    && prev.onComposerShortcut === next.onComposerShortcut;
 }
 
 const FALLBACK_EMPTY_MESSAGE = '[BuilderGate] Fallback snapshot unavailable. Waiting for new output...\r\n';
@@ -275,7 +278,7 @@ interface ActiveVisibleOutputResync {
 
 export const TerminalContainer = memo(
   forwardRef<TerminalHandle, Props>(function TerminalContainer(
-    { sessionId, workspaceId, terminalShortcutState, isVisible, isGridSurface, clipboardContextKey, outputPolicySelectionCoordinator, onStatusChange, onCwdChange, onRedrawShortcut },
+    { sessionId, workspaceId, terminalShortcutState, isVisible, isGridSurface, clipboardContextKey, outputPolicySelectionCoordinator, onStatusChange, onCwdChange, onRedrawShortcut, onComposerShortcut },
     ref
   ) {
     const terminalRef = useRef<TerminalHandle>(null);
@@ -4118,6 +4121,7 @@ export const TerminalContainer = memo(
           onCompatibilityAuthorityReady={handleCompatibilityAuthorityReady}
           onVisibleOutputOverflow={handleVisibleOutputOverflow}
           onRedrawShortcut={onRedrawShortcut}
+          onComposerShortcut={onComposerShortcut}
         />
       </div>
     );

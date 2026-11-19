@@ -86,6 +86,13 @@ import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
 import { AgentAliasDialog } from './components/AgentAlias/AgentAliasDialog';
 import { TerminalTextDialog } from './components/Terminal/TerminalTextDialog';
+import { SessionComposer } from './components/Terminal/SessionComposer';
+import {
+  SessionComposerHostContext,
+  composerMenuOption,
+  runComposerShortcut,
+  type SessionComposerHost,
+} from './components/Terminal/sessionComposerHost.ts';
 import { isTouchMenuScreen } from './utils/terminalTextExport';
 import { LoopDialog } from './components/Loop/LoopDialog';
 import { MessengerButton, MessengerLayer, SessionRoomsContext, useMessenger } from './components/Messenger';
@@ -150,6 +157,7 @@ function TerminalWorkspaceStage({
   onAuthError,
   onFitAll,
   onRedrawRequest,
+  onComposerRequest,
   terminalShortcutState,
 }: {
   children: (onLayoutChange: () => void) => React.ReactNode;
@@ -160,6 +168,8 @@ function TerminalWorkspaceStage({
   onAuthError: () => void;
   onFitAll: () => void;
   onRedrawRequest: (tabId: string) => void;
+  /** FR-CMP-001 AC-3: the composer shortcut pressed in a terminal. */
+  onComposerRequest: (tabId: string) => void;
   terminalShortcutState: TerminalShortcutState | null;
 }) {
   const { invalidateHostLayouts } = useTerminalRuntimeContext();
@@ -186,6 +196,7 @@ function TerminalWorkspaceStage({
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}
         onRedrawRequest={onRedrawRequest}
+        onComposerRequest={onComposerRequest}
         terminalShortcutState={terminalShortcutState}
       />
     </div>
@@ -500,6 +511,19 @@ function AppContent() {
       });
     }
   }, [pasteTerminalText]);
+
+  // FR-CMP-001 FR-CMP-003: what the session composers use, handed down by context.
+  const composerHost = useMemo<SessionComposerHost>(() => ({
+    mobile: isMobile,
+    shortcutState: terminalShortcuts.state,
+    pasteText: (tabId, text) => pasteTerminalText(tabId, text, 'composer'),
+    sendInput: (tabId, data) => terminalRefsMap.current.get(tabId)?.current?.sendInput(data) ?? null,
+    focusTerminal,
+  }), [isMobile, terminalShortcuts.state, pasteTerminalText, focusTerminal]);
+  const handleComposerRequest = useCallback((tabId: string) => {
+    // The key came from the terminal, so the composer is not the one focused.
+    runComposerShortcut(composerHost, tabId, false);
+  }, [composerHost]);
 
   const openTabContextMenu = useCallback((x: number, y: number, tabId: string) => {
     const now = performance.now();
@@ -853,6 +877,8 @@ function AppContent() {
         onOpen: (target) => openTerminalPathFromMenu(targetTab.id, target),
       },
       onRedrawScreen: () => redrawTerminal(targetTab.id),
+      // FR-CMP-001 AC-4: on every screen.
+      composer: composerMenuOption(composerHost, targetTab.id),
       // FR-ARCH-017 AC-1: a mouse can select on the terminal itself.
       onSelectText: isTouchMenuScreen() ? () => openTerminalText(targetTab.id) : undefined,
       registeredPresetMenu: {
@@ -865,6 +891,7 @@ function AppContent() {
     tabMenuScreen,
     openTerminalPathFromMenu,
     redrawTerminal,
+    composerHost,
     openTerminalText,
     wm.activeWorkspaceTabs,
     availableShells,
@@ -1139,6 +1166,7 @@ function AppContent() {
                 />}
 
                 <SessionRoomsContext.Provider value={messenger.state?.sessionRooms}>
+                <SessionComposerHostContext.Provider value={composerHost}>
                 <TerminalRuntimeProvider>
                   <TerminalWorkspaceStage
                     tabs={runtimeResidency.residentTabs}
@@ -1148,6 +1176,7 @@ function AppContent() {
                     onAuthError={handleAuthError}
                     onFitAll={handleFitAllTerminals}
                     onRedrawRequest={redrawTerminal}
+                    onComposerRequest={handleComposerRequest}
                     terminalShortcutState={terminalShortcuts.state}
                   >
                     {(handleLayoutChange: () => void) => wm.activeWorkspaceTabs.length > 0 ? (
@@ -1228,6 +1257,8 @@ function AppContent() {
                               onPointerDown={() => focusTerminal(tab.id)}
                             />
                           )}
+                          {/* FR-CMP-001 AC-1: between the terminal and the status row. */}
+                          {isVisible && <SessionComposer tab={tab} />}
                           {isVisible && (
                             <MetadataRow
                               tab={tab}
@@ -1334,6 +1365,7 @@ function AppContent() {
                     onRestore={(sessionId) => gitWindows.open(sessionId)}
                   />
                 </TerminalRuntimeProvider>
+                </SessionComposerHostContext.Provider>
                 </SessionRoomsContext.Provider>
               </>
             ) : (
