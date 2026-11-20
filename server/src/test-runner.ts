@@ -6345,6 +6345,9 @@ const expectedDefaultMcpScopes = [
   // FR-LOOP-007 AC-7
   'mcp:loops.read',
   'mcp:loops.write',
+  // FR-TODO-005 AC-4
+  'mcp:todos.read',
+  'mcp:todos.write',
   // FR-MCP-023 AC-2 (user decision 2026-11-09): commands and Enter through terminal.input only.
   'mcp:terminal.input',
 ];
@@ -12371,6 +12374,9 @@ async function testMcpSecuritySecMcp002Ac10(): Promise<void> {
     'mcp:terminals.exec',
     'mcp:terminals.read',
     'mcp:terminals.write',
+    // FR-TODO-005 AC-4
+    'mcp:todos.read',
+    'mcp:todos.write',
     'mcp:workspaces.read',
     'mcp:workspaces.write',
   ]);

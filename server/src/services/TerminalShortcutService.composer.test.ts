@@ -21,3 +21,16 @@ test('FR-CMP-001 AC-3: a binding with the toggle-composer action is validated, s
   await reloaded.initialize();
   assert.deepEqual(reloaded.getState().bindings.at(-1)?.action, { type: 'toggle-composer' });
 });
+
+test('FR-TODO-002 AC-2: a binding with the toggle-todo action is validated, stored and read back', async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bg-shortcut-todo-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const dataPath = path.join(dir, 'terminal-shortcuts.json');
+  const service = new TerminalShortcutService({ dataPath });
+  await service.initialize();
+  const binding = await service.createBinding({
+    scope: 'global', key: 'y', code: 'KeyY', ctrlKey: false, shiftKey: false, altKey: true, metaKey: false, location: 0,
+    action: { type: 'toggle-todo' },
+  });
+  assert.deepEqual(binding.action, { type: 'toggle-todo' });
+});

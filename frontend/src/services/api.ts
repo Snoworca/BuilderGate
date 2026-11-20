@@ -3,6 +3,7 @@
  * Phase 7: Frontend Security - Auth API added
  */
 import type { LoopInput, LoopRun, LoopSessionOption, LoopView } from '../components/Loop/loopTypes.ts';
+import type { TodoItem } from '../components/Todo/todoModel.ts';
 import type { Contact, Invite, InvitePolicy, MessengerState, Room, RoomDetail, SearchResult, SendResult } from '../components/Messenger/messengerTypes.ts';
 import { messengerErrorKey, messengerErrorParams } from '../components/Messenger/messengerErrors.ts';
 import type { PeerLinksRejection, PeerLinksResponse } from '../components/McpControlManager/peerLinksModel.ts';
@@ -1036,6 +1037,38 @@ export const terminalShortcutApi = {
   },
 };
 
+
+// FR-TODO-001/003/004: the to-do panel's list.
+export const todoApi = {
+  list: async (): Promise<TodoItem[]> => {
+    const res = await authFetch(`${API_BASE}/todos`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).todos;
+  },
+  add: async (input: { parentId: number | null; title: string; detail?: string }): Promise<TodoItem> => {
+    const res = await authFetch(`${API_BASE}/todos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).todo;
+  },
+  update: async (id: number, input: { title?: string; detail?: string; done?: boolean }): Promise<TodoItem> => {
+    const res = await authFetch(`${API_BASE}/todos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).todo;
+  },
+  remove: async (id: number): Promise<number[]> => {
+    const res = await authFetch(`${API_BASE}/todos/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).removed;
+  },
+};
 
 // FR-LOOP-001 AC-5 / FR-LOOP-006: Tools › Loop.
 export const loopApi = {

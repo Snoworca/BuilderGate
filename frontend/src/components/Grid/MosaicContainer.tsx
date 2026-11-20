@@ -5,6 +5,7 @@ import 'react-mosaic-component/react-mosaic-component.css';
 import './MosaicOverrides.css';
 import { MosaicTile } from './MosaicTile';
 import { composerMenuOption, useSessionComposerHost } from '../Terminal/sessionComposerHost.ts';
+import { todoPanelMenuOption } from '../Todo/todoPanelStore.ts';
 import { MosaicToolbar } from './MosaicToolbar';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';
@@ -775,6 +776,8 @@ export function MosaicContainer({
         onSelectText: isTouchMenuScreen() && onSelectTerminalText ? () => onSelectTerminalText(tabId) : undefined,
         // FR-CMP-001 AC-4: on every screen.
         composer: composerHost ? composerMenuOption(composerHost, tabId) : undefined,
+        // FR-TODO-002 AC-2: on every screen.
+        todoPanel: todoPanelMenuOption(),
         registeredPresetMenu: {
           presets: registeredPresetSnapshot,
           onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),

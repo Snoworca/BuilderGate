@@ -205,10 +205,33 @@ export const COMPOSER_SHORTCUT_BINDING: TerminalShortcutBinding = {
   description: 'Alt+N -> toggle the composer',
 };
 
+/**
+ * FR-TODO-002 AC-2: Alt+T shows or hides the to-do panel. Built in and matched by code like the
+ * composer key, so a user binding on the same key wins and the action can move to another key.
+ */
+export const TODO_SHORTCUT_BINDING: TerminalShortcutBinding = {
+  ...COMPOSER_SHORTCUT_BINDING,
+  id: 'builtin:toggle-todo:alt-t',
+  key: 't',
+  code: 'KeyT',
+  action: { type: 'toggle-todo' },
+  description: 'Alt+T -> toggle the to-do panel',
+};
+
 function matchBuiltInGlobalShortcut(event: TerminalShortcutKeyDescriptor): TerminalShortcutBinding | undefined {
   if (matchesRedrawShortcut(event)) return REDRAW_SHORTCUT_BINDING;
   if (matchesBinding(event, COMPOSER_SHORTCUT_BINDING)) return COMPOSER_SHORTCUT_BINDING;
+  if (matchesBinding(event, TODO_SHORTCUT_BINDING)) return TODO_SHORTCUT_BINDING;
   return undefined;
+}
+
+/**
+ * FR-TODO-002 AC-2: the panel key pressed outside a terminal (no session or workspace in play,
+ * so global bindings decide).
+ */
+export function matchesTodoShortcut(event: TerminalShortcutKeyDescriptor, state: TerminalShortcutState | null): boolean {
+  const result = resolveTerminalShortcut({ event, state, workspaceId: null, sessionId: '', imeActive: false, hasSelection: false });
+  return result.kind === 'matched' && result.action.type === 'toggle-todo';
 }
 
 export function getBuiltInProfileBindings(profile: TerminalShortcutProfile): TerminalShortcutBinding[] {

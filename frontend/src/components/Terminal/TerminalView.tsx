@@ -203,6 +203,7 @@ import { applyLatchToTypedData, takeLatchedPaste } from '../../utils/mobileModif
 import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoint } from '../../utils/terminalPathLinks.ts';
 import { readTerminalTapRows, type TerminalTapRows } from '../../utils/terminalTouchTapPolicy.ts';
 import { readTerminalBufferText } from '../../utils/terminalTextExport.ts';
+import { todoPanelStore } from '../Todo/todoPanelStore.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -4374,6 +4375,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           if (shortcutResolution.action.type === 'toggle-composer') {
             ev.preventDefault();
             onComposerShortcutRef.current?.();
+            return false;
+          }
+
+          // FR-TODO-002 AC-2: the to-do panel key goes to the app, not to the program.
+          if (shortcutResolution.action.type === 'toggle-todo') {
+            ev.preventDefault();
+            todoPanelStore.toggle();
             return false;
           }
 

@@ -38,6 +38,8 @@ import { createFileJobRoutes } from './routes/fileJobRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createLoopRoutes } from './routes/loopRoutes.js';
+import { createTodoRoutes } from './routes/todoRoutes.js';
+import { TodoService } from './services/todo/TodoService.js';
 import { LoopService, type LoopRuntimePort, type LoopTabInfo } from './services/loop/LoopService.js';
 import { loopDirectoryExists } from './services/loop/loopDirectory.js';
 import { createUsageLimitsRoutes } from './routes/usageLimitsRoutes.js';
@@ -246,6 +248,8 @@ let workspaceService: WorkspaceService;
 let sessionSnapshotService: SessionSnapshotService;
 /** FR-LOOP-001..005: Tools › Loop. */
 let loopService: LoopService;
+/** FR-TODO-001..005: the to-do panel's list. */
+let todoService: TodoService;
 /** FR-USAGE-001..007: usage limits under the workspace list. */
 let usageLimitsService: UsageLimitsService;
 /** FR-AITUI-019: the auto save switch, interval and manual save retention in force. */
@@ -989,6 +993,7 @@ function setupRoutes(): void {
   const commandPresetRoutes = createCommandPresetRoutes(commandPresetService);
   app.use('/api/command-presets', authMiddleware, commandPresetRoutes);
   app.use('/api/loops', authMiddleware, createLoopRoutes(loopService));
+  app.use('/api/todos', authMiddleware, createTodoRoutes(todoService));
   app.use('/api/usage-limits', authMiddleware, createUsageLimitsRoutes(usageLimitsService));
   if (messengerNetRef) app.use('/api/messenger', authMiddleware, createMessengerNetRoutes(messengerNetRef));
   if (messengerRoomsRef) {
@@ -1623,6 +1628,11 @@ async function startServer(): Promise<void> {
     // FR-LOOP-004 AC-7: loaded before the session save, which leaves the loops' workspaces out.
     loopService = new LoopService({ runtime: createLoopRuntime() });
     await loopService.initialize();
+    // FR-TODO-001 AC-5: every change tells the browsers, which read the list again.
+    todoService = new TodoService({
+      onChange: () => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll('todos:changed', {}),
+    });
+    await todoService.initialize();
     // FR-USAGE-005: polls local usage files; FR-USAGE-006 AC-4: alert secrets go through the config cipher.
     const usageSources = createUsageSources();
     usageLimitsService = new UsageLimitsService({
@@ -2016,6 +2026,8 @@ async function startServer(): Promise<void> {
       agentLifecycle: mcpAgentLifecycleService,
       // FR-LOOP-007: buildergate.loop.* go through the same loop service as the window and REST.
       loopControl: loopService,
+      // FR-TODO-005: buildergate.todo.* go through the same list as the panel.
+      todoControl: todoService,
       // FR-MSG-007: buildergate.room.* for session agents.
       roomControl: messengerRooms,
       workspaceControl: createWorkspaceServiceMcpControl({

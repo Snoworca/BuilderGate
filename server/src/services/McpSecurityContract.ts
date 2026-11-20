@@ -101,6 +101,9 @@ const DEFAULT_MCP_SCOPES = [
   // FR-LOOP-007 AC-7 (user decision 2026-10-30): a session agent may register and run loops.
   'mcp:loops.read',
   'mcp:loops.write',
+  // FR-TODO-005 AC-4: session agents read and write the to-do list.
+  'mcp:todos.read',
+  'mcp:todos.write',
   // FR-MCP-023 AC-2 (user decision 2026-11-09): a session agent may type commands and Enter with
   // buildergate.terminal.input. message.send submit still needs mcp:message.submit.
   MCP_TERMINAL_INPUT_SCOPE,
@@ -121,6 +124,9 @@ const FIXED_MCP_ACCESS_KEY_SCOPES = [
   // FR-LOOP-007 AC-7
   'mcp:loops.read',
   'mcp:loops.write',
+  // FR-TODO-005 AC-4: session agents read and write the to-do list.
+  'mcp:todos.read',
+  'mcp:todos.write',
 ] as const;
 
 const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);

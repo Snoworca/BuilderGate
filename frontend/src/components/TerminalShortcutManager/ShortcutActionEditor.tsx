@@ -12,13 +12,14 @@ interface ShortcutActionEditorProps {
   onChange: (action: TerminalShortcutAction) => void;
 }
 
-type ActionPreset = 'send-codex-newline' | 'send-lf' | 'send-cr' | 'send-tab' | 'send-esc' | 'block' | 'pass-through' | 'redraw' | 'toggle-composer' | 'custom';
+type ActionPreset = 'send-codex-newline' | 'send-lf' | 'send-cr' | 'send-tab' | 'send-esc' | 'block' | 'pass-through' | 'redraw' | 'toggle-composer' | 'toggle-todo' | 'custom';
 
 function getPreset(action: TerminalShortcutAction): ActionPreset {
   if (action.type === 'block') return 'block';
   if (action.type === 'pass-through') return 'pass-through';
   if (action.type === 'redraw') return 'redraw';
   if (action.type === 'toggle-composer') return 'toggle-composer';
+  if (action.type === 'toggle-todo') return 'toggle-todo';
   if (isCodexNewlineAction(action)) return 'send-codex-newline';
   if (action.data === '\n' && action.label === 'LF') return 'send-lf';
   if (action.data === '\r' && action.label === 'CR') return 'send-cr';
@@ -47,6 +48,8 @@ function actionFromPreset(preset: ActionPreset, current: TerminalShortcutAction)
       return { type: 'redraw' };
     case 'toggle-composer':
       return { type: 'toggle-composer' };
+    case 'toggle-todo':
+      return { type: 'toggle-todo' };
     case 'custom':
     default:
       return current.type === 'send' ? current : { type: 'send', data: '', label: 'CUSTOM' };
@@ -76,6 +79,7 @@ export function ShortcutActionEditor({ action, disabled, onChange }: ShortcutAct
           <option value="pass-through">{t('shortcut.action.passThrough')}</option>
           <option value="redraw">{t('shortcut.action.redraw')}</option>
           <option value="toggle-composer">{t('shortcut.action.toggleComposer')}</option>
+          <option value="toggle-todo">{t('shortcut.action.toggleTodo')}</option>
           <option value="custom">{t('shortcut.action.custom')}</option>
         </Select>
       </Field>

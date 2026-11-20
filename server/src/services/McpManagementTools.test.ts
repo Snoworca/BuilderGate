@@ -285,6 +285,9 @@ test('SEC-MCP-004 AC-1: fixed access key carries the management scopes', () => {
     'mcp:terminals.exec',
     'mcp:terminals.read',
     'mcp:terminals.write',
+    // FR-TODO-005 AC-4
+    'mcp:todos.read',
+    'mcp:todos.write',
     'mcp:workspaces.read',
     'mcp:workspaces.write',
   ]);
@@ -305,6 +308,9 @@ test('SEC-MCP-004 AC-2: session actors get read-only management scopes', () => {
     // FR-MCP-023 (user decision 2026-11-09): a session agent may type commands and Enter with terminal.input.
     'mcp:terminal.input',
     'mcp:terminals.read',
+    // FR-TODO-005 AC-4
+    'mcp:todos.read',
+    'mcp:todos.write',
     'mcp:workspaces.read',
   ]);
   for (const forbidden of ['mcp:workspaces.write', 'mcp:terminals.write', 'mcp:terminals.exec', 'mcp:message.submit']) {

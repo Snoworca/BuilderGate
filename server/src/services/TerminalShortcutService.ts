@@ -333,6 +333,9 @@ export class TerminalShortcutService {
     if (typed.type === 'toggle-composer') {
       return { type: 'toggle-composer' };
     }
+    if (typed.type === 'toggle-todo') {
+      return { type: 'toggle-todo' };
+    }
     throw new AppError(ErrorCode.INVALID_INPUT, 'Unsupported terminal shortcut action');
   }
 

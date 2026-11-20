@@ -68,6 +68,8 @@ interface HeaderProps {
   onSessionRestore?: () => void;
   /** The messenger button, drawn beside the editor tray. @req FR-MSG-013 */
   messengerButton?: ReactNode;
+  /** The to-do panel button, beside the messenger. @req FR-TODO-002 */
+  todoButton?: ReactNode;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -100,6 +102,7 @@ export function Header({
   onSessionSave,
   onSessionRestore,
   messengerButton,
+  todoButton,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
@@ -212,6 +215,7 @@ export function Header({
               )}
             </button>
           )}
+          {todoButton}
           {messengerButton}
           {onToggleViewMode && !isMobile && (
             // The drawing and the name say where the press goes, not where the

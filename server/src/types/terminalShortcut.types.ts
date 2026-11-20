@@ -8,7 +8,9 @@ export type TerminalShortcutAction =
   /** REL-BGSTAB-053: the browser redraws the screen; nothing is sent to the terminal. */
   | { type: 'redraw' }
   /** FR-CMP-001 AC-3: the browser opens, focuses or closes the session composer. */
-  | { type: 'toggle-composer' };
+  | { type: 'toggle-composer' }
+  /** FR-TODO-002 AC-2: shows or hides the to-do panel; sends nothing to the terminal. */
+  | { type: 'toggle-todo' };
 
 export interface TerminalShortcutKeyDescriptor {
   key: string;

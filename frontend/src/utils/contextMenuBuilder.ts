@@ -73,6 +73,12 @@ export interface BuildTerminalMenuOptions {
    * @req FR-CMP-001
    */
   composer?: ComposerMenuOptions;
+  /**
+   * Opens or closes the to-do panel, on every screen. Optional for the same reason as
+   * onOpenFileExplorer.
+   * @req FR-TODO-002
+   */
+  todoPanel?: ComposerMenuOptions;
 }
 
 export interface ComposerMenuOptions {
@@ -110,6 +116,7 @@ export function buildTerminalContextMenuItems(
     onRedrawScreen,
     onSelectText,
     composer,
+    todoPanel,
   } = options;
 
   const newSessionItem: ContextMenuItem =
@@ -229,6 +236,16 @@ export function buildTerminalContextMenuItems(
             label: composer.open ? t('contextMenu.composer.hide') : t('contextMenu.composer.show'),
             icon: 'edit',
             onClick: composer.onToggle,
+          } satisfies ContextMenuItem,
+        ]
+      : []),
+    // FR-TODO-002 AC-2: next to the composer, where a phone user finds the panel.
+    ...(todoPanel
+      ? [
+          {
+            label: todoPanel.open ? t('contextMenu.todo.hide') : t('contextMenu.todo.show'),
+            icon: 'clipboard',
+            onClick: todoPanel.onToggle,
           } satisfies ContextMenuItem,
         ]
       : []),

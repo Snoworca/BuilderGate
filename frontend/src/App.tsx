@@ -94,6 +94,9 @@ import {
   type SessionComposerHost,
 } from './components/Terminal/sessionComposerHost.ts';
 import { isTouchMenuScreen } from './utils/terminalTextExport';
+import { TodoButton, TodoPanel } from './components/Todo/TodoPanel';
+import { todoPanelMenuOption, todoPanelStore } from './components/Todo/todoPanelStore.ts';
+import { matchesTodoShortcut } from './utils/terminalShortcutBindings.ts';
 import { LoopDialog } from './components/Loop/LoopDialog';
 import { MessengerButton, MessengerLayer, SessionRoomsContext, useMessenger } from './components/Messenger';
 import { McpControlDialog } from './components/McpControlManager';
@@ -206,6 +209,21 @@ function TerminalWorkspaceStage({
 function AppContent() {
   const { logout } = useAuth();
   const terminalShortcuts = useTerminalShortcutContext();
+  // FR-TODO-002 AC-2: the panel key outside a terminal. A terminal handles it itself (and a user
+  // binding there may send the key to the program), so keys from inside one are left to it.
+  const terminalShortcutStateRef = useRef(terminalShortcuts.state);
+  terminalShortcutStateRef.current = terminalShortcuts.state;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.defaultPrevented || event.repeat) return;
+      if (event.target instanceof Element && event.target.closest('.xterm')) return;
+      if (!matchesTodoShortcut(event, terminalShortcutStateRef.current)) return;
+      event.preventDefault();
+      todoPanelStore.toggle();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
   const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
   const { isMobile, isTouchInput, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
@@ -879,6 +897,8 @@ function AppContent() {
       onRedrawScreen: () => redrawTerminal(targetTab.id),
       // FR-CMP-001 AC-4: on every screen.
       composer: composerMenuOption(composerHost, targetTab.id),
+      // FR-TODO-002 AC-2: on every screen.
+      todoPanel: todoPanelMenuOption(),
       // FR-ARCH-017 AC-1: a mouse can select on the terminal itself.
       onSelectText: isTouchMenuScreen() ? () => openTerminalText(targetTab.id) : undefined,
       registeredPresetMenu: {
@@ -1122,6 +1142,7 @@ function AppContent() {
         sessionSaveState={sessionSnapshot.status ? sessionSaveState : undefined}
         onSessionSave={handleSessionSaveClick}
         onSessionRestore={() => setSessionDialog('restore')}
+        todoButton={<TodoButton />}
         messengerButton={<MessengerButton state={messenger.state} active={messengerOpen} onClick={() => setMessengerOpen(true)} />}
       />
       {showRestoreBanner && (
@@ -1400,6 +1421,7 @@ function AppContent() {
             onBack={() => setScreen('workspace')}
           />
         </main>
+        <TodoPanel isMobile={isMobile} />
       </div>
 
       {/* Below .main so it takes a row only while a file job runs (design 4.1). */}

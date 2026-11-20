@@ -8,7 +8,9 @@ export type TerminalShortcutAction =
   /** REL-BGSTAB-053: redraws the screen (every pane in a grid); sends nothing to the terminal. */
   | { type: 'redraw' }
   /** FR-CMP-001 AC-3: opens, focuses or closes the session's composer; sends nothing to the terminal. */
-  | { type: 'toggle-composer' };
+  | { type: 'toggle-composer' }
+  /** FR-TODO-002 AC-2: shows or hides the to-do panel; sends nothing to the terminal. */
+  | { type: 'toggle-todo' };
 
 export interface TerminalShortcutKeyDescriptor {
   key: string;

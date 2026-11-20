@@ -51,6 +51,14 @@ import {
   type McpLoopControl,
 } from './McpLoopTools.js';
 import {
+  MCP_TODO_TOOL_DESCRIPTIONS,
+  MCP_TODO_TOOL_NAMES,
+  MCP_TODO_TOOL_SCHEMAS,
+  callMcpTodoTool,
+  isMcpTodoTool,
+  type McpTodoControl,
+} from './McpTodoTools.js';
+import {
   MCP_ROOM_TOOL_DESCRIPTIONS,
   MCP_ROOM_TOOL_NAMES,
   MCP_ROOM_TOOL_SCHEMAS,
@@ -90,6 +98,8 @@ type McpToolServiceDeps = {
   workspaceControl?: McpWorkspaceControl;
   // FR-LOOP-007
   loopControl?: McpLoopControl;
+  /** FR-TODO-005: the to-do list (buildergate.todo.*). */
+  todoControl?: McpTodoControl;
   /** FR-MSG-007: messenger rooms (buildergate.room.*). */
   roomControl?: McpRoomControl;
   // FR-MCP-019: the MCP peer link (#233).
@@ -236,6 +246,7 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   'buildergate.session.update_status',
   ...MCP_MANAGEMENT_TOOL_NAMES,
   ...MCP_LOOP_TOOL_NAMES,
+  ...MCP_TODO_TOOL_NAMES,
   ...MCP_ROOM_TOOL_NAMES,
   ...MCP_PEER_TOOL_NAMES,
   MCP_FILE_UPLOAD_TOOL,
@@ -398,6 +409,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
   },
   ...MCP_MANAGEMENT_TOOL_SCHEMAS,
   ...MCP_LOOP_TOOL_SCHEMAS,
+  ...MCP_TODO_TOOL_SCHEMAS,
   ...MCP_ROOM_TOOL_SCHEMAS,
   ...MCP_PEER_TOOL_SCHEMAS,
   [MCP_FILE_UPLOAD_TOOL]: MCP_FILE_UPLOAD_TOOL_SCHEMA,
@@ -922,6 +934,9 @@ async function callLocalTool(
       }
       if (isMcpLoopTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpLoopTool(deps.loopControl, name, actor, args));
+      }
+      if (isMcpTodoTool(name)) {
+        return withAudit(deps, state, name, actor, context, {}, await callMcpTodoTool(deps.todoControl, name, actor, args));
       }
       if (isMcpRoomTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpRoomTool(deps.roomControl, name, actor, args));
@@ -3029,6 +3044,7 @@ function toolDescription(name: string): string {
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
     ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
     ...MCP_LOOP_TOOL_DESCRIPTIONS,
+    ...MCP_TODO_TOOL_DESCRIPTIONS,
     ...MCP_ROOM_TOOL_DESCRIPTIONS,
     ...MCP_PEER_TOOL_DESCRIPTIONS,
     [MCP_FILE_UPLOAD_TOOL]: MCP_FILE_UPLOAD_TOOL_DESCRIPTION,
