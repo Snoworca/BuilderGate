@@ -4,6 +4,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { publishStoreAtomically } from '../../utils/atomicStoreWrite.js';
 
+/** AC-7: who added an entry — the user from the panel, or a session over MCP (MCP when unbound). */
+export type TodoAuthor =
+  | { kind: 'user' }
+  | { kind: 'session'; sessionKey: string | null; name: string };
+
 export interface TodoItem {
   id: number;
   /** null for a category. */
@@ -11,6 +16,7 @@ export interface TodoItem {
   title: string;
   detail: string;
   done: boolean;
+  author: TodoAuthor;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +25,8 @@ export interface TodoAddInput {
   parentId?: number | null;
   title: string;
   detail?: string;
+  /** Defaults to the user. */
+  author?: TodoAuthor;
 }
 
 export interface TodoUpdateInput {
@@ -59,19 +67,35 @@ export interface TodoServiceOptions {
   /** AC-5: called after every change, to tell the browsers. */
   onChange?: () => void;
   now?: () => Date;
+  /** AC-6: writes the whole file; defaults to an atomic replace. */
+  writeStore?: (filePath: string, contents: string) => Promise<void>;
+  /** AC-6: a write failed; the change stays in memory and is written again later. */
+  onPersistError?: (error: unknown) => void;
+  retryDelayMs?: number;
 }
+
+const DEFAULT_RETRY_DELAY_MS = 2_000;
 
 export class TodoService {
   private readonly dataFilePath: string;
   private readonly onChange: () => void;
   private readonly now: () => Date;
+  private readonly writeStore: (filePath: string, contents: string) => Promise<void>;
+  private readonly onPersistError: (error: unknown) => void;
+  private readonly retryDelayMs: number;
   private file: TodoFile = { version: 1, nextId: 1, items: [] };
-  private writeChain: Promise<void> = Promise.resolve();
+  /** AC-6: the file on disk is behind memory. */
+  private dirty = false;
+  private writing: Promise<void> | null = null;
+  private retryTimer: NodeJS.Timeout | null = null;
 
   constructor(options: TodoServiceOptions = {}) {
     this.dataFilePath = path.resolve(options.dataPath ?? './data/todos.json');
     this.onChange = options.onChange ?? (() => undefined);
     this.now = options.now ?? (() => new Date());
+    this.writeStore = options.writeStore ?? ((filePath, contents) => publishStoreAtomically(filePath, contents, { ensureDirectory: true }));
+    this.onPersistError = options.onPersistError ?? ((error) => console.error('[Todo] Failed to save the to-do list; will retry:', error));
+    this.retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
   }
 
   async initialize(): Promise<void> {
@@ -79,7 +103,7 @@ export class TodoService {
   }
 
   list(): TodoItem[] {
-    return this.file.items.map((item) => ({ ...item }));
+    return this.file.items.map((item) => ({ ...item, author: { ...item.author } }));
   }
 
   async add(input: TodoAddInput): Promise<TodoItem> {
@@ -92,6 +116,7 @@ export class TodoService {
       title: validTitle(input.title),
       detail: validDetail(input.detail ?? ''),
       done: false,
+      author: input.author ?? { kind: 'user' },
       createdAt: at,
       updatedAt: at,
     };
@@ -148,9 +173,45 @@ export class TodoService {
     return depth;
   }
 
+  /** AC-6: waits until everything in memory is on disk (one more attempt after a failure). */
+  async flush(): Promise<void> {
+    if (this.writing) await this.writing;
+    if (this.dirty) await this.startWriting();
+  }
+
   private async commit(): Promise<void> {
-    await this.persist();
+    this.dirty = true;
+    if (!this.writing) void this.startWriting();
     this.onChange();
+  }
+
+  /** AC-6: one writer at a time; changes made meanwhile are written together as the latest state. */
+  private startWriting(): Promise<void> {
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    this.writing = this.drain().finally(() => { this.writing = null; });
+    return this.writing;
+  }
+
+  private async drain(): Promise<void> {
+    while (this.dirty) {
+      this.dirty = false;
+      const contents = JSON.stringify(this.file, null, 2);
+      try {
+        await this.writeStore(this.dataFilePath, contents);
+      } catch (error) {
+        this.dirty = true;
+        this.onPersistError(error);
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null;
+          if (this.dirty && !this.writing) void this.startWriting();
+        }, this.retryDelayMs);
+        this.retryTimer.unref?.();
+        return;
+      }
+    }
   }
 
   private async load(): Promise<TodoFile> {
@@ -162,17 +223,10 @@ export class TodoService {
       throw error;
     }
     const parsed = JSON.parse(raw) as Partial<TodoFile>;
-    const items = Array.isArray(parsed.items) ? parsed.items : [];
+    // An entry saved before AC-7 has no author; the panel was the only way to add one then.
+    const items = (Array.isArray(parsed.items) ? parsed.items : []).map((item) => ({ ...item, author: item.author ?? { kind: 'user' as const } }));
     const highest = items.reduce((max, item) => Math.max(max, item.id), 0);
     return { version: 1, nextId: Math.max(Number(parsed.nextId) || 1, highest + 1), items };
-  }
-
-  private persist(): Promise<void> {
-    const contents = JSON.stringify(this.file, null, 2);
-    this.writeChain = this.writeChain
-      .catch(() => undefined)
-      .then(() => publishStoreAtomically(this.dataFilePath, contents, { ensureDirectory: true }));
-    return this.writeChain;
   }
 }
 

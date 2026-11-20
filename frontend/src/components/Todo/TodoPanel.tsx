@@ -2,12 +2,12 @@
 // server's list, a show/hide-completed toggle at the top and per category, and the selected
 // entry's details at the bottom.
 // @req FR-TODO-002 FR-TODO-003 FR-TODO-004
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '../common';
 import { Button } from '../ui';
 import { t } from '../../i18n/i18n.ts';
 import { todoApi } from '../../services/api.ts';
-import { canAddTodoChild, categoryShowsDone, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoRows, type TodoItem, type TodoRow } from './todoModel.ts';
+import { canAddTodoChild, categoryShowsDone, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoRows, type TodoItem, type TodoRow } from './todoModel.ts';
 import { todoPanelStore, useTodoPanelState } from './todoPanelStore.ts';
 import { useTodos } from './useTodos.ts';
 import './TodoPanel.css';
@@ -22,8 +22,11 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
   const panel = useTodoPanelState();
   const { items, error: loadError, refresh } = useTodos(panel.open);
   const [error, setError] = useState<string | null>(null);
-  /** Where the new-entry box is: under a parent, or at the end for a category. */
-  const [adding, setAdding] = useState<{ parentId: number | null } | null>(null);
+  /**
+   * Where the new-entry box is: under the row it was asked from (`anchorId`), for a child or a same-level
+   * entry; or at the end for a category from the header (`anchorId` null).
+   */
+  const [adding, setAdding] = useState<{ parentId: number | null; anchorId: number | null; depth: number } | null>(null);
 
   const rows = useMemo(() => todoRows(items, panel), [items, panel]);
   const selected = items.find((entry) => entry.id === panel.selectedId) ?? null;
@@ -77,7 +80,7 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
   return (
     <aside
       className={`todo-panel${isMobile ? ' todo-panel--mobile' : ''}`}
-      style={isMobile ? undefined : { width: panel.width }}
+      style={{ ...(isMobile ? {} : { width: panel.width }), '--todo-font-size': `${panel.fontSize}px` } as CSSProperties}
       aria-label={t('todo.title')}
     >
       {!isMobile && (
@@ -94,7 +97,14 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
           <Icon name="check-circle" size={14} />
           {panel.hideDone ? t('todo.showDone') : t('todo.hideDone')}
         </button>
-        <button type="button" className="icon-button todo-panel__icon" title={t('todo.addCategory')} aria-label={t('todo.addCategory')} onClick={() => setAdding({ parentId: null })}>
+        {/* FR-TODO-002 AC-5 */}
+        <button type="button" className="icon-button todo-panel__icon" title={t('todo.fontSmaller')} aria-label={t('todo.fontSmaller')} onClick={() => todoPanelStore.changeFontSize(-1)}>
+          <Icon name="text-smaller" size={16} />
+        </button>
+        <button type="button" className="icon-button todo-panel__icon" title={t('todo.fontLarger')} aria-label={t('todo.fontLarger')} onClick={() => todoPanelStore.changeFontSize(1)}>
+          <Icon name="text-larger" size={16} />
+        </button>
+        <button type="button" className="icon-button todo-panel__icon" title={t('todo.addCategory')} aria-label={t('todo.addCategory')} onClick={() => setAdding({ parentId: null, anchorId: null, depth: 1 })}>
           <Icon name="plus" size={16} />
         </button>
         <button type="button" className="icon-button todo-panel__icon" title={t('todo.close')} aria-label={t('todo.close')} onClick={() => todoPanelStore.setOpen(false)}>
@@ -110,15 +120,16 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
             row={row}
             selected={row.item.id === panel.selectedId}
             categoryShowDone={row.depth === 1 ? categoryShowsDone(row.item.id, panel) : undefined}
-            adding={adding?.parentId === row.item.id}
-            onAddChild={() => setAdding({ parentId: row.item.id })}
-            onSubmitChild={(title) => { setAdding(null); void add(row.item.id, title); }}
-            onCancelChild={() => setAdding(null)}
+            addingDepth={adding !== null && adding.anchorId === row.item.id ? adding.depth : null}
+            onAddChild={() => setAdding({ parentId: row.item.id, anchorId: row.item.id, depth: row.depth + 1 })}
+            onAddSibling={() => setAdding({ parentId: siblingParentId(row.item), anchorId: row.item.id, depth: row.depth })}
+            onSubmitNew={(title) => { const parentId = adding?.parentId ?? null; setAdding(null); void add(parentId, title); }}
+            onCancelNew={() => setAdding(null)}
             onToggleDone={() => void run(() => todoApi.update(row.item.id, { done: !row.item.done }))}
             onRemove={() => remove(row.item)}
           />
         ))}
-        {adding?.parentId === null && (
+        {adding !== null && adding.anchorId === null && (
           <NewEntryInput depth={1} onSubmit={(title) => { setAdding(null); void add(null, title); }} onCancel={() => setAdding(null)} />
         )}
       </div>
@@ -142,16 +153,19 @@ interface TodoRowViewProps {
   selected: boolean;
   /** Set on a category: whether its completed entries show. */
   categoryShowDone: boolean | undefined;
-  adding: boolean;
+  /** The depth of the new-entry box asked from this row, or null. */
+  addingDepth: number | null;
   onAddChild: () => void;
-  onSubmitChild: (title: string) => void;
-  onCancelChild: () => void;
+  onAddSibling: () => void;
+  onSubmitNew: (title: string) => void;
+  onCancelNew: () => void;
   onToggleDone: () => void;
   onRemove: () => void;
 }
 
-function TodoRowView({ row, selected, categoryShowDone, adding, onAddChild, onSubmitChild, onCancelChild, onToggleDone, onRemove }: TodoRowViewProps) {
+function TodoRowView({ row, selected, categoryShowDone, addingDepth, onAddChild, onAddSibling, onSubmitNew, onCancelNew, onToggleDone, onRemove }: TodoRowViewProps) {
   const { item, depth } = row;
+  const author = todoAuthorLabel(item.author);
   return (
     <>
       <div
@@ -171,10 +185,18 @@ function TodoRowView({ row, selected, categoryShowDone, adding, onAddChild, onSu
         />
         <span className="todo-row__id">#{item.id}</span>
         <span className="todo-row__title" title={item.title}>{item.title}</span>
+        {/* FR-TODO-003 AC-7 */}
+        {author !== null && (
+          <span className={`todo-row__author todo-row__author--${item.author!.kind}`} title={author}>{author}</span>
+        )}
         <span className="todo-row__actions">
+          {/* FR-TODO-003 AC-8 */}
+          <button type="button" className="icon-button todo-row__action" title={depth === 1 ? t('todo.addCategory') : t('todo.addSibling')} aria-label={depth === 1 ? t('todo.addCategory') : t('todo.addSibling')} onClick={(event) => { event.stopPropagation(); onAddSibling(); }}>
+            <Icon name="add-sibling" size={14} />
+          </button>
           {canAddTodoChild(depth) && (
             <button type="button" className="icon-button todo-row__action" title={t('todo.addChild')} aria-label={t('todo.addChild')} onClick={(event) => { event.stopPropagation(); onAddChild(); }}>
-              <Icon name="plus" size={14} />
+              <Icon name="add-child" size={14} />
             </button>
           )}
           <button type="button" className="icon-button todo-row__action" title={t('todo.delete')} aria-label={t('todo.delete')} onClick={(event) => { event.stopPropagation(); onRemove(); }}>
@@ -194,7 +216,7 @@ function TodoRowView({ row, selected, categoryShowDone, adding, onAddChild, onSu
           </button>
         )}
       </div>
-      {adding && <NewEntryInput depth={depth + 1} onSubmit={onSubmitChild} onCancel={onCancelChild} />}
+      {addingDepth !== null && <NewEntryInput depth={addingDepth} onSubmit={onSubmitNew} onCancel={onCancelNew} />}
     </>
   );
 }

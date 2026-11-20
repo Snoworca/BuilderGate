@@ -64,3 +64,10 @@ test('FR-TODO-001 AC-3/AC-4: invalid input is 400, a missing id is 404', async (
     assert.equal((await req('DELETE', '/api/todos/abc')).status, 404);
   });
 });
+
+test('FR-TODO-001 AC-7: an entry added from the panel is the user\'s, whatever the body says', async () => {
+  await withRoutes(async (req) => {
+    const created = await req('POST', '/api/todos', { title: 'Mine', author: { kind: 'session', sessionKey: 'x', name: 'fake' } });
+    assert.deepEqual(created.json.todo.author, { kind: 'user' });
+  });
+});

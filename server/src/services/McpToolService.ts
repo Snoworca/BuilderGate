@@ -58,6 +58,7 @@ import {
   isMcpTodoTool,
   type McpTodoControl,
 } from './McpTodoTools.js';
+import type { TodoAuthor } from './todo/TodoService.js';
 import {
   MCP_ROOM_TOOL_DESCRIPTIONS,
   MCP_ROOM_TOOL_NAMES,
@@ -936,7 +937,7 @@ async function callLocalTool(
         return withAudit(deps, state, name, actor, context, {}, await callMcpLoopTool(deps.loopControl, name, actor, args));
       }
       if (isMcpTodoTool(name)) {
-        return withAudit(deps, state, name, actor, context, {}, await callMcpTodoTool(deps.todoControl, name, actor, args));
+        return withAudit(deps, state, name, actor, context, {}, await callMcpTodoTool(deps.todoControl, name, actor, args, await todoAuthorOf(deps, actor)));
       }
       if (isMcpRoomTool(name)) {
         return withAudit(deps, state, name, actor, context, {}, await callMcpRoomTool(deps.roomControl, name, actor, args));
@@ -1597,6 +1598,14 @@ const SENDER_TAG_RESERVED: StringRecord = Object.freeze({
   message: 'A command cannot start with "[from:": only the server writes that tag. '
     + 'To write to another agent use buildergate.message.send; nothing was sent.',
 });
+
+/** FR-TODO-001 AC-7: the calling session by its alias; MCP when the connection names no session. */
+async function todoAuthorOf(deps: McpToolServiceDeps, actor: StringRecord): Promise<TodoAuthor> {
+  const sessionKey = asString(actor.sessionKey);
+  if (!sessionKey) return { kind: 'session', sessionKey: null, name: 'MCP' };
+  const session = await findLiveSession(deps, (entry) => asString(entry.sessionKey) === sessionKey);
+  return { kind: 'session', sessionKey, name: asString(session?.alias) ?? sessionKey };
+}
 
 async function findLiveSession(deps: McpToolServiceDeps, match: (session: StringRecord) => boolean): Promise<StringRecord | undefined> {
   const sessions = await resolveSessions(deps, undefined, true);

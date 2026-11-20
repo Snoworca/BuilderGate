@@ -9,7 +9,9 @@
   background-color: #1f1f1f;
   border-left: 1px solid #3a3a3a;
   color: #ddd;
-  font-size: 13px;
+  /* FR-TODO-002 AC-5: set by the panel's font buttons. */
+  --todo-font-size: 13px;
+  font-size: var(--todo-font-size);
   overflow: hidden;
 }
 
@@ -112,6 +114,32 @@
   margin-top: 4px;
 }
 
+/* FR-TODO-003 AC-6: a category reads as a heading. */
+.todo-row--d1 .todo-row__title {
+  font-size: calc(var(--todo-font-size) + 3px);
+}
+
+/* FR-TODO-003 AC-7: who added it. */
+.todo-row__author {
+  flex: 0 1 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 16px;
+  color: #9aa7c0;
+  background-color: #2a3242;
+}
+
+.todo-row__author--session {
+  color: #c7b07a;
+  background-color: #3a3326;
+}
+
 .todo-row--d2 {
   padding-left: 26px;
 }
@@ -135,7 +163,7 @@
   flex: 0 0 auto;
   color: #7a8aa8;
   font-family: ui-monospace, monospace;
-  font-size: 11px;
+  font-size: calc(var(--todo-font-size) - 2px);
   font-weight: 400;
 }
 

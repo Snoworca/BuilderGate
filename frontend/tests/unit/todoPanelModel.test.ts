@@ -1,7 +1,11 @@
+import './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { canAddTodoChild, categoryShowsDone, todoRows, type TodoItem } from '../../src/components/Todo/todoModel.ts';
-import { createTodoPanelStore, TODO_PANEL_DEFAULT_WIDTH, TODO_PANEL_MAX_WIDTH, TODO_PANEL_MIN_WIDTH } from '../../src/components/Todo/todoPanelStore.ts';
+import { canAddTodoChild, categoryShowsDone, siblingParentId, todoAuthorLabel, todoRows, type TodoItem } from '../../src/components/Todo/todoModel.ts';
+import { isIconName } from '../../src/components/common/iconGlyphs.ts';
+import { t } from '../../src/i18n/i18n.ts';
+import { createTodoPanelStore, TODO_PANEL_DEFAULT_FONT_SIZE, TODO_PANEL_MAX_FONT_SIZE, TODO_PANEL_MIN_FONT_SIZE, TODO_PANEL_DEFAULT_WIDTH, TODO_PANEL_MAX_WIDTH, TODO_PANEL_MIN_WIDTH } from '../../src/components/Todo/todoPanelStore.ts';
 
 function item(id: number, parentId: number | null, done = false): TodoItem {
   return { id, parentId, title: `t${id}`, detail: '', done, createdAt: '', updatedAt: '' };
@@ -87,4 +91,58 @@ test('FR-TODO-004 AC-1: selecting an entry is remembered for the detail area', (
   assert.equal(store.getState().selectedId, 5);
   store.select(null);
   assert.equal(store.getState().selectedId, null);
+});
+
+test('FR-TODO-003 AC-6: a category title is set in a larger font than the panel text, at every panel size', () => {
+  const css = readFileSync(new URL('../../src/components/Todo/TodoPanel.css', import.meta.url), 'utf-8');
+  const block = (selector: string) => {
+    const at = css.indexOf(`${selector} {`);
+    return at < 0 ? '' : css.slice(at, css.indexOf('}', at));
+  };
+  assert.match(block('.todo-panel'), /font-size:\s*var\(--todo-font-size\)/);
+  const category = /font-size:\s*calc\(var\(--todo-font-size\)\s*\+\s*(\d+)px\)/.exec(block('.todo-row--d1 .todo-row__title'));
+  assert.ok(category && Number(category[1]) >= 2, 'category title is at least 2px larger than the panel text');
+});
+
+test('FR-TODO-003 AC-7: the author label names the user or the session', () => {
+  assert.equal(todoAuthorLabel({ kind: 'user' }), t('todo.author.user'));
+  assert.equal(todoAuthorLabel({ kind: 'session', sessionKey: 'k1', name: 'claude-1' }), 'claude-1');
+  assert.equal(todoAuthorLabel({ kind: 'session', sessionKey: null, name: 'MCP' }), 'MCP');
+  assert.equal(todoAuthorLabel(undefined), null);
+});
+
+test('FR-TODO-003 AC-8: a same-level entry goes under the same parent; a category gets a new category', () => {
+  const category = item(1, null);
+  const child = item(2, 1);
+  const sub = item(3, 2);
+  assert.equal(siblingParentId(category), null);
+  assert.equal(siblingParentId(child), 1);
+  assert.equal(siblingParentId(sub), 2);
+});
+
+test('FR-TODO-002 AC-5: the font size steps within its range and is kept', () => {
+  const storage = memoryStorage();
+  const store = createTodoPanelStore(storage);
+  assert.equal(store.getState().fontSize, TODO_PANEL_DEFAULT_FONT_SIZE);
+  store.changeFontSize(1);
+  assert.equal(store.getState().fontSize, TODO_PANEL_DEFAULT_FONT_SIZE + 1);
+  for (let i = 0; i < 40; i += 1) store.changeFontSize(1);
+  assert.equal(store.getState().fontSize, TODO_PANEL_MAX_FONT_SIZE);
+  for (let i = 0; i < 40; i += 1) store.changeFontSize(-1);
+  assert.equal(store.getState().fontSize, TODO_PANEL_MIN_FONT_SIZE);
+  store.changeFontSize(2);
+  assert.equal(createTodoPanelStore(storage).getState().fontSize, TODO_PANEL_MIN_FONT_SIZE + 2);
+});
+
+test('FR-TODO-002 AC-5 / FR-TODO-003 AC-7/AC-8: the panel draws the font buttons, the author label and both add buttons', () => {
+  const source = readFileSync(new URL('../../src/components/Todo/TodoPanel.tsx', import.meta.url), 'utf-8');
+  for (const glyph of ['text-larger', 'text-smaller', 'add-sibling', 'add-child'] as const) {
+    assert.ok(isIconName(glyph), `${glyph} glyph`);
+    assert.ok(source.includes(`name="${glyph}"`), `${glyph} drawn`);
+  }
+  assert.match(source, /changeFontSize\(1\)/);
+  assert.match(source, /changeFontSize\(-1\)/);
+  assert.match(source, /'--todo-font-size'/);
+  assert.match(source, /todo-row__author/);
+  assert.match(source, /siblingParentId\(/);
 });

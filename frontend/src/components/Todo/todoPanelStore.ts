@@ -10,6 +10,10 @@ export const TODO_PANEL_STORAGE_KEY = 'buildergate.todoPanel';
 export const TODO_PANEL_DEFAULT_WIDTH = 320;
 export const TODO_PANEL_MIN_WIDTH = 240;
 export const TODO_PANEL_MAX_WIDTH = 800;
+/** FR-TODO-002 AC-5. */
+export const TODO_PANEL_DEFAULT_FONT_SIZE = 13;
+export const TODO_PANEL_MIN_FONT_SIZE = 11;
+export const TODO_PANEL_MAX_FONT_SIZE = 20;
 
 export interface TodoPanelStorage {
   getItem(key: string): string | null;
@@ -20,6 +24,7 @@ export interface TodoPanelStorage {
 export interface TodoPanelState {
   readonly open: boolean;
   readonly width: number;
+  readonly fontSize: number;
   readonly hideDone: boolean;
   readonly categoryShowDone: Readonly<Record<number, boolean>>;
   /** Not kept: a reload starts with nothing selected. */
@@ -32,15 +37,18 @@ export interface TodoPanelStore {
   setOpen(open: boolean): void;
   toggle(): void;
   setWidth(width: number): void;
+  /** One step larger (1) or smaller (-1), within the range. */
+  changeFontSize(step: 1 | -1 | 2 | -2): void;
   setHideDone(hideDone: boolean): void;
   toggleCategoryDone(categoryId: number): void;
   select(id: number | null): void;
 }
 
+const clampFontSize = (size: number) => Math.round(Math.min(TODO_PANEL_MAX_FONT_SIZE, Math.max(TODO_PANEL_MIN_FONT_SIZE, size)));
 const clampWidth = (width: number) => Math.round(Math.min(TODO_PANEL_MAX_WIDTH, Math.max(TODO_PANEL_MIN_WIDTH, width)));
 
 function readState(storage: TodoPanelStorage | null): TodoPanelState {
-  const initial: TodoPanelState = { open: false, width: TODO_PANEL_DEFAULT_WIDTH, hideDone: false, categoryShowDone: {}, selectedId: null };
+  const initial: TodoPanelState = { open: false, width: TODO_PANEL_DEFAULT_WIDTH, fontSize: TODO_PANEL_DEFAULT_FONT_SIZE, hideDone: false, categoryShowDone: {}, selectedId: null };
   let raw: string | null = null;
   try {
     raw = storage?.getItem(TODO_PANEL_STORAGE_KEY) ?? null;
@@ -65,6 +73,7 @@ function readState(storage: TodoPanelStorage | null): TodoPanelState {
   return {
     open: record.open === true,
     width: typeof record.width === 'number' && Number.isFinite(record.width) ? clampWidth(record.width) : TODO_PANEL_DEFAULT_WIDTH,
+    fontSize: typeof record.fontSize === 'number' && Number.isFinite(record.fontSize) ? clampFontSize(record.fontSize) : TODO_PANEL_DEFAULT_FONT_SIZE,
     hideDone: record.hideDone === true,
     categoryShowDone,
     selectedId: null,
@@ -99,6 +108,10 @@ export function createTodoPanelStore(storage: TodoPanelStorage | null): TodoPane
     setWidth: (width) => {
       const next = clampWidth(width);
       if (next !== state.width) update({ width: next });
+    },
+    changeFontSize: (step) => {
+      const next = clampFontSize(state.fontSize + step);
+      if (next !== state.fontSize) update({ fontSize: next });
     },
     // FR-TODO-003 AC-4: the top toggle decides for every category again.
     setHideDone: (hideDone) => update({ hideDone, categoryShowDone: {} }),

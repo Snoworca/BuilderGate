@@ -1,6 +1,6 @@
 // FR-TODO-005: the to-do list over MCP. The tools go through TodoService, so an entry made here
 // passes the same checks as one made in the panel.
-import { TodoNotFoundError, TodoValidationError, type TodoItem, type TodoService } from './todo/TodoService.js';
+import { TodoNotFoundError, TodoValidationError, type TodoAuthor, type TodoItem, type TodoService } from './todo/TodoService.js';
 
 type Rec = Record<string, unknown>;
 
@@ -70,12 +70,13 @@ export function isMcpTodoTool(name: string): name is McpTodoToolName {
   return (MCP_TODO_TOOL_NAMES as readonly string[]).includes(name);
 }
 
-export async function callMcpTodoTool(control: McpTodoControl | undefined, name: McpTodoToolName, actor: Rec, args: Rec): Promise<Rec> {
+/** FR-TODO-001 AC-7: `author` is the calling session, resolved by the caller; never taken from the arguments. */
+export async function callMcpTodoTool(control: McpTodoControl | undefined, name: McpTodoToolName, actor: Rec, args: Rec, author: TodoAuthor): Promise<Rec> {
   const scopes = Array.isArray(actor.scopes) ? actor.scopes.map(String) : [];
   if (!scopes.includes(REQUIRED_SCOPE[name])) return { ok: false, code: 'INVALID_SCOPE' };
   if (!control) return { ok: false, code: 'MCP_TODO_CONTROL_UNAVAILABLE' };
   try {
-    return await dispatch(control, name, args);
+    return await dispatch(control, name, args, author);
   } catch (error) {
     if (error instanceof TodoValidationError) return { ok: false, code: 'VALIDATION_ERROR', message: error.message, fieldErrors: { reason: error.reason } };
     if (error instanceof TodoNotFoundError) return { ok: false, code: 'TARGET_NOT_FOUND', message: error.message };
@@ -83,13 +84,13 @@ export async function callMcpTodoTool(control: McpTodoControl | undefined, name:
   }
 }
 
-async function dispatch(control: McpTodoControl, name: McpTodoToolName, args: Rec): Promise<Rec> {
+async function dispatch(control: McpTodoControl, name: McpTodoToolName, args: Rec, author: TodoAuthor): Promise<Rec> {
   switch (name) {
     case 'buildergate.todo.list':
       return { ok: true, todos: todoTree(control.list(), args.includeDone !== false) };
     case 'buildergate.todo.add': {
       const parentId = args.parentId === undefined || args.parentId === null ? null : Number(args.parentId);
-      return { ok: true, todo: await control.add({ parentId, title: args.title as string, detail: (args.detail as string | undefined) ?? '' }) };
+      return { ok: true, todo: await control.add({ parentId, title: args.title as string, detail: (args.detail as string | undefined) ?? '', author }) };
     }
     case 'buildergate.todo.update':
       return {

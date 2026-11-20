@@ -1,6 +1,12 @@
 // The to-do panel's rows: the server's flat list as a tree, with completed entries shown or hidden
 // for the whole list and per category.
 // @req FR-TODO-001 FR-TODO-003
+import { t } from '../../i18n/i18n.ts';
+
+/** FR-TODO-001 AC-7: who added an entry. */
+export type TodoAuthor =
+  | { kind: 'user' }
+  | { kind: 'session'; sessionKey: string | null; name: string };
 
 export interface TodoItem {
   id: number;
@@ -9,6 +15,7 @@ export interface TodoItem {
   title: string;
   detail: string;
   done: boolean;
+  author?: TodoAuthor;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +44,17 @@ export interface TodoView {
 
 export function canAddTodoChild(depth: number): boolean {
   return depth < TODO_MAX_DEPTH;
+}
+
+/** FR-TODO-003 AC-7: the small label beside the title; null when the entry names no author. */
+export function todoAuthorLabel(author: TodoAuthor | undefined): string | null {
+  if (!author) return null;
+  return author.kind === 'user' ? t('todo.author.user') : author.name;
+}
+
+/** FR-TODO-003 AC-8: where a same-level entry goes (null: a new category). */
+export function siblingParentId(entry: TodoItem): number | null {
+  return entry.parentId;
 }
 
 export function categoryShowsDone(categoryId: number, view: TodoView): boolean {

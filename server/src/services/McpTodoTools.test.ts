@@ -84,3 +84,24 @@ test('FR-TODO-005 AC-1/AC-3: update changes only given fields, list can leave ou
     assert.deepEqual(todos.list(), []);
   });
 });
+
+test('FR-TODO-001 AC-7: an entry added over MCP records the calling session by name, or MCP when unbound', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'bg-mcp-todo-author-'));
+  const todos = new TodoService({ dataPath: path.join(dir, 'todos.json') });
+  await todos.initialize();
+  const tools = createMcpToolService({
+    todoControl: todos,
+    sessions: [{ sessionKey: 'k1', alias: 'claude-1', status: 'idle' }],
+  }) as { callTool: (request: unknown) => Promise<Rec> };
+  const scopes = getDefaultMcpSessionScopes();
+  try {
+    const bound = await tools.callTool({ name: 'buildergate.todo.add', arguments: { title: 'From a session' }, actor: { type: 'mcp-session', scopes, sessionKey: 'k1' } });
+    assert.deepEqual((bound.todo as Rec).author, { kind: 'session', sessionKey: 'k1', name: 'claude-1' });
+    const unbound = await tools.callTool({ name: 'buildergate.todo.add', arguments: { title: 'From a key' }, actor: { type: 'mcp-session', scopes } });
+    assert.deepEqual((unbound.todo as Rec).author, { kind: 'session', sessionKey: null, name: 'MCP' });
+    const spoofed = await tools.callTool({ name: 'buildergate.todo.add', arguments: { title: 'Spoof', author: { kind: 'user' } }, actor: { type: 'mcp-session', scopes, sessionKey: 'k1' } });
+    assert.equal(((spoofed.todo as Rec).author as Rec).kind, 'session');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

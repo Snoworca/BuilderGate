@@ -424,6 +424,11 @@ async function performServerGracefulShutdown(reason: string) {
     fileJobManager.dispose(),
     new Promise<void>((resolve) => setTimeout(resolve, FILE_JOB_SHUTDOWN_WAIT_MS).unref()),
   ]);
+  // FR-TODO-001 AC-6: the to-do list is saved off the request path; write what is left.
+  await Promise.race([
+    todoService?.flush(),
+    new Promise<void>((resolve) => setTimeout(resolve, FILE_JOB_SHUTDOWN_WAIT_MS).unref()),
+  ]);
   const stopMcpListener = mcpListenerControllerInstance?.stop;
   if (typeof stopMcpListener === 'function') {
     await stopMcpListener();

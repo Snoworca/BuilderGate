@@ -55,7 +55,11 @@ export type IconName =
   | 'folder-upload'
   | 'archive'
   | 'cut'
-  | 'chat';
+  | 'chat'
+  | 'add-sibling'
+  | 'add-child'
+  | 'text-larger'
+  | 'text-smaller';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -223,6 +227,41 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
     paths: [
       'M12 5v14',
       'M5 12h14',
+    ],
+  },
+  // A line with a plus under it, flush left: another entry at the same level.
+  'add-sibling': {
+    paths: [
+      'M4 6h16',
+      'M4 12h8',
+      'M17 14v6',
+      'M14 17h6',
+    ],
+  },
+  // A line with an indented plus under it: an entry one level below.
+  'add-child': {
+    paths: [
+      'M4 6h16',
+      'M8 6v8h4',
+      'M17 11v6',
+      'M14 14h6',
+    ],
+  },
+  // A capital A with a plus: larger text.
+  'text-larger': {
+    paths: [
+      'M3 19l5-13 5 13',
+      'M5 14h6',
+      'M18 6v6',
+      'M15 9h6',
+    ],
+  },
+  // A capital A with a minus: smaller text.
+  'text-smaller': {
+    paths: [
+      'M3 19l5-13 5 13',
+      'M5 14h6',
+      'M15 9h6',
     ],
   },
   // A bin: delete.
