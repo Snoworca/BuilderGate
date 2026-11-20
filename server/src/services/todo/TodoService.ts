@@ -35,7 +35,13 @@ export interface TodoUpdateInput {
   done?: boolean;
 }
 
-export type TodoValidationReason = 'title' | 'detail' | 'depth' | 'done';
+/** FR-TODO-006: the new parent (null: a category), and the sibling to go before (null: the end). */
+export interface TodoMoveInput {
+  parentId: number | null;
+  beforeId: number | null;
+}
+
+export type TodoValidationReason = 'title' | 'detail' | 'depth' | 'done' | 'position';
 
 export class TodoValidationError extends Error {
   constructor(readonly reason: TodoValidationReason) {
@@ -140,6 +146,32 @@ export class TodoService {
     return { ...next };
   }
 
+  /**
+   * FR-TODO-006 AC-1/AC-4: the list's order is the order of `items`; siblings keep their relative order.
+   * The entry takes its subtree along.
+   */
+  async move(id: number, input: TodoMoveInput): Promise<TodoItem> {
+    const current = this.find(id);
+    const parentId = input.parentId ?? null;
+    const beforeId = input.beforeId ?? null;
+    if (parentId !== null) {
+      const parent = this.find(parentId);
+      for (let at: TodoItem | undefined = parent; at; at = at.parentId === null ? undefined : this.find(at.parentId)) {
+        if (at.id === id) throw new TodoValidationError('position');
+      }
+      if (this.depthOf(parent) + this.heightOf(current) > TODO_MAX_DEPTH) throw new TodoValidationError('depth');
+    } else if (this.heightOf(current) > TODO_MAX_DEPTH) {
+      throw new TodoValidationError('depth');
+    }
+    if (beforeId !== null && (beforeId === id || this.find(beforeId).parentId !== parentId)) throw new TodoValidationError('position');
+    const next: TodoItem = { ...current, parentId, updatedAt: this.now().toISOString() };
+    const rest = this.file.items.filter((item) => item.id !== id);
+    const at = beforeId === null ? rest.length : rest.findIndex((item) => item.id === beforeId);
+    this.file = { ...this.file, items: [...rest.slice(0, at), next, ...rest.slice(at)] };
+    await this.commit();
+    return { ...next, author: { ...next.author } };
+  }
+
   /** AC-4: removes the entry and everything under it; answers the removed ids. */
   async remove(id: number): Promise<number[]> {
     this.find(id);
@@ -162,6 +194,15 @@ export class TodoService {
     const item = this.file.items.find((entry) => entry.id === id);
     if (!item) throw new TodoNotFoundError(id);
     return item;
+  }
+
+  /** 1 for an entry with nothing under it. */
+  private heightOf(item: TodoItem): number {
+    let height = 1;
+    for (const child of this.file.items) {
+      if (child.parentId === item.id) height = Math.max(height, 1 + this.heightOf(child));
+    }
+    return height;
   }
 
   /** 1 for a category. */

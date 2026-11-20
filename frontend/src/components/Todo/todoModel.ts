@@ -1,6 +1,6 @@
 // The to-do panel's rows: the server's flat list as a tree, with completed entries shown or hidden
 // for the whole list and per category.
-// @req FR-TODO-001 FR-TODO-003
+// @req FR-TODO-001 FR-TODO-003 FR-TODO-006
 import { t } from '../../i18n/i18n.ts';
 
 /** FR-TODO-001 AC-7: who added an entry. */
@@ -57,6 +57,60 @@ export function siblingParentId(entry: TodoItem): number | null {
   return entry.parentId;
 }
 
+/** FR-TODO-006: where an entry goes — under `parentId` (null: a category), before `beforeId` (null: the end). */
+export interface TodoMove {
+  parentId: number | null;
+  beforeId: number | null;
+}
+
+export type TodoDropZone = 'before' | 'inside' | 'after';
+
+const siblingsOf = (items: readonly TodoItem[], parentId: number | null) => items.filter((entry) => entry.parentId === parentId);
+
+/** FR-TODO-006 AC-2: one place up (-1) or down (1) among its siblings; null at either end. */
+export function siblingMove(items: readonly TodoItem[], id: number, direction: -1 | 1): TodoMove | null {
+  const entry = items.find((candidate) => candidate.id === id);
+  if (!entry) return null;
+  const siblings = siblingsOf(items, entry.parentId);
+  const at = siblings.indexOf(entry);
+  if (direction === -1) return at > 0 ? { parentId: entry.parentId, beforeId: siblings[at - 1].id } : null;
+  if (at >= siblings.length - 1) return null;
+  return { parentId: entry.parentId, beforeId: siblings[at + 2]?.id ?? null };
+}
+
+/** FR-TODO-006 AC-3: the top or bottom quarter of a row puts it beside; the middle puts it under, where a child fits. */
+export function todoDropZone(offsetY: number, height: number, depth: number): TodoDropZone {
+  if (!canAddTodoChild(depth)) return offsetY < height / 2 ? 'before' : 'after';
+  if (offsetY < height / 4) return 'before';
+  return offsetY > (height * 3) / 4 ? 'after' : 'inside';
+}
+
+/** FR-TODO-006 AC-3/AC-4: the move a drop asks for; null when it is refused or changes nothing. */
+export function todoDropMove(items: readonly TodoItem[], dragId: number, targetId: number, zone: TodoDropZone): TodoMove | null {
+  const byId = new Map(items.map((entry) => [entry.id, entry]));
+  const dragged = byId.get(dragId);
+  const target = byId.get(targetId);
+  if (!dragged || !target || dragId === targetId) return null;
+  const parentId = zone === 'inside' ? target.id : target.parentId;
+  let parentDepth = 0;
+  for (let at = parentId === null ? undefined : byId.get(parentId); at; at = at.parentId === null ? undefined : byId.get(at.parentId)) {
+    if (at.id === dragId) return null;
+    parentDepth += 1;
+  }
+  const heightOf = (entry: TodoItem): number => 1 + Math.max(0, ...siblingsOf(items, entry.id).map(heightOf));
+  if (parentDepth + heightOf(dragged) > TODO_MAX_DEPTH) return null;
+  const others = siblingsOf(items, parentId).filter((entry) => entry.id !== dragId);
+  const beforeId = zone === 'before' ? target.id
+    : zone === 'after' ? others[others.indexOf(target) + 1]?.id ?? null
+      : null;
+  if (dragged.parentId === parentId) {
+    const siblings = siblingsOf(items, parentId);
+    const stays = siblings[siblings.indexOf(dragged) + 1]?.id ?? null;
+    if (stays === beforeId) return null;
+  }
+  return { parentId, beforeId };
+}
+
 export function categoryShowsDone(categoryId: number, view: TodoView): boolean {
   return view.categoryShowDone[categoryId] ?? !view.hideDone;
 }
@@ -67,7 +121,8 @@ export function categoryShowsDone(categoryId: number, view: TodoView): boolean {
  */
 export function todoRows(items: readonly TodoItem[], view: TodoView): TodoRow[] {
   const children = new Map<number | null, TodoItem[]>();
-  for (const entry of [...items].sort((a, b) => a.id - b.id)) {
+  // FR-TODO-006 AC-1: the server's list order is the order.
+  for (const entry of items) {
     const list = children.get(entry.parentId) ?? [];
     list.push(entry);
     children.set(entry.parentId, list);

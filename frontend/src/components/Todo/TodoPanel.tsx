@@ -1,13 +1,13 @@
 // The to-do panel: a tall resizable column on the right (the whole screen on a phone) with the
 // server's list, a show/hide-completed toggle at the top and per category, and the selected
 // entry's details at the bottom.
-// @req FR-TODO-002 FR-TODO-003 FR-TODO-004
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+// @req FR-TODO-002 FR-TODO-003 FR-TODO-004 FR-TODO-006
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '../common';
 import { Button } from '../ui';
 import { t } from '../../i18n/i18n.ts';
 import { todoApi } from '../../services/api.ts';
-import { canAddTodoChild, categoryShowsDone, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoRows, type TodoItem, type TodoRow } from './todoModel.ts';
+import { canAddTodoChild, categoryShowsDone, siblingMove, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoDropZone, type TodoItem, type TodoMove, type TodoRow } from './todoModel.ts';
 import { todoPanelStore, useTodoPanelState } from './todoPanelStore.ts';
 import { useTodos } from './useTodos.ts';
 import './TodoPanel.css';
@@ -49,6 +49,55 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
     const created = await todoApi.add({ parentId, title });
     todoPanelStore.select(created.id);
   }), [run]);
+
+  // FR-TODO-006: the broadcast brings the order to every browser; this one reads it at once.
+  const move = useCallback((id: number, to: TodoMove | null) => {
+    if (!to) return;
+    void run(async () => {
+      await todoApi.move(id, to);
+      await refresh();
+    });
+  }, [run, refresh]);
+
+  // FR-TODO-006 AC-3: the dragged entry, and where it would land.
+  const dragIdRef = useRef<number | null>(null);
+  const [dropHint, setDropHint] = useState<{ targetId: number; zone: TodoDropZone } | null>(null);
+  const dropFor = (row: TodoRow, event: ReactDragEvent<HTMLDivElement>) => {
+    const dragId = dragIdRef.current;
+    if (dragId === null) return null;
+    const box = event.currentTarget.getBoundingClientRect();
+    const zone = todoDropZone(event.clientY - box.top, box.height, row.depth);
+    const to = todoDropMove(items, dragId, row.item.id, zone);
+    return to ? { zone, to, dragId } : null;
+  };
+  const drag = {
+    onDragStart: (row: TodoRow, event: ReactDragEvent<HTMLDivElement>) => {
+      dragIdRef.current = row.item.id;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(row.item.id));
+    },
+    onDragOver: (row: TodoRow, event: ReactDragEvent<HTMLDivElement>) => {
+      const drop = dropFor(row, event);
+      if (!drop) {
+        if (dropHint?.targetId === row.item.id) setDropHint(null);
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      if (dropHint?.targetId !== row.item.id || dropHint.zone !== drop.zone) setDropHint({ targetId: row.item.id, zone: drop.zone });
+    },
+    onDrop: (row: TodoRow, event: ReactDragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const drop = dropFor(row, event);
+      dragIdRef.current = null;
+      setDropHint(null);
+      if (drop) move(drop.dragId, drop.to);
+    },
+    onDragEnd: () => {
+      dragIdRef.current = null;
+      setDropHint(null);
+    },
+  };
 
   const remove = useCallback((entry: TodoItem) => {
     if (!window.confirm(t('todo.deleteConfirm', { id: entry.id }))) return;
@@ -126,6 +175,15 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
             onSubmitNew={(title) => { const parentId = adding?.parentId ?? null; setAdding(null); void add(parentId, title); }}
             onCancelNew={() => setAdding(null)}
             onToggleDone={() => void run(() => todoApi.update(row.item.id, { done: !row.item.done }))}
+            moveUp={siblingMove(items, row.item.id, -1)}
+            moveDown={siblingMove(items, row.item.id, 1)}
+            onMove={(to) => move(row.item.id, to)}
+            dropZone={dropHint?.targetId === row.item.id ? dropHint.zone : null}
+            onDragStart={(event) => drag.onDragStart(row, event)}
+            onDragOver={(event) => drag.onDragOver(row, event)}
+            onDragLeave={() => { if (dropHint?.targetId === row.item.id) setDropHint(null); }}
+            onDrop={(event) => drag.onDrop(row, event)}
+            onDragEnd={drag.onDragEnd}
             onRemove={() => remove(row.item)}
           />
         ))}
@@ -161,19 +219,39 @@ interface TodoRowViewProps {
   onCancelNew: () => void;
   onToggleDone: () => void;
   onRemove: () => void;
+  /** FR-TODO-006 AC-2: null at the end of its siblings. */
+  moveUp: TodoMove | null;
+  moveDown: TodoMove | null;
+  onMove: (to: TodoMove) => void;
+  /** FR-TODO-006 AC-3: where a dragged entry would land on this row. */
+  dropZone: TodoDropZone | null;
+  onDragStart: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onDragOver: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onDragLeave: () => void;
+  onDrop: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
 }
 
-function TodoRowView({ row, selected, categoryShowDone, addingDepth, onAddChild, onAddSibling, onSubmitNew, onCancelNew, onToggleDone, onRemove }: TodoRowViewProps) {
+function TodoRowView({
+  row, selected, categoryShowDone, addingDepth, onAddChild, onAddSibling, onSubmitNew, onCancelNew, onToggleDone, onRemove,
+  moveUp, moveDown, onMove, dropZone, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
+}: TodoRowViewProps) {
   const { item, depth } = row;
   const author = todoAuthorLabel(item.author);
   return (
     <>
       <div
-        className={`todo-row todo-row--d${depth}${selected ? ' is-selected' : ''}${item.done ? ' is-done' : ''}`}
+        className={`todo-row todo-row--d${depth}${selected ? ' is-selected' : ''}${item.done ? ' is-done' : ''}${dropZone ? ` is-drop-${dropZone}` : ''}`}
         role="treeitem"
         aria-level={depth}
         aria-selected={selected}
         onClick={() => todoPanelStore.select(item.id)}
+        draggable
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
       >
         <input
           type="checkbox"
@@ -190,6 +268,13 @@ function TodoRowView({ row, selected, categoryShowDone, addingDepth, onAddChild,
           <span className={`todo-row__author todo-row__author--${item.author!.kind}`} title={author}>{author}</span>
         )}
         <span className="todo-row__actions">
+          {/* FR-TODO-006 AC-2 */}
+          <button type="button" className="icon-button todo-row__action" disabled={!moveUp} title={t('todo.moveUp')} aria-label={t('todo.moveUp')} onClick={(event) => { event.stopPropagation(); if (moveUp) onMove(moveUp); }}>
+            <Icon name="arrow-up" size={14} />
+          </button>
+          <button type="button" className="icon-button todo-row__action" disabled={!moveDown} title={t('todo.moveDown')} aria-label={t('todo.moveDown')} onClick={(event) => { event.stopPropagation(); if (moveDown) onMove(moveDown); }}>
+            <Icon name="arrow-down" size={14} />
+          </button>
           {/* FR-TODO-003 AC-8 */}
           <button type="button" className="icon-button todo-row__action" title={depth === 1 ? t('todo.addCategory') : t('todo.addSibling')} aria-label={depth === 1 ? t('todo.addCategory') : t('todo.addSibling')} onClick={(event) => { event.stopPropagation(); onAddSibling(); }}>
             <Icon name="add-sibling" size={14} />

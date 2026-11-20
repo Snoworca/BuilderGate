@@ -109,6 +109,25 @@
   background-color: #2f3b52;
 }
 
+/* FR-TODO-006 AC-3: where a dragged entry would land. */
+.todo-row.is-drop-before {
+  box-shadow: inset 0 2px 0 #6f95e6;
+}
+
+.todo-row.is-drop-after {
+  box-shadow: inset 0 -2px 0 #6f95e6;
+}
+
+.todo-row.is-drop-inside {
+  background-color: #263452;
+  box-shadow: inset 0 0 0 1px #6f95e6;
+}
+
+.todo-row__action:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .todo-row--d1 {
   font-weight: 600;
   margin-top: 4px;

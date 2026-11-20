@@ -59,7 +59,9 @@ export type IconName =
   | 'add-sibling'
   | 'add-child'
   | 'text-larger'
-  | 'text-smaller';
+  | 'text-smaller'
+  | 'arrow-up'
+  | 'arrow-down';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -245,6 +247,19 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
       'M8 6v8h4',
       'M17 11v6',
       'M14 14h6',
+    ],
+  },
+  // Move up / down one place.
+  'arrow-up': {
+    paths: [
+      'M12 19V5',
+      'M6 11l6-6 6 6',
+    ],
+  },
+  'arrow-down': {
+    paths: [
+      'M12 5v14',
+      'M6 13l6 6 6-6',
     ],
   },
   // A capital A with a plus: larger text.

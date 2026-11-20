@@ -200,3 +200,63 @@ test('FR-TODO-001 AC-7: an entry records who added it; the panel default is the 
     cleanup();
   }
 });
+
+// FR-TODO-006: the order is the server's.
+
+test('FR-TODO-006 AC-1/AC-4: move places an entry before a sibling or at the end, under any parent, with its subtree; the order survives a restart', async () => {
+  const { service, dataPath, cleanup } = tempService();
+  try {
+    await service.initialize();
+    const a = await service.add({ title: 'A' });
+    const b = await service.add({ title: 'B' });
+    const c = await service.add({ title: 'C' });
+    const a1 = await service.add({ parentId: a.id, title: 'A1' });
+    const a1x = await service.add({ parentId: a1.id, title: 'A1x' });
+    const titles = () => service.list().map((item) => item.title);
+    await service.move(c.id, { parentId: null, beforeId: a.id });
+    assert.deepEqual(titles().filter((t) => t.length === 1), ['C', 'A', 'B']);
+    await service.move(c.id, { parentId: null, beforeId: null });
+    assert.deepEqual(titles().filter((t) => t.length === 1), ['A', 'B', 'C']);
+    // A1 (with A1x under it) moves under B.
+    const moved = await service.move(a1.id, { parentId: b.id, beforeId: null });
+    assert.equal(moved.parentId, b.id);
+    assert.equal(service.list().find((item) => item.id === a1x.id)!.parentId, a1.id);
+    // A new entry goes to the end of its siblings.
+    const b2 = await service.add({ parentId: b.id, title: 'B2' });
+    await service.move(b2.id, { parentId: b.id, beforeId: a1.id });
+    await service.flush();
+    const again = new TodoService({ dataPath });
+    await again.initialize();
+    assert.deepEqual(again.list().filter((item) => item.parentId === b.id).map((item) => item.title), ['B2', 'A1']);
+  } finally {
+    cleanup();
+  }
+});
+
+test('FR-TODO-006 AC-4: a move into itself, below three levels, or before a non-sibling is refused', async () => {
+  let changes = 0;
+  const { service, cleanup } = tempService(() => { changes += 1; });
+  try {
+    await service.initialize();
+    const a = await service.add({ title: 'A' });
+    const a1 = await service.add({ parentId: a.id, title: 'A1' });
+    const a1x = await service.add({ parentId: a1.id, title: 'A1x' });
+    const b = await service.add({ title: 'B' });
+    const b1 = await service.add({ parentId: b.id, title: 'B1' });
+    const before = changes;
+    const reason = (r: string) => (error: unknown) => error instanceof TodoValidationError && error.reason === r;
+    await assert.rejects(service.move(a.id, { parentId: a1.id, beforeId: null }), reason('position'));
+    await assert.rejects(service.move(a.id, { parentId: a.id, beforeId: null }), reason('position'));
+    // A1 has a child, so under B1 it would reach a fourth level.
+    await assert.rejects(service.move(a1.id, { parentId: b1.id, beforeId: null }), reason('depth'));
+    await assert.rejects(service.move(a1x.id, { parentId: b.id, beforeId: a1.id }), reason('position'));
+    await assert.rejects(service.move(a1x.id, { parentId: 99, beforeId: null }), TodoNotFoundError);
+    await assert.rejects(service.move(99, { parentId: null, beforeId: null }), TodoNotFoundError);
+    assert.equal(changes, before);
+    // AC-5: an accepted move is announced.
+    await service.move(a1x.id, { parentId: b1.id, beforeId: null });
+    assert.equal(changes, before + 1);
+  } finally {
+    cleanup();
+  }
+});

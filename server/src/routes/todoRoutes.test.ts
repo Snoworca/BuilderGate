@@ -71,3 +71,18 @@ test('FR-TODO-001 AC-7: an entry added from the panel is the user\'s, whatever t
     assert.deepEqual(created.json.todo.author, { kind: 'user' });
   });
 });
+
+test('FR-TODO-006: POST /:id/move reorders; a refused move is 400', async () => {
+  await withRoutes(async (req) => {
+    await req('POST', '/api/todos', { title: 'A' });
+    await req('POST', '/api/todos', { title: 'B' });
+    const moved = await req('POST', '/api/todos/2/move', { parentId: null, beforeId: 1 });
+    assert.equal(moved.status, 200);
+    assert.equal(moved.json.todo.id, 2);
+    const listed = await req('GET', '/api/todos');
+    assert.deepEqual(listed.json.todos.map((todo: { id: number }) => todo.id), [2, 1]);
+    const refused = await req('POST', '/api/todos/1/move', { parentId: 1, beforeId: null });
+    assert.equal(refused.status, 400);
+    assert.equal((await req('POST', '/api/todos/9/move', { parentId: null, beforeId: null })).status, 404);
+  });
+});

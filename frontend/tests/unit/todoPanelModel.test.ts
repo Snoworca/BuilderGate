@@ -2,7 +2,7 @@ import './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { canAddTodoChild, categoryShowsDone, siblingParentId, todoAuthorLabel, todoRows, type TodoItem } from '../../src/components/Todo/todoModel.ts';
+import { canAddTodoChild, categoryShowsDone, siblingMove, siblingParentId, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoItem } from '../../src/components/Todo/todoModel.ts';
 import { isIconName } from '../../src/components/common/iconGlyphs.ts';
 import { t } from '../../src/i18n/i18n.ts';
 import { createTodoPanelStore, TODO_PANEL_DEFAULT_FONT_SIZE, TODO_PANEL_MAX_FONT_SIZE, TODO_PANEL_MIN_FONT_SIZE, TODO_PANEL_DEFAULT_WIDTH, TODO_PANEL_MAX_WIDTH, TODO_PANEL_MIN_WIDTH } from '../../src/components/Todo/todoPanelStore.ts';
@@ -145,4 +145,60 @@ test('FR-TODO-002 AC-5 / FR-TODO-003 AC-7/AC-8: the panel draws the font buttons
   assert.match(source, /'--todo-font-size'/);
   assert.match(source, /todo-row__author/);
   assert.match(source, /siblingParentId\(/);
+});
+
+// FR-TODO-006: the order is the server's list order; moves are computed here and sent as {parentId, beforeId}.
+
+test('FR-TODO-006 AC-1: siblings appear in the list order the server sent, not by id', () => {
+  const list = [item(3, null), item(1, null), item(5, 1), item(2, 1)];
+  assert.deepEqual(todoRows(list, { hideDone: false, categoryShowDone: {} }).map((row) => row.item.id), [3, 1, 5, 2]);
+});
+
+test('FR-TODO-006 AC-2: up and down move one place among siblings; not past either end', () => {
+  // categories 1, 3; under 1: 2, 5, 7
+  const list = [item(1, null), item(2, 1), item(3, null), item(5, 1), item(7, 1)];
+  assert.deepEqual(siblingMove(list, 5, -1), { parentId: 1, beforeId: 2 });
+  assert.deepEqual(siblingMove(list, 2, 1), { parentId: 1, beforeId: 7 });
+  assert.deepEqual(siblingMove(list, 5, 1), { parentId: 1, beforeId: null });
+  assert.equal(siblingMove(list, 2, -1), null);
+  assert.equal(siblingMove(list, 7, 1), null);
+  assert.deepEqual(siblingMove(list, 3, -1), { parentId: null, beforeId: 1 });
+  assert.equal(siblingMove(list, 3, 1), null);
+});
+
+test('FR-TODO-006 AC-3: the drop zone is the top, middle or bottom of the row; the middle only where a child fits', () => {
+  assert.equal(todoDropZone(0, 30, 1), 'before');
+  assert.equal(todoDropZone(15, 30, 1), 'inside');
+  assert.equal(todoDropZone(29, 30, 1), 'after');
+  assert.equal(todoDropZone(14, 30, 3), 'before');
+  assert.equal(todoDropZone(16, 30, 3), 'after');
+});
+
+test('FR-TODO-006 AC-3/AC-4: a drop becomes a move; drops into itself or past three levels give nothing', () => {
+  // 1 > 2 > 4 ; 1 > 5 ; 3 > 6
+  const list = [item(1, null), item(2, 1), item(3, null), item(4, 2), item(5, 1), item(6, 3)];
+  assert.deepEqual(todoDropMove(list, 6, 5, 'before'), { parentId: 1, beforeId: 5 });
+  assert.deepEqual(todoDropMove(list, 6, 2, 'after'), { parentId: 1, beforeId: 5 });
+  assert.deepEqual(todoDropMove(list, 6, 5, 'after'), { parentId: 1, beforeId: null });
+  assert.deepEqual(todoDropMove(list, 5, 6, 'inside'), { parentId: 6, beforeId: null });
+  assert.deepEqual(todoDropMove(list, 3, 1, 'before'), { parentId: null, beforeId: 1 });
+  assert.equal(todoDropMove(list, 1, 2, 'inside'), null);
+  assert.equal(todoDropMove(list, 1, 1, 'before'), null);
+  // 2 has a child: under 6 (second level) it would reach a fourth level.
+  assert.equal(todoDropMove(list, 2, 6, 'inside'), null);
+  // Dropping where it already is changes nothing.
+  assert.equal(todoDropMove(list, 2, 5, 'before'), null);
+});
+
+test('FR-TODO-006 AC-2/AC-3: the panel draws up/down buttons and makes rows draggable', () => {
+  const source = readFileSync(new URL('../../src/components/Todo/TodoPanel.tsx', import.meta.url), 'utf-8');
+  for (const glyph of ['arrow-up', 'arrow-down'] as const) {
+    assert.ok(isIconName(glyph), `${glyph} glyph`);
+    assert.ok(source.includes(`name="${glyph}"`), `${glyph} drawn`);
+  }
+  assert.match(source, /draggable/);
+  assert.match(source, /onDrop=/);
+  assert.match(source, /todoApi\.move\(/);
+  assert.match(source, /todoDropMove\(/);
+  assert.match(source, /siblingMove\(/);
 });

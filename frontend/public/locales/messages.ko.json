@@ -2012,6 +2012,8 @@
   "todo.categoryHideDone": "이 대분류의 완료된 것 숨기기",
   "todo.addCategory": "대분류 추가",
   "todo.addChild": "하위 항목 추가",
+  "todo.moveUp": "위로 올리기",
+  "todo.moveDown": "아래로 내리기",
   "todo.author.user": "사용자",
   "todo.addSibling": "같은 단계에 추가",
   "todo.fontLarger": "글자 크게",

@@ -49,6 +49,18 @@ export function createTodoRoutes(service: TodoService): Router {
     }
   });
 
+  // FR-TODO-006
+  router.post('/:id/move', async (req: Request, res: Response) => {
+    const id = idOf(req, res);
+    if (id === null) return;
+    try {
+      const { parentId, beforeId } = req.body ?? {};
+      res.json({ todo: await service.move(id, { parentId: parentId ?? null, beforeId: beforeId ?? null }) });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   router.delete('/:id', async (req: Request, res: Response) => {
     const id = idOf(req, res);
     if (id === null) return;

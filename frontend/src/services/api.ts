@@ -1054,6 +1054,16 @@ export const todoApi = {
     if (!res.ok) throw await parseError(res);
     return (await res.json()).todo;
   },
+  /** FR-TODO-006: under `parentId` (null: a category), before `beforeId` (null: at the end). */
+  move: async (id: number, input: { parentId: number | null; beforeId: number | null }): Promise<TodoItem> => {
+    const res = await authFetch(`${API_BASE}/todos/${id}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return (await res.json()).todo;
+  },
   update: async (id: number, input: { title?: string; detail?: string; done?: boolean }): Promise<TodoItem> => {
     const res = await authFetch(`${API_BASE}/todos/${id}`, {
       method: 'PATCH',

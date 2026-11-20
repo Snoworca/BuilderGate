@@ -2074,6 +2074,8 @@
   "todo.categoryHideDone": "Hide completed in this category",
   "todo.addCategory": "Add category",
   "todo.addChild": "Add sub-entry",
+  "todo.moveUp": "Move up",
+  "todo.moveDown": "Move down",
   "todo.author.user": "Me",
   "todo.addSibling": "Add at the same level",
   "todo.fontLarger": "Larger text",
