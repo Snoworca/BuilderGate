@@ -282,6 +282,7 @@
     "tests/unit/latchedTapPathOpen.test.ts",
     "tests/unit/htmlTabToolbarOverflow.test.ts",
     "tests/unit/htmlFrameFit.test.ts",
+    "tests/unit/htmlTabColorScheme.test.ts",
     "tests/unit/htmlFrameZoom.test.ts",
     "tests/unit/mobileScrollSpeed.test.ts",
     "tests/unit/dialogGeometry.test.ts",

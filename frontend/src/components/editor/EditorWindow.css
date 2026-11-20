@@ -659,6 +659,9 @@
   border: 0;
   /* The page draws its own background; white is what an unstyled page expects. */
   background: var(--bg-paper);
+  /* FR-MDE-034: the app is dark; without this the page's prefers-color-scheme follows the app,
+   * not the browser, and a light page turns dark. */
+  color-scheme: light dark;
 }
 /* FR-MDE-028 AC-11: on a touch screen the fitted page is covered by a surface that zooms and pans
    the frame; the page's own touches would zoom the whole app instead. A mouse keeps the page. */
