@@ -31,6 +31,13 @@ const CURSOR_LEAD = new RegExp(`^\\s*[│┃]?\\s*${CURSOR_GLYPH}`, 'u');
 const NUMBERED_OPTION = new RegExp(`^\\s*[│┃]?\\s*(?:${CURSOR_GLYPH}\\s*)?(\\d{1,2})[.)]\\s+\\S`, 'u');
 // The footer a menu prints. "esc to interrupt" is a working agent, not a menu.
 const MENU_HINT = /(?:\benter\b|⏎).{0,24}?\bto\s+(?:confirm|select|submit|choose|continue|accept)\b|\besc\b.{0,16}?\bto\s+(?:cancel|go\s+back|exit|reject|deny|close|dismiss)\b/iu;
+// Claude Code's task list, drawn under the footer of a waiting menu: its header
+// ("2/6 tasks done · 1 in progress"), items (◼ in progress, ◻ open, ✔ done) and the
+// "… +1 task" overflow row. Not counted against MAX_ROWS_BELOW_FOOTER.
+const TASK_PANEL_ROW = /^\s*(?:[◼◻✔]\s|…\s*\+\d+\s|\d+\/\d+\s+tasks?\s+done\b)/u;
+// The two options Claude Code adds to every AskUserQuestion menu. With them over a
+// footer the menu is a question even when its selected row wrapped above the screen.
+const QUESTION_MENU_OPTION = new RegExp(`^\\s*[│┃]?\\s*(?:${CURSOR_GLYPH}\\s*)?\\d{1,2}[.)]\\s+(?:Type something\\.|Chat about this)$`, 'u');
 
 /**
  * FR-AITUI-024 AC-1: whether the bottom rows of a screen show an agent waiting on a
@@ -42,9 +49,13 @@ const MENU_HINT = /(?:\benter\b|⏎).{0,24}?\bto\s+(?:confirm|select|submit|choo
  */
 export function isAgentChoicePrompt(screenText: string): boolean {
   const rows = screenText.split('\n').map(row => row.replace(/\s+$/u, '')).filter(row => row.trim() !== '');
-  for (let i = rows.length - 1; i >= 0 && i >= rows.length - 1 - MAX_ROWS_BELOW_FOOTER; i -= 1) {
+  for (let i = rows.length - 1, below = 0; i >= 0 && below <= MAX_ROWS_BELOW_FOOTER; i -= 1) {
     if (CURSOR_LEAD.test(rows[i])) break;
-    if (MENU_HINT.test(rows[i])) return rows.slice(0, i).some(row => CURSOR_OPTION.test(row));
+    if (MENU_HINT.test(rows[i])) {
+      const above = rows.slice(0, i);
+      return above.some(row => CURSOR_OPTION.test(row) || QUESTION_MENU_OPTION.test(row));
+    }
+    if (!TASK_PANEL_ROW.test(rows[i])) below += 1;
   }
   let cursorIndex = -1;
   for (let i = rows.length - 1; i >= 0; i -= 1) {
