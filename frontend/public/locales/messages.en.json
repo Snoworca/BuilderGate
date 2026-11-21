@@ -2086,6 +2086,8 @@
   "todo.deleteMessage": "Delete #{id} “{title}”?",
   "todo.deleteMessageWithChildren": "Delete #{id} “{title}” and the {count} entries under it?",
   "todo.empty": "Nothing to do yet. Add a category.",
+  "todo.loading": "Loading…",
+  "todo.detail.clearConfirm": "Remove this detail? This cannot be undone.",
   "todo.markDone": "Mark as done",
   "todo.markOpen": "Mark as not done",
   "todo.detail.heading": "Details",

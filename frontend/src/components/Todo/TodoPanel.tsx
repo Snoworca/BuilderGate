@@ -9,7 +9,7 @@ import { ContextMenu } from '../ContextMenu';
 import { MessageBox } from '../dialog/MessageBox';
 import { t } from '../../i18n/i18n.ts';
 import { todoApi } from '../../services/api.ts';
-import { canAddTodoChild, categoryShowsDone, siblingMove, todoDescendantCount, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoDropZone, type TodoItem, type TodoMove, type TodoRow } from './todoModel.ts';
+import { canAddTodoChild, categoryShowsDone, detailSaveRemoves, siblingMove, todoDescendantCount, todoListPlaceholder, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoDropZone, type TodoItem, type TodoMove, type TodoRow } from './todoModel.ts';
 import { todoPanelStore, useTodoPanelState } from './todoPanelStore.ts';
 import { todoDeleteMessage, todoPanelMenuItems, todoRowMenuItems, type TodoRowMenuActions } from './todoRowMenu.ts';
 import { useTodos } from './useTodos.ts';
@@ -23,7 +23,7 @@ const errorText = (reason: unknown) => (reason instanceof Error ? reason.message
 
 export function TodoPanel({ isMobile }: TodoPanelProps) {
   const panel = useTodoPanelState();
-  const { items, error: loadError, refresh } = useTodos(panel.open);
+  const { items, loaded, error: loadError, refresh } = useTodos(panel.open);
   const [error, setError] = useState<string | null>(null);
   /**
    * Where the new-entry box is: under the row it was asked from (`anchorId`), for a child or a same-level
@@ -168,6 +168,8 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
   if (!panel.open) return null;
 
   const shownError = error ?? (loadError ? t('todo.error.load') : null);
+  // FR-TODO-003 AC-9: a failed first load says so in the error line, not as "loading" forever.
+  const placeholder = !loaded && loadError ? null : todoListPlaceholder({ loaded, rowCount: rows.length, adding: adding !== null });
 
   const actionsFor = (row: TodoRow): TodoRowMenuActions => ({
     editDetail: () => {
@@ -223,7 +225,8 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
       </header>
       {shownError && <div className="todo-panel__error" role="alert">{shownError}</div>}
       <div className="todo-panel__list" role="tree">
-        {rows.length === 0 && adding === null && <div className="todo-panel__empty">{t('todo.empty')}</div>}
+        {placeholder === 'loading' && <div className="todo-panel__empty" role="status">{t('todo.loading')}</div>}
+        {placeholder === 'empty' && <div className="todo-panel__empty">{t('todo.empty')}</div>}
         {rows.map((row) => {
           const actions = actionsFor(row);
           const moveUp = siblingMove(items, row.item.id, -1);
@@ -484,6 +487,8 @@ const DETAIL_EDITOR_MIN_HEIGHT = 58;
 function DetailEditor({ depth, detail, onSave, onCancel }: { depth: number; detail: string; onSave: (detail: string) => Promise<void>; onCancel: () => void }) {
   const [value, setValue] = useState(detail);
   const [saving, setSaving] = useState(false);
+  /** FR-TODO-007 AC-9: the removing save waiting for the user's answer. */
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     const area = ref.current;
@@ -496,10 +501,14 @@ function DetailEditor({ depth, detail, onSave, onCancel }: { depth: number; deta
     area?.focus();
     area?.setSelectionRange(area.value.length, area.value.length);
   }, []);
-  const save = (next: string) => {
+  const commit = (next: string) => {
     if (saving) return;
     setSaving(true);
     onSave(next.trim() ? next : '').catch(() => undefined).finally(() => setSaving(false));
+  };
+  const save = (next: string) => {
+    if (detailSaveRemoves(detail, next)) setConfirmRemove(true);
+    else commit(next);
   };
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing) return;
@@ -525,6 +534,17 @@ function DetailEditor({ depth, detail, onSave, onCancel }: { depth: number; deta
         <Button size="sm" variant="secondary" onClick={onCancel}>{t('todo.detail.cancel')}</Button>
         <Button size="sm" variant="primary" disabled={saving || value === detail} onClick={() => save(value)}>{t('todo.detail.save')}</Button>
       </div>
+      {confirmRemove && (
+        <MessageBox
+          dialogId="todo-detail-clear-confirm"
+          title={t('todo.detail.clear')}
+          message={t('todo.detail.clearConfirm')}
+          okLabel={t('todo.detail.clear')}
+          okVariant="danger"
+          onOk={() => { setConfirmRemove(false); commit(''); }}
+          onCancel={() => { setConfirmRemove(false); ref.current?.focus(); }}
+        />
+      )}
     </div>
   );
 }

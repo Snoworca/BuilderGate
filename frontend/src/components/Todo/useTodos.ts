@@ -11,6 +11,8 @@ const REFETCH_DEBOUNCE_MS = 100;
 
 export interface UseTodosResult {
   items: TodoItem[];
+  /** FR-TODO-003 AC-9: the list has arrived at least once. */
+  loaded: boolean;
   error: string | null;
   refresh: () => Promise<void>;
 }
@@ -20,6 +22,7 @@ export function useTodos(enabled: boolean): UseTodosResult {
   const { status } = useWebSocketState();
   const [items, setItems] = useState<TodoItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const requestRef = useRef(0);
   const timerRef = useRef<number | null>(null);
 
@@ -29,6 +32,7 @@ export function useTodos(enabled: boolean): UseTodosResult {
       const next = await todoApi.list();
       if (request !== requestRef.current) return;
       setItems(next);
+      setLoaded(true);
       setError(null);
     } catch (reason) {
       if (request === requestRef.current) setError(reason instanceof Error ? reason.message : String(reason));
@@ -55,5 +59,5 @@ export function useTodos(enabled: boolean): UseTodosResult {
     };
   }, [enabled, registerAppEventHandler, refresh]);
 
-  return { items, error, refresh };
+  return { items, loaded, error, refresh };
 }

@@ -117,6 +117,17 @@ export function todoDescendantCount(items: readonly TodoItem[], id: number): num
   return under.reduce((count, entry) => count + todoDescendantCount(items, entry.id), under.length);
 }
 
+/** FR-TODO-007 AC-9: the save takes away a detail that was there. */
+export function detailSaveRemoves(previous: string, next: string): boolean {
+  return previous.length > 0 && next.trim() === '';
+}
+
+/** FR-TODO-003 AC-9: what the list shows when it has no rows to show. */
+export function todoListPlaceholder({ loaded, rowCount, adding }: { loaded: boolean; rowCount: number; adding: boolean }): 'loading' | 'empty' | null {
+  if (!loaded) return 'loading';
+  return rowCount === 0 && !adding ? 'empty' : null;
+}
+
 export function categoryShowsDone(categoryId: number, view: TodoView): boolean {
   return view.categoryShowDone[categoryId] ?? !view.hideDone;
 }

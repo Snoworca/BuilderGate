@@ -6,7 +6,7 @@ import { t } from '../../src/i18n/i18n.ts';
 import type { ContextMenuActionItem, ContextMenuItem } from '../../src/components/ContextMenu/ContextMenu.tsx';
 import type { TodoItem } from '../../src/components/Todo/todoModel.ts';
 import { todoDeleteMessage, todoPanelMenuItems, todoRowMenuItems, type TodoRowMenuActions } from '../../src/components/Todo/todoRowMenu.ts';
-import { todoDescendantCount } from '../../src/components/Todo/todoModel.ts';
+import { detailSaveRemoves, todoDescendantCount, todoListPlaceholder } from '../../src/components/Todo/todoModel.ts';
 import { TODO_PANEL_MAX_FONT_SIZE, TODO_PANEL_MIN_FONT_SIZE } from '../../src/components/Todo/todoPanelStore.ts';
 import { createTodoPanelStore } from '../../src/components/Todo/todoPanelStore.ts';
 
@@ -125,4 +125,30 @@ test('FR-TODO-007 AC-7/AC-8: an in-app modal confirms a delete; the detail and t
   assert.match(source, /todoPanelMenuItems\(/);
   assert.match(source, /className=\{`todo-detail [^}]*\}[^>]*onContextMenu=/s);
   assert.match(source, /closest\('input, textarea'\)/);
+});
+
+test('FR-TODO-007 AC-9: a save that removes an existing detail is the one that asks first', () => {
+  assert.equal(detailSaveRemoves('old', ''), true);
+  assert.equal(detailSaveRemoves('old', '   \n'), true);
+  assert.equal(detailSaveRemoves('', ''), false);
+  assert.equal(detailSaveRemoves('old', 'new'), false);
+});
+
+test('FR-TODO-003 AC-9: loading until the first list arrives; the empty notice only after that', () => {
+  assert.equal(todoListPlaceholder({ loaded: false, rowCount: 0, adding: false }), 'loading');
+  assert.equal(todoListPlaceholder({ loaded: false, rowCount: 0, adding: true }), 'loading');
+  assert.equal(todoListPlaceholder({ loaded: true, rowCount: 0, adding: false }), 'empty');
+  assert.equal(todoListPlaceholder({ loaded: true, rowCount: 0, adding: true }), null);
+  assert.equal(todoListPlaceholder({ loaded: true, rowCount: 3, adding: false }), null);
+  assert.ok(t('todo.loading').length > 0);
+});
+
+test('FR-TODO-007 AC-9 / FR-TODO-003 AC-9: the panel asks before removing a detail and shows the loading notice', () => {
+  const source = readFileSync(new URL('../../src/components/Todo/TodoPanel.tsx', import.meta.url), 'utf-8');
+  assert.match(source, /dialogId="todo-detail-clear-confirm"/);
+  assert.match(source, /detailSaveRemoves\(/);
+  assert.match(source, /t\('todo\.loading'\)/);
+  assert.match(source, /todoListPlaceholder\(/);
+  const hook = readFileSync(new URL('../../src/components/Todo/useTodos.ts', import.meta.url), 'utf-8');
+  assert.match(hook, /loaded/);
 });

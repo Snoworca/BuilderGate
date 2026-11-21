@@ -2024,6 +2024,8 @@
   "todo.deleteMessage": "#{id} 「{title}」 항목을 지울까요?",
   "todo.deleteMessageWithChildren": "#{id} 「{title}」 항목과 그 아래 항목 {count}개를 지울까요?",
   "todo.empty": "할 일이 없습니다. 대분류를 추가하세요.",
+  "todo.loading": "불러오고 있습니다…",
+  "todo.detail.clearConfirm": "이 상세 설명을 지울까요? 되돌릴 수 없습니다.",
   "todo.markDone": "완료로 표시",
   "todo.markOpen": "미완료로 표시",
   "todo.detail.heading": "상세",
