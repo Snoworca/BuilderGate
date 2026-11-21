@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-21T09:20:58.409Z",
+  "generatedAt": "2026-11-21T09:21:16.596Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "4a62f4c14e3fe1fcc06edacb21cf44ddbdc1d44c4b25cb5bbc41720dbb470f8a",
+    "value": "966bcf862b5d4986aaa5b5800ffa2b6651632c201311118e86280884ca3638cf",
     "files": [
       {
         "path": "docs/spec/00.index.md",
         "sha256": "ab343d269de52c3828661da56bc3044ac9229a25ae3915a7d961f0d668e67dd9",
         "size": 17338,
-        "mtimeMs": 1795252844398.0232
+        "mtimeMs": 1795252871401.4001
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -34,19 +34,19 @@
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "db98f3b13f1df61968542252c902c305eb6d404e43015b99ba42f31c10c1e10a",
         "size": 228769,
-        "mtimeMs": 1795252844399.5308
+        "mtimeMs": 1795252871403.401
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "60b94310049c937101521d5ea7a844184626fed721b2b3dea13b04b8019519df",
         "size": 333415,
-        "mtimeMs": 1795252844400.5376
+        "mtimeMs": 1795252871404.4
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "c1063dfeef1c8418597d2521002aa9e0040d78bf1a14ebd0308cae396d2991ff",
         "size": 160990,
-        "mtimeMs": 1795252844402.0425
+        "mtimeMs": 1795252871405.3997
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
@@ -92,15 +92,15 @@
       },
       {
         "path": "docs/spec/50.messenger.srs.md",
-        "sha256": "47b73cc72cc093e8c3136157c2745e2acfc6a23b3a0cb2798d29882b9a44334c",
-        "size": 42296,
-        "mtimeMs": 1795252844402.0425
+        "sha256": "de36b72269282d93bca3e7cb12ca81860b54a08fd7adf101bed843373fb02f69",
+        "size": 43655,
+        "mtimeMs": 1795252871406.4014
       },
       {
         "path": "docs/spec/51.session-composer.srs.md",
         "sha256": "38ee976976d54efb0b3fef4e7364168c7c35d28401b59d7872a72685cf797b3a",
         "size": 7458,
-        "mtimeMs": 1795252844403.0486
+        "mtimeMs": 1795252871406.4014
       },
       {
         "path": "docs/spec/90.appendix.md",
