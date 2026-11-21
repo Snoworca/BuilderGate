@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>할 일 상세 설명 시안</title>
+<style>
+  :root { --todo-font-size: 13px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #151515; color: #ddd;
+    font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    display: flex; gap: 32px; padding: 24px; min-height: 100vh;
+  }
+  .notes { max-width: 380px; font-size: 14px; line-height: 1.7; color: #bbb; }
+  .notes h1 { font-size: 18px; color: #eee; margin: 0 0 12px; }
+  .notes h2 { font-size: 14px; color: #eee; margin: 20px 0 6px; }
+  .notes ul { padding-left: 18px; margin: 0; }
+  .notes kbd { background: #2a2a2a; border: 1px solid #444; border-radius: 3px; padding: 0 4px; font-size: 12px; }
+
+  .todo-panel {
+    width: 360px; height: 760px; display: flex; flex-direction: column;
+    background: #1f1f1f; border: 1px solid #3a3a3a; border-radius: 6px;
+    font-size: var(--todo-font-size); overflow: hidden;
+  }
+  .todo-panel__header { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid #3a3a3a; }
+  .todo-panel__title { flex: 1; font-weight: 600; }
+  .pill { padding: 3px 8px; border: 1px solid #4a7a4a; border-radius: 12px; color: #7fd17f; font-size: 12px; background: none; }
+  .icon-btn { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; color: #bbb; border-radius: 4px; cursor: pointer; padding: 0; }
+  .icon-btn:hover { background: #333; color: #fff; }
+  .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .todo-panel__list { flex: 1; overflow-y: auto; padding: 4px 0; }
+
+  .todo-row { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 8px; cursor: pointer; }
+  .todo-row:hover { background: #2a2a2a; }
+  .todo-row.is-selected { background: #2f3b52; }
+  .todo-row--d1 { font-weight: 600; margin-top: 4px; }
+  .todo-row--d1 .title { font-size: calc(var(--todo-font-size) + 3px); }
+  .todo-row--d2 { padding-left: 26px; }
+  .todo-row--d3 { padding-left: 46px; }
+  .todo-row.is-done .title { color: #777; text-decoration: line-through; }
+  .todo-row input[type=checkbox] { margin: 0; }
+  .id { color: #7a8aa8; font-family: ui-monospace, monospace; font-size: calc(var(--todo-font-size) - 2px); font-weight: 400; }
+  .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .has-detail { color: #7a8aa8; display: inline-flex; }
+  .has-detail svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .author { padding: 0 6px; border-radius: 8px; font-size: 10px; font-weight: 400; line-height: 16px; color: #9aa7c0; background: #2a3242; white-space: nowrap; }
+  .author--session { color: #c7b07a; background: #3a3326; }
+  .actions { display: inline-flex; gap: 1px; visibility: hidden; }
+  .todo-row:hover .actions, .todo-row.is-selected .actions { visibility: visible; }
+  .actions .icon-btn { width: 22px; height: 22px; color: #999; }
+  .actions .icon-btn svg { width: 14px; height: 14px; }
+  .actions .icon-btn.is-note { color: #8fb4ff; }
+
+  /* 상세 설명: 항목 바로 아래, 제목 시작선에 맞춰 들여쓴다 */
+  .detail { margin: 0 8px 4px; padding: 6px 10px; border-left: 2px solid #3b4a66; background: #232731; border-radius: 0 4px 4px 0;
+    color: #b8c0cf; font-weight: 400; font-size: calc(var(--todo-font-size) - 1px); line-height: 1.55; white-space: pre-wrap; cursor: text; }
+  .detail--d1 { margin-left: 30px; }
+  .detail--d2 { margin-left: 48px; }
+  .detail--d3 { margin-left: 68px; }
+  .detail { position: relative; }
+  .detail:hover { background: #283040; }
+  /* 숨기기: 설명 상자 오른쪽 위, 마우스를 올렸을 때만 */
+  .detail-hide { position: absolute; top: 3px; right: 6px; padding: 0 4px; border: none; border-radius: 3px;
+    background: #283040; color: #7a8aa8; font: inherit; font-size: 11px; cursor: pointer; visibility: hidden; }
+  .detail:hover .detail-hide { visibility: visible; }
+  .detail-hide:hover { color: #c8d4ee; }
+  .has-detail { cursor: pointer; border: none; background: none; padding: 0; }
+  .has-detail.is-hidden { color: #8fb4ff; }
+
+  /* 입력칸은 출력 상자와 같은 위치·폭·여백·글꼴 — 왼쪽 선 색만 바뀐다 */
+  .detail-edit { margin-right: 8px; margin-bottom: 4px; display: flex; flex-direction: column; gap: 6px; }
+  .detail-edit textarea { display: block; width: 100%; min-height: 0; max-height: 240px; resize: none; overflow-y: auto;
+    margin: 0; padding: 6px 10px; border: none; border-left: 2px solid #6f95e6; border-radius: 0 4px 4px 0;
+    background: #232731; color: #e4e9f2; font: inherit; font-weight: 400; font-size: calc(var(--todo-font-size) - 1px);
+    line-height: 1.55; outline: none;
+    scrollbar-width: thin; scrollbar-color: #4a5468 transparent; }
+  /* 아주 얇은 스크롤 막대 */
+  .detail-edit textarea::-webkit-scrollbar { width: 3px; }
+  .detail-edit textarea::-webkit-scrollbar-track { background: transparent; }
+  .detail-edit textarea::-webkit-scrollbar-thumb { background: #4a5468; border-radius: 2px; }
+  .detail-edit .bar { display: flex; align-items: center; gap: 6px; }
+  .detail-edit .hint { flex: 1; color: #777; font-size: 11px; }
+  .btn { padding: 3px 10px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #ddd; font-size: 12px; cursor: pointer; }
+  .btn--primary { background: #3b6fd6; border-color: #3b6fd6; color: #fff; }
+  .btn--danger { margin-right: auto; border-color: transparent; background: none; color: #f08a8a; }
+</style>
+</head>
+<body>
+<section class="notes">
+  <h1>상세 설명을 항목 바로 아래에</h1>
+  <p>패널 하단의 상세 영역을 없애고, 설명을 각 항목 바로 아래에 붙입니다. 오른쪽 패널은 실제로 눌러 볼 수 있습니다.</p>
+  <h2>추가</h2>
+  <ul>
+    <li>줄에 마우스를 올리면 나오는 버튼 중 <b>상세 설명 추가</b>(메모 아이콘)를 누릅니다.</li>
+    <li>그 줄 바로 아래, 설명이 보이는 자리와 같은 폭으로 입력칸이 열립니다. 글이 길어지면 칸이 늘어나고, 일정 높이를 넘으면 아주 얇은 스크롤 막대가 생깁니다.</li>
+    <li> <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 또는 저장으로 저장하고, <kbd>Esc</kbd> 또는 취소로 닫습니다.</li>
+  </ul>
+  <h2>보기</h2>
+  <ul>
+    <li>설명이 있는 항목은 제목 옆에 작은 메모 표시가 붙고, 설명이 줄 바로 아래에 보입니다.</li>
+    <li>설명은 접지 않고 전부 보입니다. 설명 상자에 마우스를 올리면 오른쪽 위에 <b>숨기기</b>가 나옵니다.</li>
+    <li>숨긴 설명은 제목 옆 메모 표시(파란색)를 누르면 다시 보입니다.</li>
+    <li>설명 상자를 누르면 그 자리에서 고칩니다. 내용을 모두 지우고 저장하면 설명이 없어집니다.</li>
+    <li>완료된 항목의 설명은 함께 숨겨지거나 보입니다.</li>
+  </ul>
+  <h2>제목 고치기</h2>
+  <ul>
+    <li>하단 영역이 없어지므로 제목은 줄을 더블클릭해 그 자리에서 고칩니다.</li>
+  </ul>
+</section>
+
+<aside class="todo-panel" id="panel">
+  <header class="todo-panel__header">
+    <span class="todo-panel__title">할 일</span>
+    <button class="pill">완료된 것 숨기기</button>
+    <button class="icon-btn" title="글자 작게" onclick="font(-1)"><svg viewBox="0 0 24 24"><path d="M3 19l5-13 5 13"/><path d="M5 14h6"/><path d="M15 9h6"/></svg></button>
+    <button class="icon-btn" title="글자 크게" onclick="font(1)"><svg viewBox="0 0 24 24"><path d="M3 19l5-13 5 13"/><path d="M5 14h6"/><path d="M18 6v6"/><path d="M15 9h6"/></svg></button>
+    <button class="icon-btn" title="대분류 추가"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+    <button class="icon-btn" title="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button>
+  </header>
+  <div class="todo-panel__list" id="list"></div>
+</aside>
+
+<script>
+const items = [
+  { id: 15, parent: null, depth: 1, title: '채용', author: ['user', '사용자'], detail: '' },
+  { id: 16, parent: 15, depth: 2, title: '백엔드 공고 올리기', author: ['user', '사용자'],
+    detail: '사람인과 원티드 두 곳에 올린다.\n연봉 범위는 팀장 승인 뒤 기입.' },
+  { id: 21, parent: 15, depth: 2, title: '면접 질문지 정리', author: ['session', 'claude-1'], done: true, detail: '' },
+  { id: 17, parent: null, depth: 1, title: '0.11.10 릴리즈', author: ['user', '사용자'],
+    detail: '할 일 패널이 들어가는 버전.' },
+  { id: 18, parent: 17, depth: 2, title: '할 일 패널 마무리', author: ['user', '사용자'], detail: '' },
+  { id: 19, parent: 18, depth: 3, title: '상세 설명 위치 변경', author: ['session', 'codex-2'],
+    detail: '하단 고정 영역을 없애고 항목 바로 아래에 설명을 붙인다.\n추가는 줄의 메모 버튼으로 한다.\n설명 상자에서 숨기기를 누르면 이 설명만 접힌다.\n제목 수정은 더블클릭.\n저장은 Ctrl+Enter.' },
+  { id: 20, parent: 17, depth: 2, title: '릴리즈 노트 작성', author: ['session', 'claude-1'], detail: '' },
+];
+let editing = null, hiddenDetails = new Set(), selected = 19;
+
+const ic = {
+  note: '<path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
+  sib: '<path d="M4 6h16"/><path d="M4 12h8"/><path d="M17 14v6"/><path d="M14 17h6"/>',
+  child: '<path d="M4 6h16"/><path d="M8 6v8h4"/><path d="M17 11v6"/><path d="M14 14h6"/>',
+  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
+  check: '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M8 12l3 3 5-6"/>',
+};
+const svg = (k) => `<svg viewBox="0 0 24 24">${ic[k]}</svg>`;
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+
+function render() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  for (const it of items) {
+    const row = document.createElement('div');
+    row.className = `todo-row todo-row--d${it.depth}${it.done ? ' is-done' : ''}${it.id === selected ? ' is-selected' : ''}`;
+    row.innerHTML = `
+      <input type="checkbox" ${it.done ? 'checked' : ''}>
+      <span class="id">#${it.id}</span>
+      <span class="title">${esc(it.title)}</span>
+      ${it.detail ? `<button class="has-detail${hiddenDetails.has(it.id) ? ' is-hidden' : ''}" title="${hiddenDetails.has(it.id) ? '상세 설명 보이기' : '상세 설명 있음'}" data-show>${svg('note')}</button>` : ''}
+      <span class="author${it.author[0] === 'session' ? ' author--session' : ''}">${esc(it.author[1])}</span>
+      <span class="actions">
+        <button class="icon-btn is-note" title="${it.detail ? '상세 설명 고치기' : '상세 설명 추가'}" data-note>${svg('note')}</button>
+        <button class="icon-btn" title="같은 단계에 추가">${svg('sib')}</button>
+        ${it.depth < 3 ? `<button class="icon-btn" title="하위 항목 추가">${svg('child')}</button>` : ''}
+        <button class="icon-btn" title="삭제">${svg('trash')}</button>
+      </span>
+      ${it.depth === 1 ? `<button class="icon-btn" style="color:#7fd17f" title="이 대분류의 완료된 것 숨기기">${svg('check')}</button>` : ''}`;
+    row.onclick = () => { selected = it.id; render(); };
+    const show = row.querySelector('[data-show]');
+    if (show) show.onclick = (e) => { e.stopPropagation(); if (hiddenDetails.has(it.id)) { hiddenDetails.delete(it.id); render(); } };
+    row.querySelector('[data-note]').onclick = (e) => { e.stopPropagation(); selected = it.id; editing = it.id; hiddenDetails.delete(it.id); render(); };
+    list.appendChild(row);
+
+    if (editing === it.id) {
+      const box = document.createElement('div');
+      box.className = `detail-edit detail--d${it.depth}`;
+      box.innerHTML = `
+        <textarea placeholder="상세 설명을 입력하세요">${esc(it.detail)}</textarea>
+        <div class="bar">
+          ${it.detail ? '<button class="btn btn--danger" data-clear>설명 지우기</button>' : ''}
+          <span class="hint">Ctrl+Enter 저장 · Esc 취소</span>
+          <button class="btn" data-cancel>취소</button>
+          <button class="btn btn--primary" data-save>저장</button>
+        </div>`;
+      const ta = box.querySelector('textarea');
+      const fit = () => { ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight, 58) + 'px'; };
+      ta.addEventListener('input', fit);
+      setTimeout(fit);
+      const save = () => { it.detail = ta.value.trim() ? ta.value : ''; editing = null; render(); };
+      const cancel = () => { editing = null; render(); };
+      box.querySelector('[data-save]').onclick = save;
+      box.querySelector('[data-cancel]').onclick = cancel;
+      const clr = box.querySelector('[data-clear]');
+      if (clr) clr.onclick = () => { it.detail = ''; editing = null; render(); };
+      ta.onkeydown = (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
+        if (e.key === 'Escape') cancel();
+      };
+      list.appendChild(box);
+      setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
+    } else if (it.detail && !hiddenDetails.has(it.id)) {
+      const d = document.createElement('div');
+      d.className = `detail detail--d${it.depth}`;
+      d.title = '눌러서 고치기';
+      d.textContent = it.detail;
+      d.onclick = () => { selected = it.id; editing = it.id; render(); };
+      const hide = document.createElement('button');
+      hide.className = 'detail-hide';
+      hide.textContent = '숨기기';
+      hide.title = '이 상세 설명 숨기기';
+      hide.onclick = (e) => { e.stopPropagation(); hiddenDetails.add(it.id); render(); };
+      d.appendChild(hide);
+      list.appendChild(d);
+    }
+  }
+}
+function font(step) {
+  const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--todo-font-size'));
+  document.documentElement.style.setProperty('--todo-font-size', Math.min(20, Math.max(11, cur + step)) + 'px');
+}
+render();
+</script>
+</body>
+</html>

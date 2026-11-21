@@ -2,7 +2,7 @@
 // The header button, the terminal shortcut, the menus and the panel sit in unrelated parts of the
 // tree, so they read one module store with useSyncExternalStore. Kept in the browser; every storage
 // access may throw (private mode, blocked site data) and the panel keeps working from memory.
-// @req FR-TODO-002 FR-TODO-003 FR-TODO-004
+// @req FR-TODO-002 FR-TODO-003 FR-TODO-007
 
 import { useSyncExternalStore } from 'react';
 
@@ -27,6 +27,8 @@ export interface TodoPanelState {
   readonly fontSize: number;
   readonly hideDone: boolean;
   readonly categoryShowDone: Readonly<Record<number, boolean>>;
+  /** FR-TODO-007 AC-4: entries whose detail the user hid. */
+  readonly hiddenDetails: Readonly<Record<number, true>>;
   /** Not kept: a reload starts with nothing selected. */
   readonly selectedId: number | null;
 }
@@ -41,6 +43,7 @@ export interface TodoPanelStore {
   changeFontSize(step: 1 | -1 | 2 | -2): void;
   setHideDone(hideDone: boolean): void;
   toggleCategoryDone(categoryId: number): void;
+  setDetailHidden(id: number, hidden: boolean): void;
   select(id: number | null): void;
 }
 
@@ -48,7 +51,7 @@ const clampFontSize = (size: number) => Math.round(Math.min(TODO_PANEL_MAX_FONT_
 const clampWidth = (width: number) => Math.round(Math.min(TODO_PANEL_MAX_WIDTH, Math.max(TODO_PANEL_MIN_WIDTH, width)));
 
 function readState(storage: TodoPanelStorage | null): TodoPanelState {
-  const initial: TodoPanelState = { open: false, width: TODO_PANEL_DEFAULT_WIDTH, fontSize: TODO_PANEL_DEFAULT_FONT_SIZE, hideDone: false, categoryShowDone: {}, selectedId: null };
+  const initial: TodoPanelState = { open: false, width: TODO_PANEL_DEFAULT_WIDTH, fontSize: TODO_PANEL_DEFAULT_FONT_SIZE, hideDone: false, categoryShowDone: {}, hiddenDetails: {}, selectedId: null };
   let raw: string | null = null;
   try {
     raw = storage?.getItem(TODO_PANEL_STORAGE_KEY) ?? null;
@@ -70,12 +73,19 @@ function readState(storage: TodoPanelStorage | null): TodoPanelState {
       if (typeof shown === 'boolean' && Number.isInteger(Number(key))) categoryShowDone[Number(key)] = shown;
     }
   }
+  const hiddenDetails: Record<number, true> = {};
+  if (record.hiddenDetails && typeof record.hiddenDetails === 'object') {
+    for (const [key, hidden] of Object.entries(record.hiddenDetails as Record<string, unknown>)) {
+      if (hidden === true && Number.isInteger(Number(key))) hiddenDetails[Number(key)] = true;
+    }
+  }
   return {
     open: record.open === true,
     width: typeof record.width === 'number' && Number.isFinite(record.width) ? clampWidth(record.width) : TODO_PANEL_DEFAULT_WIDTH,
     fontSize: typeof record.fontSize === 'number' && Number.isFinite(record.fontSize) ? clampFontSize(record.fontSize) : TODO_PANEL_DEFAULT_FONT_SIZE,
     hideDone: record.hideDone === true,
     categoryShowDone,
+    hiddenDetails,
     selectedId: null,
   };
 }
@@ -118,6 +128,11 @@ export function createTodoPanelStore(storage: TodoPanelStorage | null): TodoPane
     toggleCategoryDone: (categoryId) => {
       const shown = state.categoryShowDone[categoryId] ?? !state.hideDone;
       update({ categoryShowDone: { ...state.categoryShowDone, [categoryId]: !shown } });
+    },
+    setDetailHidden: (id, hidden) => {
+      if (hidden === (state.hiddenDetails[id] === true)) return;
+      const { [id]: _was, ...rest } = state.hiddenDetails;
+      update({ hiddenDetails: hidden ? { ...rest, [id]: true } : rest });
     },
     select: (id) => { if (id !== state.selectedId) update({ selectedId: id }); },
   };

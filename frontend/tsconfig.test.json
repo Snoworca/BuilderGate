@@ -27,6 +27,7 @@
     "./tests/unit/sessionComposerShortcut.test.ts",
     "./tests/unit/todoPanelModel.test.ts",
     "./tests/unit/todoPanelShortcut.test.ts",
+    "./tests/unit/todoPanelInlineDetail.test.ts",
     "./tests/unit/gitChipModel.test.ts",
     "./tests/unit/gitSummaryStore.test.ts",
     "./tests/unit/gitBranchChip.test.ts",

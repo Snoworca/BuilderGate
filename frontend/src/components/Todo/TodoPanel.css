@@ -194,17 +194,48 @@
   white-space: nowrap;
 }
 
-/* Hidden but kept in the layout, so the row does not move when they appear. */
+/*
+ * Laid over the right end of the row while it is hovered or selected, so the title has the whole
+ * width the rest of the time and nothing moves when they appear. On a phone they stay in the row.
+ */
+.todo-row {
+  position: relative;
+}
+
 .todo-row__actions {
-  display: inline-flex;
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: none;
   gap: 2px;
-  visibility: hidden;
+  padding: 0 2px 0 8px;
+  border-radius: 4px;
+  background-color: inherit;
+}
+
+.todo-row--d1 .todo-row__actions {
+  right: 30px;
 }
 
 .todo-row:hover .todo-row__actions,
-.todo-row.is-selected .todo-row__actions,
+.todo-row.is-selected .todo-row__actions {
+  display: inline-flex;
+  background-color: #2a2a2a;
+  box-shadow: -10px 0 8px -4px #2a2a2a;
+}
+
+.todo-row.is-selected .todo-row__actions {
+  background-color: #2f3b52;
+  box-shadow: -10px 0 8px -4px #2f3b52;
+}
+
 .todo-panel--mobile .todo-row__actions {
-  visibility: visible;
+  position: static;
+  transform: none;
+  display: inline-flex;
+  background: none;
+  box-shadow: none;
 }
 
 .todo-row__action,
@@ -216,8 +247,7 @@
   color: #7fd17f;
 }
 
-.todo-row__input,
-.todo-panel__detail-title {
+.todo-row__input {
   flex: 1;
   min-width: 0;
   box-sizing: border-box;
@@ -230,43 +260,136 @@
   font-weight: 400;
 }
 
-/* FR-TODO-004: the selected entry's details at the bottom. */
-.todo-panel__detail {
+/* FR-TODO-007 AC-1: the detail right under its entry, indented to where the title starts. */
+.todo-detail,
+.todo-detail-edit {
+  margin-right: 8px;
+  margin-bottom: 4px;
+}
+
+.todo-detail--d1 { margin-left: 30px; }
+.todo-detail--d2 { margin-left: 48px; }
+.todo-detail--d3 { margin-left: 68px; }
+
+.todo-detail {
+  position: relative;
+  padding: 6px 10px;
+  border-left: 2px solid #3b4a66;
+  border-radius: 0 4px 4px 0;
+  background-color: #232731;
+  color: #b8c0cf;
+  font-size: calc(var(--todo-font-size) - 1px);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.todo-detail:hover {
+  background-color: #283040;
+}
+
+/* FR-TODO-007 AC-4: only while the pointer is over the detail. */
+.todo-detail__hide {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 3px;
+  background-color: #283040;
+  color: #7a8aa8;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.todo-detail:hover .todo-detail__hide {
+  visibility: visible;
+}
+
+.todo-detail__hide:hover {
+  color: #c8d4ee;
+}
+
+.todo-row__note {
   flex: 0 0 auto;
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #7a8aa8;
+}
+
+.todo-row__note.is-hidden {
+  color: #8fb4ff;
+  cursor: pointer;
+}
+
+.todo-row__title-input {
+  font-weight: inherit;
+}
+
+/* FR-TODO-007 AC-2: the editor takes the detail's place and width; only the left line changes. */
+.todo-detail-edit {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px;
-  border-top: 1px solid #3a3a3a;
-  max-height: 45%;
 }
 
-.todo-panel__detail--empty {
-  color: #888;
-  font-size: 12px;
+.todo-detail-edit textarea {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px 10px;
+  border: none;
+  border-left: 2px solid #6f95e6;
+  border-radius: 0 4px 4px 0;
+  background-color: #232731;
+  color: #e4e9f2;
+  font: inherit;
+  font-weight: 400;
+  font-size: calc(var(--todo-font-size) - 1px);
+  line-height: 1.55;
+  resize: none;
+  overflow-y: auto;
+  outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: #4a5468 transparent;
 }
 
-.todo-panel__detail-head {
+.todo-detail-edit textarea::-webkit-scrollbar {
+  width: 3px;
+}
+
+.todo-detail-edit textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.todo-detail-edit textarea::-webkit-scrollbar-thumb {
+  background-color: #4a5468;
+  border-radius: 2px;
+}
+
+.todo-detail-edit__bar {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.todo-panel__detail-text {
-  min-height: 90px;
-  height: 140px;
-  resize: vertical;
-  box-sizing: border-box;
-  padding: 6px;
-  border: 1px solid #555;
-  border-radius: 4px;
-  background-color: #141414;
-  color: #eee;
-  font: inherit;
-  line-height: 1.5;
+.todo-detail-edit__hint {
+  flex: 1;
+  color: #777;
+  font-size: 11px;
 }
 
-.todo-panel__detail-actions {
-  display: flex;
-  justify-content: flex-end;
+.todo-detail-edit__clear {
+  border: none;
+  background: none;
+  color: #f08a8a;
+  font-size: 12px;
+  cursor: pointer;
 }
