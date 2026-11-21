@@ -208,6 +208,42 @@ test('FR-AITUI-024 AC-1: a menu with a few rows under its footer still counts', 
   assert.equal(isAgentChoicePrompt(screen), true);
 });
 
+test('FR-AITUI-024 AC-1: a task panel under the footer does not push the menu out of reach', () => {
+  // Seen on 2002 (0.11.9): Claude Code's task list drew eight rows under the footer.
+  const screen = [
+    '❯ 1. Alpha',
+    '  2. Beta',
+    'Enter to select · ↑/↓ to navigate · Esc to cancel',
+    '───── og-flow 2289 ─',
+    '  2/6 tasks done · 1 in progress',
+    '  ◼ E3 review',
+    '  ◻ E4 check',
+    '  ◻ E5 evidence',
+    '  ◻ E6 merge',
+    '  ◻ E7 close',
+    '  ✔ E1 spec',
+    '  … +1 task (done)',
+  ].join('\n');
+  assert.equal(isAgentChoicePrompt(screen), true);
+});
+
+test('FR-AITUI-024 AC-1: a question menu whose selected row wrapped above the screen still counts', () => {
+  // On a phone-width tab the described options can be taller than the screen.
+  const screen = ['     rest of the first description', '  2. Beta', '  3. Type something.', '─────', '  4. Chat about this', '', 'Enter to select · Esc to cancel'].join('\n');
+  assert.equal(isAgentChoicePrompt(screen), true);
+});
+
+test('FR-AITUI-024 AC-1: only task panel rows are passed over; other output under a footer still counts against it', () => {
+  const lines = ['❯ 1. Yes', '  2. No', 'Enter to select · Esc to cancel'];
+  for (let i = 0; i < 7; i += 1) lines.push(`output line ${i}`);
+  lines.push('  ◼ E3 review', '  ◻ E4 check');
+  assert.equal(isAgentChoicePrompt(lines.join('\n')), false);
+});
+
+test('FR-AITUI-024 AC-1: a footer over plain numbered lines, without a question menu option, does not count', () => {
+  assert.equal(isAgentChoicePrompt(['1. build', '2. Type something else', '', 'Enter to confirm · Esc to cancel'].join('\n')), false);
+});
+
 test('FR-AITUI-024 AC-1: a menu scrolled up away from the bottom does not count', () => {
   const lines = ['❯ 1. Yes', '  2. No', 'Esc to cancel'];
   for (let i = 0; i < 10; i += 1) lines.push(`output line ${i}`);

@@ -58,6 +58,51 @@ export const CAPTURED_POSITIVE_SCREENS: Record<string, string> = {
     'Enter to select · Tab/Arrow keys to navigate · Esc to cancel',
     `${'─'.repeat(176)} og-flow 지휘 2224·2225 ─`,
   ].join('\n'),
+  // Captured 2026-11-20 from "og-flow 2289" on the 2002 daemon (0.11.9) with the
+  // BuilderGate MCP terminal.read, where the badge did not show. The tab was 43
+  // columns wide (a phone), so the described options wrapped past the top of the
+  // screen and the selected row "❯ 1." was no longer on it; a task panel of eight
+  // rows sat under the footer. Rows terminal.read joined are split back.
+  claudeAskUserQuestionCursorAboveScreenTaskPanel: [
+    '     판정도 순서 비교 대신 값 집합 비교로',
+    '     바꿉니다. 순서만 바꾼 줄은 다시 받은',
+    '     목록으로 바뀝니다. 잃는 것은 서버에',
+    '     저장되지 않는 표시 순서뿐입니다. 판정',
+    '     함수 하나만 바꾸는 작은 변경이고, 세',
+    '     번 되풀이된 같은 계열 결함의 원인(순서',
+    '     비교와 값 집합 비교가 갈리는 것)을',
+    '     없앱니다. FR-CREDOAUTH-051 AC-1 · AC-4',
+    '     문장과 Rationale 을 고치고, 기존 045',
+    '     AC-7 시험의 단언은 바꿀 필요가',
+    '     없습니다.',
+    '  2. 가. 한계로 기록',
+    '     코드는 지금대로 둡니다. 051 AC-2 가',
+    '     이미 기준 시각이 없는 창의 충돌 보호를',
+    '     포기했고 지금 서버에서는 생기지 않는',
+    '     창이므로, FR-CREDOAUTH-051 Rationale',
+    '     에 선언된 한계 한 줄만 적고 병합 승인',
+    '     요약에도 싣습니다.',
+    '  3. 다. 기준 시각 없는 창만',
+    '     기준 시각이 없는 창에서만 「다시',
+    '     시도」 판정을 값 집합 비교로 바꿉니다.',
+    '     기준 시각이 있는 창은 지금처럼',
+    '     순서까지 비교합니다. 판정 규칙이 창',
+    '     상태에 따라 둘로 나뉩니다.',
+    '  4. Type something.',
+    '─'.repeat(43),
+    '  5. Chat about this',
+    '',
+    'Enter to select · ↑/↓ to navigate · Esc to cancel',
+    `${'─'.repeat(28)} og-flow 2289 ─`,
+    '',
+    '  2/6 tasks done · 1 in progress',
+    '  ◼ E3 셀프 리뷰 R1 · 독립 리뷰…',
+    '  ◻ E4 실서버 화면 확인',
+    '  ◻ E5~E9 증거 · 게이트 · PR · …',
+    '  ◻ E10~E12 병합 승인 · 병합 · …',
+    '  ✔ E1 SRS 마무리 · 커밋 · push',
+    '  … +1 task (done)',
+  ].join('\n'),
 };
 
 /**
