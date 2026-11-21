@@ -5,7 +5,9 @@ import { test } from 'node:test';
 import { t } from '../../src/i18n/i18n.ts';
 import type { ContextMenuActionItem, ContextMenuItem } from '../../src/components/ContextMenu/ContextMenu.tsx';
 import type { TodoItem } from '../../src/components/Todo/todoModel.ts';
-import { todoRowMenuItems, type TodoRowMenuActions } from '../../src/components/Todo/todoRowMenu.ts';
+import { todoDeleteMessage, todoPanelMenuItems, todoRowMenuItems, type TodoRowMenuActions } from '../../src/components/Todo/todoRowMenu.ts';
+import { todoDescendantCount } from '../../src/components/Todo/todoModel.ts';
+import { TODO_PANEL_MAX_FONT_SIZE, TODO_PANEL_MIN_FONT_SIZE } from '../../src/components/Todo/todoPanelStore.ts';
 import { createTodoPanelStore } from '../../src/components/Todo/todoPanelStore.ts';
 
 // FR-TODO-007: the detail under the entry, edited in place; a right-click menu on the row.
@@ -90,4 +92,37 @@ test('FR-TODO-007 AC-2: the editor sits where the detail sits, at the same width
   // The editor box does not set its own left margin, which would override the indent.
   const editBlock = /\.todo-detail-edit\s*\{([^}]*)\}/.exec(css);
   assert.ok(editBlock && !/margin(-left)?\s*:/.test(editBlock[1].replace(/margin-(right|bottom)\s*:[^;]*;/g, '')));
+});
+
+test('FR-TODO-007 AC-7: the panel menu adds a category, flips the done toggle and steps the font, within its range', () => {
+  const calls: string[] = [];
+  const actions = { addCategory: () => calls.push('add'), toggleHideDone: () => calls.push('done'), fontLarger: () => calls.push('+'), fontSmaller: () => calls.push('-') };
+  const items = todoPanelMenuItems({ hideDone: false, fontSize: 13, actions });
+  assert.deepEqual(actionsOf(items).map((item) => item.label), [t('todo.addCategory'), t('todo.hideDone'), t('todo.fontLarger'), t('todo.fontSmaller')]);
+  for (const item of actionsOf(items)) item.onClick!();
+  assert.deepEqual(calls, ['add', 'done', '+', '-']);
+  assert.equal(byLabel(todoPanelMenuItems({ hideDone: true, fontSize: 13, actions }), t('todo.showDone'))?.disabled ?? false, false);
+  assert.equal(byLabel(todoPanelMenuItems({ hideDone: false, fontSize: TODO_PANEL_MAX_FONT_SIZE, actions }), t('todo.fontLarger'))!.disabled, true);
+  assert.equal(byLabel(todoPanelMenuItems({ hideDone: false, fontSize: TODO_PANEL_MIN_FONT_SIZE, actions }), t('todo.fontSmaller'))!.disabled, true);
+});
+
+test('FR-TODO-007 AC-8: the delete message names the entry and how many go with it', () => {
+  const list = [entry({ id: 1, parentId: null }), entry({ id: 2, parentId: 1 }), entry({ id: 3, parentId: 2 }), entry({ id: 4, parentId: null })];
+  assert.equal(todoDescendantCount(list, 1), 2);
+  assert.equal(todoDescendantCount(list, 4), 0);
+  const withChildren = todoDeleteMessage(list[0]!, 2);
+  assert.ok(withChildren.includes('#1') && withChildren.includes('2'), withChildren);
+  const alone = todoDeleteMessage(list[3]!, 0);
+  assert.ok(alone.includes('#4'), alone);
+  assert.notEqual(alone, todoDeleteMessage(list[3]!, 1));
+});
+
+test('FR-TODO-007 AC-7/AC-8: an in-app modal confirms a delete; the detail and the empty list open the app menu, inputs keep the browser one', () => {
+  const source = readFileSync(new URL('../../src/components/Todo/TodoPanel.tsx', import.meta.url), 'utf-8');
+  assert.doesNotMatch(source, /window\.confirm/);
+  assert.match(source, /<MessageBox/);
+  assert.match(source, /okVariant="danger"/);
+  assert.match(source, /todoPanelMenuItems\(/);
+  assert.match(source, /className=\{`todo-detail [^}]*\}[^>]*onContextMenu=/s);
+  assert.match(source, /closest\('input, textarea'\)/);
 });

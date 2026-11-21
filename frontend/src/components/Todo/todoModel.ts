@@ -111,6 +111,12 @@ export function todoDropMove(items: readonly TodoItem[], dragId: number, targetI
   return { parentId, beforeId };
 }
 
+/** FR-TODO-007 AC-8: how many entries a delete takes along with this one. */
+export function todoDescendantCount(items: readonly TodoItem[], id: number): number {
+  const under = items.filter((entry) => entry.parentId === id);
+  return under.reduce((count, entry) => count + todoDescendantCount(items, entry.id), under.length);
+}
+
 export function categoryShowsDone(categoryId: number, view: TodoView): boolean {
   return view.categoryShowDone[categoryId] ?? !view.hideDone;
 }

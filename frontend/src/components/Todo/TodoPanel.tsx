@@ -6,11 +6,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Icon } from '../common';
 import { Button } from '../ui';
 import { ContextMenu } from '../ContextMenu';
+import { MessageBox } from '../dialog/MessageBox';
 import { t } from '../../i18n/i18n.ts';
 import { todoApi } from '../../services/api.ts';
-import { canAddTodoChild, categoryShowsDone, siblingMove, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoDropZone, type TodoItem, type TodoMove, type TodoRow } from './todoModel.ts';
+import { canAddTodoChild, categoryShowsDone, siblingMove, todoDescendantCount, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoDropZone, type TodoItem, type TodoMove, type TodoRow } from './todoModel.ts';
 import { todoPanelStore, useTodoPanelState } from './todoPanelStore.ts';
-import { todoRowMenuItems, type TodoRowMenuActions } from './todoRowMenu.ts';
+import { todoDeleteMessage, todoPanelMenuItems, todoRowMenuItems, type TodoRowMenuActions } from './todoRowMenu.ts';
 import { useTodos } from './useTodos.ts';
 import './TodoPanel.css';
 
@@ -32,7 +33,10 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
   /** FR-TODO-007: the entry whose detail or title is being written. */
   const [editingDetailId, setEditingDetailId] = useState<number | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; row: TodoRow } | null>(null);
+  /** FR-TODO-007 AC-6/AC-7: a row's menu, or the panel's own (`row` null). */
+  const [menu, setMenu] = useState<{ x: number; y: number; row: TodoRow | null } | null>(null);
+  /** FR-TODO-007 AC-8: the entry the delete modal asks about. */
+  const [pendingDelete, setPendingDelete] = useState<{ item: TodoItem; busy: boolean; error: string | null } | null>(null);
 
   const rows = useMemo(() => todoRows(items, panel), [items, panel]);
 
@@ -120,10 +124,28 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
     },
   };
 
-  const remove = useCallback((entry: TodoItem) => {
-    if (!window.confirm(t('todo.deleteConfirm', { id: entry.id }))) return;
-    void run(() => todoApi.remove(entry.id));
-  }, [run]);
+  const remove = useCallback((entry: TodoItem) => setPendingDelete({ item: entry, busy: false, error: null }), []);
+  const confirmDelete = async () => {
+    if (!pendingDelete || pendingDelete.busy) return;
+    setPendingDelete({ ...pendingDelete, busy: true, error: null });
+    try {
+      await todoApi.remove(pendingDelete.item.id);
+      setPendingDelete(null);
+      setError(null);
+      await refresh();
+    } catch (reason) {
+      setPendingDelete({ ...pendingDelete, busy: false, error: errorText(reason) });
+    }
+  };
+
+  /** FR-TODO-007 AC-7: the app's menu anywhere in the panel; inputs keep the browser's (copy, paste). */
+  const openMenu = (event: ReactMouseEvent, row: TodoRow | null) => {
+    if ((event.target as HTMLElement).closest('input, textarea')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (row) todoPanelStore.select(row.item.id);
+    setMenu({ x: event.clientX, y: event.clientY, row });
+  };
 
   // FR-TODO-002 AC-3: drag the left edge.
   const onResizeStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -169,6 +191,7 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
       className={`todo-panel${isMobile ? ' todo-panel--mobile' : ''}`}
       style={{ ...(isMobile ? {} : { width: panel.width }), '--todo-font-size': `${panel.fontSize}px` } as CSSProperties}
       aria-label={t('todo.title')}
+      onContextMenu={(event) => openMenu(event, null)}
     >
       {!isMobile && (
         <div className="todo-panel__resize" role="separator" aria-orientation="vertical" aria-label={t('todo.resize')} onPointerDown={onResizeStart} />
@@ -230,11 +253,7 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
                 setEditingDetailId(null);
               }}
               onCancelDetail={() => setEditingDetailId(null)}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                todoPanelStore.select(row.item.id);
-                setMenu({ x: event.clientX, y: event.clientY, row });
-              }}
+              onContextMenu={(event) => openMenu(event, row)}
               dropZone={dropHint?.targetId === row.item.id ? dropHint.zone : null}
               onDragStart={(event) => drag.onDragStart(row, event)}
               onDragOver={(event) => drag.onDragOver(row, event)}
@@ -252,14 +271,39 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
       {menu && (
         <ContextMenu
           position={{ x: menu.x, y: menu.y }}
-          items={todoRowMenuItems({
-            item: menu.row.item,
-            depth: menu.row.depth,
-            moveUp: siblingMove(items, menu.row.item.id, -1),
-            moveDown: siblingMove(items, menu.row.item.id, 1),
-            actions: actionsFor(menu.row),
-          })}
+          items={menu.row
+            ? todoRowMenuItems({
+              item: menu.row.item,
+              depth: menu.row.depth,
+              moveUp: siblingMove(items, menu.row.item.id, -1),
+              moveDown: siblingMove(items, menu.row.item.id, 1),
+              actions: actionsFor(menu.row),
+            })
+            : todoPanelMenuItems({
+              hideDone: panel.hideDone,
+              fontSize: panel.fontSize,
+              actions: {
+                addCategory: () => setAdding({ parentId: null, anchorId: null, depth: 1 }),
+                toggleHideDone: () => todoPanelStore.setHideDone(!panel.hideDone),
+                fontLarger: () => todoPanelStore.changeFontSize(1),
+                fontSmaller: () => todoPanelStore.changeFontSize(-1),
+              },
+            })}
           onClose={() => setMenu(null)}
+        />
+      )}
+      {/* FR-TODO-007 AC-8 */}
+      {pendingDelete && (
+        <MessageBox
+          dialogId="todo-delete-confirm"
+          title={t('todo.deleteTitle')}
+          message={todoDeleteMessage(pendingDelete.item, todoDescendantCount(items, pendingDelete.item.id))}
+          okLabel={t('todo.delete')}
+          okVariant="danger"
+          busy={pendingDelete.busy}
+          error={pendingDelete.error}
+          onOk={() => void confirmDelete()}
+          onCancel={() => { if (!pendingDelete.busy) setPendingDelete(null); }}
         />
       )}
     </aside>
@@ -287,7 +331,7 @@ interface TodoRowViewProps {
   /** Rejects when the server refuses. */
   onSaveDetail: (detail: string) => Promise<void>;
   onCancelDetail: () => void;
-  onContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onContextMenu: (event: ReactMouseEvent) => void;
   /** FR-TODO-006 AC-3: where a dragged entry would land on this row. */
   dropZone: TodoDropZone | null;
   onDragStart: (event: ReactDragEvent<HTMLDivElement>) => void;
@@ -393,7 +437,7 @@ function TodoRowView({
         ? <DetailEditor depth={depth} detail={item.detail} onSave={onSaveDetail} onCancel={onCancelDetail} />
         : hasDetail && !detailHidden && (
           // FR-TODO-007 AC-1: the whole detail, right under the entry; a click edits it.
-          <div className={`todo-detail todo-detail--d${depth}`} title={t('todo.detail.edit')} onClick={actions.editDetail}>
+          <div className={`todo-detail todo-detail--d${depth}`} title={t('todo.detail.edit')} onClick={actions.editDetail} onContextMenu={onContextMenu}>
             {item.detail}
             <button type="button" className="todo-detail__hide" onClick={stop(() => todoPanelStore.setDetailHidden(item.id, true))}>
               {t('todo.detail.hide')}

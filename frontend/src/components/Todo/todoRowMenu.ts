@@ -1,8 +1,9 @@
-// The right-click menu of a to-do row: the row's actions in one list.
+// The right-click menus of the to-do panel (a row's actions, and the panel's own) and the delete question.
 // @req FR-TODO-007
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu.tsx';
 import { t } from '../../i18n/i18n.ts';
 import { canAddTodoChild, type TodoItem, type TodoMove } from './todoModel.ts';
+import { TODO_PANEL_MAX_FONT_SIZE, TODO_PANEL_MIN_FONT_SIZE } from './todoPanelStore.ts';
 
 export interface TodoRowMenuActions {
   editDetail: () => void;
@@ -41,4 +42,28 @@ export function todoRowMenuItems({ item, depth, moveUp, moveDown, actions }: Tod
     { label: t('todo.delete'), icon: 'trash', destructive: true, onClick: actions.remove },
   );
   return items;
+}
+
+export interface TodoPanelMenuInput {
+  hideDone: boolean;
+  fontSize: number;
+  actions: { addCategory: () => void; toggleHideDone: () => void; fontLarger: () => void; fontSmaller: () => void };
+}
+
+/** FR-TODO-007 AC-7: right-click on the empty list or the header. */
+export function todoPanelMenuItems({ hideDone, fontSize, actions }: TodoPanelMenuInput): ContextMenuItem[] {
+  return [
+    { label: t('todo.addCategory'), icon: 'plus', onClick: actions.addCategory },
+    { label: hideDone ? t('todo.showDone') : t('todo.hideDone'), icon: 'check-circle', onClick: actions.toggleHideDone },
+    { separator: true },
+    { label: t('todo.fontLarger'), icon: 'text-larger', disabled: fontSize >= TODO_PANEL_MAX_FONT_SIZE, onClick: actions.fontLarger },
+    { label: t('todo.fontSmaller'), icon: 'text-smaller', disabled: fontSize <= TODO_PANEL_MIN_FONT_SIZE, onClick: actions.fontSmaller },
+  ];
+}
+
+/** FR-TODO-007 AC-8: the question the delete modal asks. */
+export function todoDeleteMessage(item: TodoItem, descendants: number): string {
+  return descendants > 0
+    ? t('todo.deleteMessageWithChildren', { id: item.id, title: item.title, count: descendants })
+    : t('todo.deleteMessage', { id: item.id, title: item.title });
 }
