@@ -105,3 +105,42 @@ test('FR-TODO-001 AC-7: an entry added over MCP records the calling session by n
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('FR-TODO-005 AC-5: move reorders and reparents with the subtree, keeps ids, list follows; refusals come back as codes', async () => {
+  await withTools(async (call, todos, listTools) => {
+    const tool = (listTools().tools as Rec[]).find((entry) => entry.name === 'buildergate.todo.move');
+    assert.ok(tool, 'buildergate.todo.move is listed');
+    assert.deepEqual(((tool.inputSchema as Rec).required as string[]).sort(), ['beforeId', 'id', 'parentId']);
+    const a = ((await call('buildergate.todo.add', { title: 'A' })).todo as Rec).id as number;
+    const b = ((await call('buildergate.todo.add', { title: 'B' })).todo as Rec).id as number;
+    const a1 = ((await call('buildergate.todo.add', { parentId: a, title: 'A1' })).todo as Rec).id as number;
+    const a1x = ((await call('buildergate.todo.add', { parentId: a1, title: 'A1x' })).todo as Rec).id as number;
+    const b1 = ((await call('buildergate.todo.add', { parentId: b, title: 'B1' })).todo as Rec).id as number;
+
+    const reordered = await call('buildergate.todo.move', { id: b, parentId: null, beforeId: a });
+    assert.equal(reordered.ok, true);
+    const tree = (await call('buildergate.todo.list')).todos as Rec[];
+    assert.deepEqual(tree.map((node) => node.title), ['B', 'A']);
+
+    const moved = await call('buildergate.todo.move', { id: a1, parentId: b, beforeId: b1 });
+    assert.equal(moved.ok, true);
+    assert.equal((moved.todo as Rec).id, a1);
+    const bNode = ((await call('buildergate.todo.list')).todos as Rec[])[0]!;
+    assert.deepEqual((bNode.children as Rec[]).map((node) => node.title), ['A1', 'B1']);
+    assert.deepEqual(((bNode.children as Rec[])[0]!.children as Rec[]).map((node) => node.id), [a1x]);
+
+    assert.equal((await call('buildergate.todo.move', { id: b, parentId: a1, beforeId: null })).code, 'VALIDATION_ERROR');
+    assert.equal((await call('buildergate.todo.move', { id: a1, parentId: b1, beforeId: null })).code, 'VALIDATION_ERROR');
+    assert.equal((await call('buildergate.todo.move', { id: 999, parentId: null, beforeId: null })).code, 'TARGET_NOT_FOUND');
+    assert.equal((await call('buildergate.todo.move', { id: a1, parentId: null, beforeId: null }, [])).code, 'INVALID_SCOPE');
+    assert.ok(todos.list().length === 5);
+  });
+});
+
+test('FR-TODO-005: the tool text says where the detail shows now', async () => {
+  await withTools(async (_call, _todos, listTools) => {
+    const add = (listTools().tools as Rec[]).find((entry) => entry.name === 'buildergate.todo.add')!;
+    const detail = ((add.inputSchema as Rec).properties as Rec).detail as Rec;
+    assert.doesNotMatch(String(detail.description), /bottom/i);
+  });
+});

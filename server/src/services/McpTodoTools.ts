@@ -4,12 +4,13 @@ import { TodoNotFoundError, TodoValidationError, type TodoAuthor, type TodoItem,
 
 type Rec = Record<string, unknown>;
 
-export type McpTodoControl = Pick<TodoService, 'list' | 'add' | 'update' | 'remove'>;
+export type McpTodoControl = Pick<TodoService, 'list' | 'add' | 'update' | 'move' | 'remove'>;
 
 export const MCP_TODO_TOOL_NAMES = [
   'buildergate.todo.list',
   'buildergate.todo.add',
   'buildergate.todo.update',
+  'buildergate.todo.move',
   'buildergate.todo.delete',
 ] as const;
 
@@ -28,7 +29,7 @@ export const MCP_TODO_TOOL_SCHEMAS: Record<McpTodoToolName, Rec> = {
     properties: {
       parentId: { ...id, description: 'Parent entry id. Omit for a new category. Entries nest at most three levels (category, item, sub-item).' },
       title: { type: 'string', minLength: 1, maxLength: 200 },
-      detail: { type: 'string', maxLength: 20000, description: 'Longer description shown at the bottom of the panel.' },
+      detail: { type: 'string', maxLength: 20000, description: 'Longer description, shown right under the entry in the panel.' },
     },
     required: ['title'],
     additionalProperties: false,
@@ -44,6 +45,17 @@ export const MCP_TODO_TOOL_SCHEMAS: Record<McpTodoToolName, Rec> = {
     required: ['id'],
     additionalProperties: false,
   },
+  // FR-TODO-005 AC-5
+  'buildergate.todo.move': {
+    type: 'object',
+    properties: {
+      id,
+      parentId: { type: ['integer', 'null'], minimum: 1, description: 'The new parent entry id; null makes it a category.' },
+      beforeId: { type: ['integer', 'null'], minimum: 1, description: 'The sibling (same parent) to go before; null puts it at the end.' },
+    },
+    required: ['id', 'parentId', 'beforeId'],
+    additionalProperties: false,
+  },
   'buildergate.todo.delete': {
     type: 'object',
     properties: { id, confirm: { type: 'boolean', description: 'Must be true. Entries under it are deleted too.' } },
@@ -53,9 +65,10 @@ export const MCP_TODO_TOOL_SCHEMAS: Record<McpTodoToolName, Rec> = {
 };
 
 export const MCP_TODO_TOOL_DESCRIPTIONS: Record<McpTodoToolName, string> = {
-  'buildergate.todo.list': 'Return the server\'s to-do list (shown in the BuilderGate to-do panel) as a tree of categories, items and sub-items with their absolute ids.',
+  'buildergate.todo.list': 'Return the server\'s to-do list (shown in the BuilderGate to-do panel) as a tree of categories, items and sub-items in panel order, with their absolute ids, details, done state and author (the user or the session that added it).',
   'buildergate.todo.add': 'Add a to-do entry: a category without parentId, or an item/sub-item under parentId. Returns the new entry with its id.',
   'buildergate.todo.update': 'Change a to-do entry\'s title, detail or done state by id. Only the fields given change.',
+  'buildergate.todo.move': 'Move a to-do entry, with everything under it, under parentId (null: a category) before beforeId (null: at the end). Its id does not change. Refused when it would go under itself, past three levels, or before a non-sibling.',
   'buildergate.todo.delete': 'Delete a to-do entry and everything under it. Requires confirm: true.',
 };
 
@@ -63,6 +76,7 @@ const REQUIRED_SCOPE: Record<McpTodoToolName, string> = {
   'buildergate.todo.list': 'mcp:todos.read',
   'buildergate.todo.add': 'mcp:todos.write',
   'buildergate.todo.update': 'mcp:todos.write',
+  'buildergate.todo.move': 'mcp:todos.write',
   'buildergate.todo.delete': 'mcp:todos.write',
 };
 
@@ -101,6 +115,15 @@ async function dispatch(control: McpTodoControl, name: McpTodoToolName, args: Re
           ...(args.done !== undefined ? { done: args.done as boolean } : {}),
         }),
       };
+    case 'buildergate.todo.move': {
+      const ref = (value: unknown) => (value === null ? null : Number.isInteger(value) && (value as number) > 0 ? value as number : undefined);
+      const parentId = ref(args.parentId);
+      const beforeId = ref(args.beforeId);
+      if (!Number.isInteger(args.id) || parentId === undefined || beforeId === undefined) {
+        return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: { position: 'id is an integer; parentId and beforeId are integers or null' } };
+      }
+      return { ok: true, todo: await control.move(args.id as number, { parentId, beforeId }) };
+    }
     case 'buildergate.todo.delete':
       if (args.confirm !== true) return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: { confirm: 'must be true' } };
       return { ok: true, removed: await control.remove(Number(args.id)) };
