@@ -81,6 +81,7 @@
 }
 
 .todo-panel__list {
+  position: relative;
   flex: 1 1 auto;
   min-height: 80px;
   overflow-y: auto;
@@ -129,13 +130,15 @@
 }
 
 .todo-row--d1 {
+  min-height: 34px;
   font-weight: 600;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 /* FR-TODO-003 AC-6: a category reads as a heading. */
 .todo-row--d1 .todo-row__title {
-  font-size: calc(var(--todo-font-size) + 3px);
+  font-size: calc(var(--todo-font-size) + 4px);
+  color: #f0f2f5;
 }
 
 /* FR-TODO-003 AC-7: who added it. */
@@ -160,11 +163,116 @@
 }
 
 .todo-row--d2 {
-  padding-left: 26px;
+  padding-left: 30px;
 }
 
 .todo-row--d3 {
-  padding-left: 46px;
+  padding-left: 52px;
+}
+
+/* FR-TODO-003 AC-10: under the rows, drawn from the marks' measured boxes. */
+.todo-tree-lines {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.todo-tree-lines path {
+  fill: none;
+  stroke: #5b6578;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+/* FR-TODO-003 AC-11: the category's status. */
+.todo-status {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.todo-status svg {
+  width: 20px;
+  height: 20px;
+}
+
+.todo-status:hover {
+  background-color: #2f2f2f;
+}
+
+.todo-status:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.todo-status__disc {
+  fill: var(--ok);
+}
+
+.todo-status__check {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.todo-status__ring {
+  fill: none;
+  stroke: #3d6fa0;
+  stroke-width: 2;
+}
+
+.todo-status__fill {
+  fill: var(--accent);
+}
+
+.todo-row__progress {
+  flex: 0 0 auto;
+  color: #7a8aa8;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* FR-TODO-003 AC-12: the app's checkbox, not the browser's. */
+.todo-check {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--bg-sunken) center / 11px 11px no-repeat;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+
+.todo-check:hover {
+  border-color: var(--fg-muted);
+}
+
+.todo-check:checked {
+  background-color: #2c4058;
+  border-color: #3a5675;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%239fbbe0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.todo-check:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .todo-row.is-done .todo-row__title {
@@ -172,10 +280,9 @@
   text-decoration: line-through;
 }
 
-.todo-row__check {
-  flex: 0 0 auto;
-  margin: 0;
-  cursor: pointer;
+.todo-row--d1.is-done .todo-row__title {
+  color: #8a9a8a;
+  text-decoration: none;
 }
 
 .todo-row__id {
@@ -267,9 +374,9 @@
   margin-bottom: 4px;
 }
 
-.todo-detail--d1 { margin-left: 30px; }
-.todo-detail--d2 { margin-left: 48px; }
-.todo-detail--d3 { margin-left: 68px; }
+.todo-detail--d1 { margin-left: 36px; }
+.todo-detail--d2 { margin-left: 52px; }
+.todo-detail--d3 { margin-left: 74px; }
 
 .todo-detail {
   position: relative;

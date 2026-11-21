@@ -2,7 +2,7 @@
 // server's list, a show/hide-completed toggle at the top and per category. Each entry's detail sits
 // right under it and is written in place; a right-click on a row opens its actions.
 // @req FR-TODO-002 FR-TODO-003 FR-TODO-006 FR-TODO-007
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '../common';
 import { Button } from '../ui';
 import { ContextMenu } from '../ContextMenu';
@@ -12,6 +12,7 @@ import { todoApi } from '../../services/api.ts';
 import { canAddTodoChild, categoryShowsDone, detailSaveRemoves, siblingMove, todoDescendantCount, todoListPlaceholder, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoDropZone, type TodoItem, type TodoMove, type TodoRow } from './todoModel.ts';
 import { todoPanelStore, useTodoPanelState } from './todoPanelStore.ts';
 import { todoDeleteMessage, todoPanelMenuItems, todoRowMenuItems, type TodoRowMenuActions } from './todoRowMenu.ts';
+import { todoPieSlicePath, todoProgress, todoTreePath, type TodoTreeAnchor } from './todoTree.ts';
 import { useTodos } from './useTodos.ts';
 import './TodoPanel.css';
 
@@ -39,6 +40,34 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
   const [pendingDelete, setPendingDelete] = useState<{ item: TodoItem; busy: boolean; error: string | null } | null>(null);
 
   const rows = useMemo(() => todoRows(items, panel), [items, panel]);
+
+  // FR-TODO-003 AC-10: the dotted tree, measured from the rows' marks after every layout change.
+  const listRef = useRef<HTMLDivElement>(null);
+  const [tree, setTree] = useState({ path: '', width: 0, height: 0 });
+  const measureTree = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const base = list.getBoundingClientRect();
+    const anchors = new Map<number, TodoTreeAnchor>();
+    for (const mark of list.querySelectorAll<HTMLElement>('[data-todo-anchor]')) {
+      const box = mark.getBoundingClientRect();
+      const left = box.left - base.left + list.scrollLeft;
+      const top = box.top - base.top + list.scrollTop;
+      anchors.set(Number(mark.dataset.todoAnchor), { left, right: left + box.width, top, bottom: top + box.height });
+    }
+    const next = { path: todoTreePath(rows.map((row) => row.item), anchors), width: list.scrollWidth, height: list.scrollHeight };
+    setTree((current) => (current.path === next.path && current.width === next.width && current.height === next.height ? current : next));
+  }, [rows]);
+  useLayoutEffect(measureTree);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === 'undefined') return undefined;
+    // The list, and each row and detail in it: a growing editor or a wrapped title moves the rows below.
+    const observer = new ResizeObserver(() => measureTree());
+    observer.observe(list);
+    for (const child of list.children) if (!(child instanceof SVGElement)) observer.observe(child);
+    return () => observer.disconnect();
+  });
 
   // A removed entry drops its selection and its open editors.
   useEffect(() => {
@@ -224,7 +253,10 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
         </button>
       </header>
       {shownError && <div className="todo-panel__error" role="alert">{shownError}</div>}
-      <div className="todo-panel__list" role="tree">
+      <div className="todo-panel__list" role="tree" ref={listRef}>
+        <svg className="todo-tree-lines" width={tree.width} height={tree.height} aria-hidden="true">
+          <path d={tree.path} />
+        </svg>
         {placeholder === 'loading' && <div className="todo-panel__empty" role="status">{t('todo.loading')}</div>}
         {placeholder === 'empty' && <div className="todo-panel__empty">{t('todo.empty')}</div>}
         {rows.map((row) => {
@@ -237,6 +269,7 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
               row={row}
               selected={row.item.id === panel.selectedId}
               categoryShowDone={row.depth === 1 ? categoryShowsDone(row.item.id, panel) : undefined}
+              progress={row.depth === 1 ? todoProgress(items, row.item.id) : null}
               detailHidden={panel.hiddenDetails[row.item.id] === true}
               editingDetail={editingDetailId === row.item.id}
               editingTitle={editingTitleId === row.item.id}
@@ -318,6 +351,8 @@ interface TodoRowViewProps {
   selected: boolean;
   /** Set on a category: whether its completed entries show. */
   categoryShowDone: boolean | undefined;
+  /** FR-TODO-003 AC-11: set on a category. */
+  progress: { done: number; total: number } | null;
   detailHidden: boolean;
   editingDetail: boolean;
   editingTitle: boolean;
@@ -345,7 +380,7 @@ interface TodoRowViewProps {
 }
 
 function TodoRowView({
-  row, selected, categoryShowDone, detailHidden, editingDetail, editingTitle, addingDepth, actions, moveUp, moveDown,
+  row, selected, categoryShowDone, progress, detailHidden, editingDetail, editingTitle, addingDepth, actions, moveUp, moveDown,
   onSubmitNew, onCancelNew, onSaveTitle, onCancelTitle, onSaveDetail, onCancelDetail, onContextMenu,
   dropZone, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: TodoRowViewProps) {
@@ -370,14 +405,37 @@ function TodoRowView({
         onDrop={onDrop}
         onDragEnd={onDragEnd}
       >
-        <input
-          type="checkbox"
-          className="todo-row__check"
-          checked={item.done}
-          aria-label={item.done ? t('todo.markOpen') : t('todo.markDone')}
-          onClick={(event) => event.stopPropagation()}
-          onChange={actions.toggleDone}
-        />
+        {progress
+          ? (
+            // FR-TODO-003 AC-11: done is a V in a circle; in progress fills as its entries get done.
+            <button
+              type="button"
+              className={`todo-status ${item.done ? 'todo-status--done' : 'todo-status--progress'}`}
+              data-todo-anchor={item.id}
+              aria-pressed={item.done}
+              aria-label={item.done ? t('todo.markOpen') : t('todo.markDone')}
+              title={item.done ? t('todo.markOpen') : t('todo.markDone')}
+              onClick={(event) => { event.stopPropagation(); actions.toggleDone(); }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                {item.done
+                  ? (<><circle className="todo-status__disc" cx="12" cy="12" r="11" /><path className="todo-status__check" d="M7 12.5l3.2 3.2L17 9" /></>)
+                  : (<><circle className="todo-status__ring" cx="12" cy="12" r="10" /><path className="todo-status__fill" d={todoPieSlicePath(progress.total ? progress.done / progress.total : 0)} /></>)}
+              </svg>
+            </button>
+          )
+          : (
+            // FR-TODO-003 AC-12
+            <input
+              type="checkbox"
+              className="todo-check"
+              data-todo-anchor={item.id}
+              checked={item.done}
+              aria-label={item.done ? t('todo.markOpen') : t('todo.markDone')}
+              onClick={(event) => event.stopPropagation()}
+              onChange={actions.toggleDone}
+            />
+          )}
         <span className="todo-row__id">#{item.id}</span>
         {editingTitle
           ? <TitleEditor title={item.title} onSave={onSaveTitle} onCancel={onCancelTitle} />
@@ -393,6 +451,9 @@ function TodoRowView({
           >
             <Icon name="document" size={12} />
           </button>
+        )}
+        {progress && progress.total > 0 && (
+          <span className="todo-row__progress" title={`${progress.done}/${progress.total}`}>{progress.done}/{progress.total}</span>
         )}
         {/* FR-TODO-003 AC-7 */}
         {author !== null && (

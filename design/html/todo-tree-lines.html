@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>할 일 트리 시안</title>
+<style>
+  :root {
+    --todo-font-size: 13px;
+    /* 빌더게이트 tokens.css 의 값 */
+    --accent: #0078d4; --accent-fg: #ffffff; --ok: #4cc38a; --line-strong: #4a4a4a; --fg-muted: #a0a0a0;
+    --bg-sunken: #1e1e1e; --focus-ring: 0 0 0 2px var(--accent);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: #151515; color: #ddd; display: flex; gap: 32px; flex-wrap: wrap;
+    font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+  .notes { max-width: 380px; font-size: 14px; line-height: 1.7; color: #bbb; }
+  .notes h1 { font-size: 18px; color: #eee; margin: 0 0 12px; }
+  .notes h2 { font-size: 14px; color: #eee; margin: 20px 0 6px; }
+  .notes ul { padding-left: 18px; margin: 0; }
+  .variants { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .variants label { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 8px; border: 1px solid #333; border-radius: 6px; }
+  .variants label:has(input:checked) { border-color: #6f95e6; background: #1e2636; }
+  .variants svg { width: 20px; height: 20px; }
+
+  .todo-panel { width: 360px; height: 760px; display: flex; flex-direction: column; background: #1f1f1f;
+    border: 1px solid #3a3a3a; border-radius: 6px; font-size: var(--todo-font-size); overflow: hidden; }
+  .todo-panel__header { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid #3a3a3a; }
+  .todo-panel__title { flex: 1; font-weight: 600; }
+  .pill { padding: 3px 8px; border: 1px solid #4a7a4a; border-radius: 12px; color: #7fd17f; font-size: 12px; background: none; }
+  .icon-btn { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; color: #bbb; border-radius: 4px; cursor: pointer; padding: 0; }
+  .icon-btn:hover { background: #333; color: #fff; }
+  .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .todo-panel__list { position: relative; flex: 1; overflow-y: auto; padding: 4px 0 12px; }
+  /* 트리 점선: 목록 위에 겹친 SVG 한 장에 그린다 */
+  .tree-lines { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+  .tree-lines path { fill: none; stroke: #5b6578; stroke-width: 1; stroke-dasharray: 2 3; }
+
+  .todo-row { position: relative; display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 8px; cursor: pointer; }
+  .todo-row:hover { background: #2a2a2a; }
+  .todo-row--d1 { min-height: 34px; margin-top: 6px; }
+  .todo-row--d2 { padding-left: 30px; }
+  .todo-row--d3 { padding-left: 52px; }
+  .todo-row--d1 .title { font-size: calc(var(--todo-font-size) + 4px); font-weight: 600; color: #f0f2f5; }
+  .todo-row.is-done .title { color: #777; text-decoration: line-through; }
+  .todo-row--d1.is-done .title { text-decoration: none; color: #8a9a8a; }
+  /* 빌더게이트 체크박스: 어두운 우물 + 둥근 모서리, 체크하면 강조색으로 채우고 흰 V */
+  .todo-check { appearance: none; -webkit-appearance: none; flex: 0 0 auto; width: 15px; height: 15px; margin: 0;
+    border: 1.5px solid var(--line-strong); border-radius: 4px; background: var(--bg-sunken) center / 11px 11px no-repeat;
+    cursor: pointer; transition: background-color .12s, border-color .12s; }
+  .todo-check:hover { border-color: var(--fg-muted); }
+  /* 체크 색 후보: body 의 data-check 로 바꾼다 */
+  .todo-check:checked { background-color: var(--chk-fill); border-color: var(--chk-edge); background-image: var(--chk-mark); }
+  body[data-check="gray"] { --chk-fill: #4a4f57; --chk-edge: #4a4f57;
+    --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23d6d9de' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  body[data-check="green"] { --chk-fill: #24473a; --chk-edge: #2f6b52;
+    --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%234cc38a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  body[data-check="outline"] { --chk-fill: var(--bg-sunken); --chk-edge: #5a6070;
+    --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23a0a0a0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  body[data-check="slate"] { --chk-fill: #2c4058; --chk-edge: #3a5675;
+    --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%239fbbe0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  body[data-check="blue"] { --chk-fill: var(--accent); --chk-edge: var(--accent);
+    --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .swatches { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .swatches label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 8px; border: 1px solid #333; border-radius: 6px; }
+  .swatches label:has(input[name="c"]:checked) { border-color: #6f95e6; background: #1e2636; }
+  .swatches .sample { pointer-events: none; display: inline-flex; }
+  .sample[data-c="gray"] { --chk-fill: #4a4f57; --chk-edge: #4a4f57; --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23d6d9de' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .sample[data-c="green"] { --chk-fill: #24473a; --chk-edge: #2f6b52; --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%234cc38a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .sample[data-c="outline"] { --chk-fill: #1e1e1e; --chk-edge: #5a6070; --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23a0a0a0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .sample[data-c="slate"] { --chk-fill: #2c4058; --chk-edge: #3a5675; --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%239fbbe0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .sample[data-c="blue"] { --chk-fill: #0078d4; --chk-edge: #0078d4; --chk-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .todo-check:checked:hover { filter: brightness(1.12); }
+  .todo-check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .id { color: #7a8aa8; font-family: ui-monospace, monospace; font-size: calc(var(--todo-font-size) - 2px); font-weight: 400; }
+  .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .author { padding: 0 6px; border-radius: 8px; font-size: 10px; line-height: 16px; color: #9aa7c0; background: #2a3242; white-space: nowrap; font-weight: 400; }
+  .author--session { color: #c7b07a; background: #3a3326; }
+  .count { color: #7a8aa8; font-size: 11px; font-weight: 400; white-space: nowrap; }
+
+  /* 대분류 상태 아이콘 */
+  .status { flex: 0 0 auto; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+    border: none; padding: 0; background: none; cursor: pointer; border-radius: 50%; }
+  .status svg { width: 22px; height: 22px; }
+  .status:hover { background: #2f2f2f; }
+  .status--done svg circle.bg { fill: var(--ok); }
+  .status--done svg path { stroke: #fff; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .status--run svg { color: #f0b54a; }
+  .status--run svg * { stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .status--run svg .head { fill: currentColor; stroke: none; }
+  .status--run.is-anim svg { animation: bob 0.9s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+  .status--spin svg { color: #6f95e6; }
+  .status--spin svg .track { stroke: #334; stroke-width: 2.5; fill: none; }
+  .status--spin svg .arc { stroke: currentColor; stroke-width: 2.5; fill: none; stroke-linecap: round; transform-origin: 12px 12px; animation: spin 1.2s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status--pie svg { color: var(--accent); }
+  .status--pie svg .ring { stroke: #3d6fa0; }
+  .status--pie svg .ring { stroke-width: 2; fill: none; }
+  .status--pie svg .fill { fill: currentColor; }
+
+  .detail { position: relative; margin: 0 8px 4px; padding: 6px 10px; border-left: 2px solid #3b4a66; background: #232731;
+    border-radius: 0 4px 4px 0; color: #b8c0cf; font-size: calc(var(--todo-font-size) - 1px); line-height: 1.55; white-space: pre-wrap; }
+  .detail--d1 { margin-left: 38px; }
+  .detail--d2 { margin-left: 52px; }
+  .detail--d3 { margin-left: 74px; }
+</style>
+</head>
+<body data-check="gray">
+<section class="notes">
+  <h1>대분류 강조 · 트리 점선 · 상태 아이콘</h1>
+  <h2>바뀌는 점</h2>
+  <ul>
+    <li>대분류 제목은 본문보다 4px 큽니다(직전 시안 6px, 지금 제품 3px).</li>
+    <li>대분류 → 항목 → 세부항목이 왼쪽의 점선으로 이어집니다. 부모 아이콘에서 아래로 내려가 각 하위 줄로 꺾여 들어가고, 마지막 하위 줄에서 끝납니다. 상세 설명 상자 옆으로도 선이 이어집니다.</li>
+    <li>대분류의 체크박스는 상태 아이콘으로 바뀝니다. 아이콘을 누르면 완료와 진행 중이 바뀝니다.</li>
+    <li>대분류 오른쪽에 하위 완료 수(예: 1/3)를 작게 붙였습니다. 필요 없으면 뺍니다.</li>
+    <li>항목·세부항목은 지금처럼 체크박스를 씁니다.</li>
+  </ul>
+  <h2>진행 중 아이콘: D (확정)</h2>
+  <ul>
+    <li>대분류의 하위 항목 완료 비율만큼 원이 찹니다. 하위 항목이 없거나 아무것도 완료되지 않았어도 조금은 차 있어 「진행 중」으로 읽힙니다.</li>
+    <li>모두 완료하고 대분류 아이콘을 누르면 초록 원 안의 V(완료)로 바뀝니다.</li>
+  </ul>
+  <h2>체크 색 고르기</h2>
+  <div class="swatches" id="swatches">
+    <label><input type="radio" name="c" value="gray" checked> <span class="sample" data-c="gray"></span> 1. 회색 채움 + 밝은 회색 V (추천: 가장 차분함)</label>
+    <label><input type="radio" name="c" value="green"> <span class="sample" data-c="green"></span> 2. 어두운 초록 채움 + 초록 V (완료 아이콘과 같은 계열)</label>
+    <label><input type="radio" name="c" value="outline"> <span class="sample" data-c="outline"></span> 3. 테두리만 + 회색 V (채움 없음)</label>
+    <label><input type="radio" name="c" value="slate"> <span class="sample" data-c="slate"></span> 4. 어두운 남색 채움 + 연한 파랑 V (강조색을 낮춘 것)</label>
+    <label><input type="radio" name="c" value="blue"> <span class="sample" data-c="blue"></span> 비교용: 지금의 파랑</label>
+  </div>
+  <h2>체크박스</h2>
+  <ul>
+    <li>브라우저 기본 체크박스 대신 빌더게이트 색(tokens.css)으로 그린 체크박스입니다. 어두운 바탕, 둥근 모서리이고, 체크했을 때 색은 위에서 고릅니다. 키보드 포커스 시 강조색 테두리가 생깁니다.</li>
+  </ul>
+</section>
+
+<aside class="todo-panel">
+  <header class="todo-panel__header">
+    <span class="todo-panel__title">할 일</span>
+    <button class="pill">완료된 것 숨기기</button>
+    <button class="icon-btn" title="글자 작게" onclick="font(-1)"><svg viewBox="0 0 24 24"><path d="M3 19l5-13 5 13"/><path d="M5 14h6"/><path d="M15 9h6"/></svg></button>
+    <button class="icon-btn" title="글자 크게" onclick="font(1)"><svg viewBox="0 0 24 24"><path d="M3 19l5-13 5 13"/><path d="M5 14h6"/><path d="M18 6v6"/><path d="M15 9h6"/></svg></button>
+    <button class="icon-btn" title="대분류 추가"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+    <button class="icon-btn" title="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button>
+  </header>
+  <div class="todo-panel__list" id="list"></div>
+</aside>
+
+<script>
+const items = [
+  { id: 15, parent: null, title: '채용', who: ['user', '사용자'] },
+  { id: 16, parent: 15, title: '백엔드 공고 올리기', who: ['user', '사용자'], detail: '사람인과 원티드 두 곳에 올린다.\n연봉 범위는 팀장 승인 뒤 기입.' },
+  { id: 21, parent: 15, title: '면접 질문지 정리', who: ['session', 'claude-1'], done: true },
+  { id: 22, parent: 21, title: '코딩 과제 고르기', who: ['session', 'claude-1'], done: true },
+  { id: 23, parent: 15, title: '면접 일정 잡기', who: ['user', '사용자'] },
+  { id: 17, parent: null, title: '0.11.10 릴리즈', who: ['user', '사용자'] },
+  { id: 18, parent: 17, title: '할 일 패널 마무리', who: ['user', '사용자'] },
+  { id: 19, parent: 18, title: '트리 점선 그리기', who: ['session', 'codex-2'], detail: '부모 아이콘 아래에서 시작해 하위 줄로 꺾는다.' },
+  { id: 24, parent: 18, title: '상태 아이콘', who: ['session', 'codex-2'] },
+  { id: 20, parent: 17, title: '릴리즈 노트 작성', who: ['session', 'claude-1'] },
+  { id: 25, parent: null, title: '문서 정리', who: ['user', '사용자'], done: true },
+  { id: 26, parent: 25, title: 'README 갱신', who: ['user', '사용자'], done: true },
+];
+let variant = 'pie';
+
+const ICON = {
+  done: '<svg viewBox="0 0 24 24"><circle class="bg" cx="12" cy="12" r="11"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>',
+  run: '<svg viewBox="0 0 24 24"><circle class="head" cx="15" cy="4.2" r="2.2"/><path d="M13.6 7.6l-2.4 5.4"/><path d="M13 9l-4.2-.6-1.8 2.2"/><path d="M13 9l2.6 2.6 2.8-.6"/><path d="M11.2 13l3.2 2.6-.8 5"/><path d="M11.2 13l-2.6 3.4H5"/></svg>',
+  spin: '<svg viewBox="0 0 24 24"><circle class="track" cx="12" cy="12" r="9"/><path class="arc" d="M12 3a9 9 0 0 1 9 9"/></svg>',
+  pie: (ratio) => {
+    const a = Math.max(0.12, Math.min(0.999, ratio)) * 2 * Math.PI;
+    const x = 12 + 7 * Math.sin(a), y = 12 - 7 * Math.cos(a);
+    return `<svg viewBox="0 0 24 24"><circle class="ring" cx="12" cy="12" r="10"/><path class="fill" d="M12 12V5A7 7 0 ${a > Math.PI ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)}z"/></svg>`;
+  },
+};
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+const kids = (id) => items.filter((it) => it.parent === id);
+const depthOf = (it) => (it.parent === null ? 1 : 1 + depthOf(items.find((p) => p.id === it.parent)));
+const descendants = (id) => kids(id).flatMap((k) => [k, ...descendants(k.id)]);
+
+function statusIcon(it) {
+  if (it.done) return { cls: 'status--done', svg: ICON.done };
+  if (variant === 'spin') return { cls: 'status--spin', svg: ICON.spin };
+  if (variant === 'pie') {
+    const all = descendants(it.id);
+    return { cls: 'status--pie', svg: ICON.pie(all.length ? all.filter((d) => d.done).length / all.length : 0) };
+  }
+  return { cls: `status--run${variant === 'run' ? ' is-anim' : ''}`, svg: ICON.run };
+}
+
+function render() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  const walk = (parent) => {
+    for (const it of kids(parent)) {
+      const d = depthOf(it);
+      const row = document.createElement('div');
+      row.className = `todo-row todo-row--d${d}${it.done ? ' is-done' : ''}`;
+      row.dataset.id = it.id;
+      let lead;
+      if (d === 1) {
+        const s = statusIcon(it);
+        lead = `<button class="status ${s.cls}" data-anchor title="${it.done ? '완료 — 누르면 진행 중으로' : '진행 중 — 누르면 완료로'}">${s.svg}</button>`;
+      } else {
+        lead = `<input type="checkbox" class="todo-check" data-anchor ${it.done ? 'checked' : ''}>`;
+      }
+      const all = d === 1 ? descendants(it.id) : [];
+      row.innerHTML = `${lead}<span class="id">#${it.id}</span><span class="title">${esc(it.title)}</span>${
+        d === 1 && all.length ? `<span class="count">${all.filter((x) => x.done).length}/${all.length}</span>` : ''}<span class="author${it.who[0] === 'session' ? ' author--session' : ''}">${esc(it.who[1])}</span>`;
+      const anchor = row.querySelector('[data-anchor]');
+      anchor.onclick = (e) => { e.stopPropagation(); it.done = !it.done; render(); };
+      list.appendChild(row);
+      if (it.detail) {
+        const box = document.createElement('div');
+        box.className = `detail detail--d${d}`;
+        box.textContent = it.detail;
+        list.appendChild(box);
+      }
+      walk(it.id);
+    }
+  };
+  walk(null);
+  drawLines();
+}
+
+/* 부모 표시(아이콘/체크박스)의 아래 가운데에서 내려와, 각 자식 표시의 왼쪽으로 꺾는다 */
+function drawLines() {
+  const list = document.getElementById('list');
+  const base = list.getBoundingClientRect();
+  const at = (el) => {
+    const r = el.getBoundingClientRect();
+    return { l: r.left - base.left + list.scrollLeft, r: r.right - base.left, t: r.top - base.top + list.scrollTop, b: r.bottom - base.top + list.scrollTop, cx: (r.left + r.right) / 2 - base.left, cy: (r.top + r.bottom) / 2 - base.top + list.scrollTop };
+  };
+  const anchorOf = (id) => list.querySelector(`.todo-row[data-id="${id}"] [data-anchor]`);
+  let d = '';
+  for (const it of items) {
+    const children = kids(it.id).map((c) => anchorOf(c.id)).filter(Boolean);
+    const p = anchorOf(it.id);
+    if (!p || !children.length) continue;
+    const pa = at(p);
+    const x = Math.round(pa.cx) + 0.5;
+    const last = at(children[children.length - 1]);
+    d += `M${x} ${Math.round(pa.b + 2)}V${Math.round(last.cy) + 0.5}`;
+    for (const c of children) {
+      const ca = at(c);
+      d += `M${x} ${Math.round(ca.cy) + 0.5}H${Math.round(ca.l - 3)}`;
+    }
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('tree-lines');
+  svg.setAttribute('width', list.scrollWidth);
+  svg.setAttribute('height', list.scrollHeight);
+  svg.innerHTML = `<path d="${d}"/>`;
+  list.appendChild(svg);
+}
+
+function font(step) {
+  const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--todo-font-size'));
+  document.documentElement.style.setProperty('--todo-font-size', Math.min(20, Math.max(11, cur + step)) + 'px');
+  render();
+}
+window.addEventListener('resize', render);
+document.querySelectorAll('#swatches input').forEach((r) => r.onchange = () => { document.body.dataset.check = r.value; });
+document.querySelectorAll('.sample').forEach((el) => {
+  el.innerHTML = '<input type="checkbox" class="todo-check" checked tabindex="-1">';
+});
+render();
+</script>
+</body>
+</html>
