@@ -43,6 +43,8 @@ interface TerminalRuntimeLayerProps {
   onAuthError: () => void;
   /** REL-BGSTAB-053: the redraw shortcut pressed in this tab's terminal. */
   onRedrawRequest?: (tabId: string) => void;
+  /** FR-CMP-001 AC-3: the composer shortcut pressed in this tab's terminal. */
+  onComposerRequest?: (tabId: string) => void;
   terminalShortcutState: TerminalShortcutState | null;
 }
 
@@ -54,6 +56,7 @@ interface TerminalRuntimeEntryProps {
   onCwdChange: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
   onRedrawRequest?: (tabId: string) => void;
+  onComposerRequest?: (tabId: string) => void;
   terminalShortcutState: TerminalShortcutState | null;
 }
 
@@ -65,11 +68,13 @@ function TerminalRuntimeEntry({
   onCwdChange,
   onAuthError,
   onRedrawRequest,
+  onComposerRequest,
   terminalShortcutState,
 }: TerminalRuntimeEntryProps) {
   const { getHostInteractions, outputPolicySelectionCoordinator } = useTerminalRuntimeContext();
   const tabId = tab.id;
   const onRedrawShortcut = useCallback(() => onRedrawRequest?.(tabId), [onRedrawRequest, tabId]);
+  const onComposerShortcut = useCallback(() => onComposerRequest?.(tabId), [onComposerRequest, tabId]);
   const isVisible = Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0);
   const isGridSurface = Boolean(host?.className?.includes('grid-cell'));
   const style: React.CSSProperties = isVisible && host
@@ -319,6 +324,7 @@ function TerminalRuntimeEntry({
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}
         onRedrawShortcut={onRedrawShortcut}
+        onComposerShortcut={onComposerShortcut}
       />
       {fileDropActive && (
         <div className="terminal-file-drop-overlay" data-terminal-file-drop="true">
@@ -336,6 +342,7 @@ export function TerminalRuntimeLayer({
   onCwdChange,
   onAuthError,
   onRedrawRequest,
+  onComposerRequest,
   terminalShortcutState,
 }: TerminalRuntimeLayerProps) {
   const { rootRef, hosts } = useTerminalRuntimeContext();
@@ -367,6 +374,7 @@ export function TerminalRuntimeLayer({
             onCwdChange={onCwdChange}
             onAuthError={onAuthError}
             onRedrawRequest={onRedrawRequest}
+            onComposerRequest={onComposerRequest}
             terminalShortcutState={terminalShortcutState}
           />
         );

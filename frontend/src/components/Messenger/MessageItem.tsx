@@ -70,15 +70,13 @@ interface MessageItemProps {
   me: string;
   sessions: RoomSession[];
   delivery: DeliveryContext;
-  /** The room's hold limit, for 「연속 n/limit」. */
-  holdLimit: number;
 }
 
-export function MessageItem({ message, room, me, sessions, delivery, holdLimit }: MessageItemProps) {
+export function MessageItem({ message, room, me, sessions, delivery }: MessageItemProps) {
   const sender = senderView(message.from, me, sessions);
   const label = deliveryLabel(message, delivery);
   const pastedHere = localReceiptLabel(message);
-  const run = agentRunLabel(message, holdLimit);
+  const run = agentRunLabel(message);
   const sessionTargets = message.to.filter((id) => id.includes('::')).length;
   return (
     <div className={`msgr-msg${message.seq === null ? ' is-sending' : ''}`}>

@@ -33,19 +33,22 @@ test('FR-FEX-029 AC-1: 새 파일 sits directly above 새 폴더, on an item and
   }
 });
 
-test('FR-FEX-029 AC-1: 새 파일 is enabled wherever 새 폴더 is', () => {
+test('FR-FEX-029 AC-1: 새 파일 is enabled on empty space, on a folder and on a file', () => {
   const full = (info: Partial<FileExplorerMenuInfo>) => buildFileExplorerContextMenuItems({
     target: 'item', isDir: false, openable: true, count: 1, clipboardEmpty: true,
     mode: 'list', context: 'explorer-window', newFile: true, ...info,
   }, handlers);
   for (const info of [{ target: 'empty' as const, isDir: true }, { target: 'item' as const, isDir: true }, { target: 'item' as const, isDir: false }]) {
-    const items = full(info);
-    const state = (label: string) => {
-      const found = items.find((item) => 'label' in item && item.label === label);
-      return found !== undefined && 'disabled' in found ? found.disabled : undefined;
-    };
-    assert.equal(state('새 파일'), state('새 폴더'), JSON.stringify(info));
+    const found = full(info).find((item) => 'label' in item && item.label === '새 파일');
+    assert.ok(found, JSON.stringify(info));
+    assert.notEqual('disabled' in found ? found.disabled : false, true, JSON.stringify(info));
   }
+});
+
+test('FR-FEX-029 AC-1: on a file, 새 파일 targets the folder holding that file', () => {
+  const ops = readFileSync(new URL('../../src/hooks/useFileTreeOperations.ts', import.meta.url), 'utf8');
+  assert.match(ops, /newFileDirectory\s*=\s*menu !== null && menu\.target === 'item' && !menu\.isDir && menu\.path !== null \? parentPathOf\(menu\.path\) : targetDirectory/);
+  assert.match(ops, /const directory = newFileDirectory;/);
 });
 
 test('FR-FEX-029: a surface without the new-file window shows no 새 파일', () => {

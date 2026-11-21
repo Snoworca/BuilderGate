@@ -125,7 +125,7 @@ test('FR-MSG-011 AC-1..AC-4: host offline → local sessions get it now, the out
   assert.equal(hostLog.length, 1);
 });
 
-test('FR-MSG-005 AC-1..AC-3: 20 agent messages in a row → held, a human message resets', async () => {
+test('FR-MSG-016 AC-1: 22 agent messages in a row are all pasted and none is held', async () => {
   const { net, alice, bob } = await trio();
   const roomId = await roomWithBob(net, alice, bob);
   alice.pastes.length = 0;
@@ -134,19 +134,12 @@ test('FR-MSG-005 AC-1..AC-3: 20 agent messages in a row → held, a human messag
     results.push(await bob.svc.postFromSession('b1', roomId, `step ${i}`) as Rec);
     await net.idle();
   }
-  assert.deepEqual(results.map((r) => r.held), [...Array(19).fill(false), true, true, true]);
-  assert.equal(texts(alice, 'a1').length, 19);
+  assert.deepEqual(results.map((r) => r.held), Array(22).fill(false));
+  assert.equal(texts(alice, 'a1').length, 22);
   const log = (await alice.svc.getRoom(roomId, {}) as Rec).messages as Rec[];
   assert.equal(log.at(-1)!.agentRun, 22);
-  assert.equal((((await alice.svc.getRoom(roomId, {}) as Rec).room as Rec).settings as Rec).holdLimit, 20);
-  assert.equal(alice.svc.state().rooms[0]!.held, true);
-  assert.equal(bob.svc.state().rooms[0]!.held, true);
-  assert.ok(alice.webhooks.some((w) => w.includes('결제팀')));
-  await alice.svc.postFromUi(roomId, '멈춰');
-  await net.idle();
+  assert.equal(alice.svc.state().rooms[0]!.held, false);
   assert.equal(bob.svc.state().rooms[0]!.held, false);
-  const resumed = await bob.svc.postFromSession('b1', roomId, 'again') as Rec;
-  assert.equal(resumed.held, false);
 });
 
 test('FR-MSG-009 AC-1/AC-4, FR-MSG-001 AC-4: a non-contact invited by a member joins with a room ticket; the creator kicks', async () => {
@@ -537,17 +530,17 @@ function steps(server: FakeServer, sessionKey: string): string[] {
   return texts(server, sessionKey).filter((t) => t.includes('] step '));
 }
 
-test('H-1: with the host reachable, a member pastes its own sessions only after the host numbers the message (held stops them)', async () => {
+test('H-1: with the host reachable, a member pastes its own sessions only after the host numbers the message', async () => {
   const { net, alice, bob } = await trio();
   const roomId = await roomWithBob(net, alice, bob);
   for (let i = 1; i <= 22; i += 1) {
     await bob.svc.postFromSession('b1', roomId, `step ${i}`);
     await net.idle();
   }
-  assert.equal(steps(bob, 'b2').length, 19);
+  assert.equal(steps(bob, 'b2').length, 22);
 });
 
-test('H-1/M-6: with the host away, local pastes stop at the hold limit and while the room is held', async () => {
+test('FR-MSG-016 AC-1: with the host away, every local agent message is pasted (no hold)', async () => {
   const { net, alice, bob } = await trio();
   const roomId = await roomWithBob(net, alice, bob);
   await alice.svc.updateSettings(roomId, { holdLimit: 3 });
@@ -555,11 +548,7 @@ test('H-1/M-6: with the host away, local pastes stop at the hold limit and while
   net.online.delete('alice');
   for (let i = 1; i <= 5; i += 1) await bob.svc.postFromSession('b1', roomId, `step ${i}`);
   await net.idle();
-  assert.deepEqual(steps(bob, 'b2'), [1, 2].map((i) => `[BG-ROOM:결제팀 | api] step ${i}`));
-  await bob.svc.postFromUi(roomId, '사람');
-  await bob.svc.postFromSession('b1', roomId, 'step 6');
-  await net.idle();
-  assert.equal(steps(bob, 'b2').at(-1), '[BG-ROOM:결제팀 | api] step 6');
+  assert.deepEqual(steps(bob, 'b2'), [1, 2, 3, 4, 5].map((i) => `[BG-ROOM:결제팀 | api] step ${i}`));
 });
 
 test('H-2: a kicked contact cannot join again without a new invite', async () => {
