@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-21T09:21:44.442Z",
+  "generatedAt": "2026-11-21T09:22:34.961Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "fec6a4cd8acdc337a75ec1db2089be34e3dee514f25bbe7ac22f91c8e10ccc1e",
+    "value": "5728c3483e8a4f91b02eba68db40fbc2d6cadad5fda58f7386bd8a32b9410fe2",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -14,9 +14,9 @@
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "2d34fc039851823bbdfba6930714ea9d53d83b95241e02145ef721e3f1c437ac",
-        "size": 91819,
-        "mtimeMs": 1795252897779.0188
+        "sha256": "c4b4447dff79203a7b74b8bdb993495e737c645ecbbc05f27a4cf920f6ea2cd5",
+        "size": 94646,
+        "mtimeMs": 1795252948667.7727
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
@@ -92,9 +92,9 @@
       },
       {
         "path": "docs/spec/50.messenger.srs.md",
-        "sha256": "47b73cc72cc093e8c3136157c2745e2acfc6a23b3a0cb2798d29882b9a44334c",
-        "size": 42296,
-        "mtimeMs": 1795252898184.0146
+        "sha256": "de36b72269282d93bca3e7cb12ca81860b54a08fd7adf101bed843373fb02f69",
+        "size": 43655,
+        "mtimeMs": 1795252948668.7742
       },
       {
         "path": "docs/spec/51.session-composer.srs.md",

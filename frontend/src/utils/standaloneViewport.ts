@@ -50,3 +50,54 @@ export function installStandaloneViewport(win: StandaloneWindowLike, doc: Standa
   doc.documentElement.classList.add(STANDALONE_CLASS);
   return true;
 }
+
+export interface SafeViewportSize {
+  width: number;
+  height: number;
+}
+
+/**
+ * FR-ARCH-016 AC-7: the size a window that fills the screen gets. In a browser tab
+ * it is the window; in the home-screen app it is the screen less the status bar
+ * and the home indicator, measured because iOS may report innerHeight without
+ * the status bar while still drawing the page from the top of the screen.
+ */
+// @req FR-ARCH-016
+export function safeViewportSize(
+  win: { innerWidth: number; innerHeight: number },
+  standalone: boolean,
+  measure: () => SafeViewportSize | null,
+): SafeViewportSize {
+  const plain = { width: win.innerWidth, height: win.innerHeight };
+  if (!standalone) return plain;
+  const measured = measure();
+  return measured && measured.width > 0 && measured.height > 0 ? measured : plain;
+}
+
+const SAFE_AREA_PROBE = [
+  'position:fixed',
+  'visibility:hidden',
+  'pointer-events:none',
+  'top:0',
+  'left:0',
+  'width:calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))',
+  'height:calc(100lvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+].join(';');
+
+function measureSafeArea(): SafeViewportSize | null {
+  if (typeof document === 'undefined' || !document.body) return null;
+  const probe = document.createElement('div');
+  probe.style.cssText = SAFE_AREA_PROBE;
+  document.body.appendChild(probe);
+  const rect = probe.getBoundingClientRect();
+  probe.remove();
+  return { width: Math.floor(rect.width), height: Math.floor(rect.height) };
+}
+
+/** The safe-area size for this page; the window layer is offset to match (globals.css). */
+// @req FR-ARCH-016
+export function readSafeViewportSize(): SafeViewportSize {
+  const standalone = typeof document !== 'undefined'
+    && document.documentElement.classList.contains(STANDALONE_CLASS);
+  return safeViewportSize(window, standalone, measureSafeArea);
+}

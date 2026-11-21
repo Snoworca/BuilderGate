@@ -8,6 +8,7 @@ import {
   STANDALONE_CLASS,
   installStandaloneViewport,
   isStandaloneDisplay,
+  safeViewportSize,
   type StandaloneDocumentLike,
   type StandaloneWindowLike,
 } from '../../src/utils/standaloneViewport.ts';
@@ -82,8 +83,43 @@ test('FR-ARCH-016 AC-6: the standalone root keeps content inside the safe area, 
   const locked = css.match(new RegExp(`html\\.${STANDALONE_CLASS} \\.app\\.app--viewport-locked\\s*\\{[^}]*\\}`))?.[0] ?? '';
   assert.match(locked, /padding-top:\s*env\(safe-area-inset-top/, 'the keyboard-locked app also clears the status bar');
 
+  // 2026-11-19 on a real iPhone (iOS 26): the home-screen app sometimes got innerHeight
+  // and 100% = 812 on an 874 screen (the screen minus the status bar) while it was still
+  // drawn from the top, so the whole app sat 62 px too high with an empty strip below.
+  // 100lvh measured 874 in that state and equals 100% when iOS sizes the page right.
+  assert.match(rule, /height:\s*100lvh/, `html.${STANDALONE_CLASS} is as tall as the whole screen`);
+
   const main = readFileSync(new URL('../../src/main.tsx', import.meta.url), 'utf8');
   const install = main.indexOf('installStandaloneViewport(window, document)');
   assert.ok(install >= 0, 'main.tsx installs the standalone viewport');
   assert.ok(install < main.indexOf('createRoot('), 'before the first render');
+});
+
+// 2026-11-19 on a real iPhone: in the home-screen app the messenger window could not be
+// closed and the workspace menu's add button could not be reached. Both sat at the top
+// of the screen, under the translucent status bar (FR-ARCH-016 AC-7).
+test('FR-ARCH-016 AC-7: windows that fill the screen are sized to the safe area in the home-screen app only', () => {
+  const win = { innerWidth: 402, innerHeight: 812 };
+  assert.deepEqual(safeViewportSize(win, false, () => ({ width: 1, height: 1 })), { width: 402, height: 812 }, 'a browser tab keeps innerWidth x innerHeight');
+  assert.deepEqual(safeViewportSize(win, true, () => ({ width: 402, height: 778 })), { width: 402, height: 778 }, 'the home-screen app takes the measured safe area');
+  assert.deepEqual(safeViewportSize(win, true, () => null), { width: 402, height: 812 }, 'no measurement falls back to the window');
+
+  for (const file of ['../../src/components/dialog/WindowDialog.tsx', '../../src/components/Messenger/messengerFormat.ts']) {
+    const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.match(source, /readSafeViewportSize\(\)/, `${file} sizes windows by the safe area`);
+  }
+});
+
+test('FR-ARCH-016 AC-7: overlays fixed to the screen stay clear of the status bar in the home-screen app', () => {
+  const css = readFileSync(new URL('../../src/styles/globals.css', import.meta.url), 'utf8');
+  const ruleFor = (selector: string) =>
+    css.match(new RegExp(`html\\.${STANDALONE_CLASS} ${selector.replace(/\./g, '\\.')}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+  assert.match(ruleFor('.window-dialog-layer'), /top:\s*env\(safe-area-inset-top/, 'the window layer starts below the status bar');
+  assert.match(ruleFor('.window-dialog-layer'), /height:\s*calc\(100lvh/, 'the window layer ends above the home indicator');
+  for (const selector of ['.mobile-drawer', '.git-mobile']) {
+    assert.match(ruleFor(selector), /padding-top:\s*env\(safe-area-inset-top/, `${selector} pads the status bar`);
+    assert.match(ruleFor(selector), /padding-bottom:\s*env\(safe-area-inset-bottom/, `${selector} pads the home indicator`);
+  }
+  assert.match(ruleFor('.settings-page'), /top:\s*calc\(48px \+ env\(safe-area-inset-top/, 'settings start below the header');
+  assert.match(ruleFor('.msgr-toast-host'), /top:\s*calc\(64px \+ env\(safe-area-inset-top/, 'messenger toasts start below the header');
 });

@@ -14,12 +14,11 @@ import { isDialogRectMoved } from './dialogDragCommit';
 import type { DialogRect, DialogSize, WindowDialogProps } from './types';
 import './WindowDialog.css';
 import { t } from '../../i18n/i18n.ts';
+import { readSafeViewportSize } from '../../utils/standaloneViewport';
 
 function getViewportSize(): DialogSize {
-  return {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  };
+  // FR-ARCH-016 AC-7: the safe area in the home-screen app, the window elsewhere.
+  return readSafeViewportSize();
 }
 
 /**

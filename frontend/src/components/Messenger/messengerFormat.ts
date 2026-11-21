@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react';
 import { activeLanguage, t } from '../../i18n/i18n.ts';
 import { mcpControlApi } from '../../services/api.ts';
 import type { McpSessionRecord } from '../../types';
+import { readSafeViewportSize } from '../../utils/standaloneViewport.ts';
+import { isSystemKeyboardUp, KEYBOARD_SETTLE_MS } from '../../hooks/useVisualViewportInset.ts';
+import { keyboardViewportRect, type ViewportRect } from './messengerViewport.ts';
 
 export const errorText = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason));
 
@@ -40,14 +43,52 @@ export function formatAgo(parts: { value: number; unit: 'minute' | 'hour' | 'day
   return new Intl.RelativeTimeFormat(activeLanguage(), { numeric: 'auto' }).format(parts.value, parts.unit);
 }
 
-/** The viewport as a rect, following rotation and the phone's address bar (phone windows fill it). */
-export function useViewportRect(): { x: number; y: number; width: number; height: number } {
-  const read = () => ({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
+const sameRect = (a: ViewportRect, b: ViewportRect) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+
+/** The window layer's top in layout-viewport pixels: the status bar in the home-screen app, else 0. */
+function windowLayerTop(): number {
+  return document.querySelector('.window-dialog-layer')?.getBoundingClientRect().top ?? 0;
+}
+
+/**
+ * The viewport as a rect, following rotation, the phone's address bar and the
+ * keyboard (phone windows fill it; FR-MSG-013 AC-6). Re-read at most once a frame:
+ * iOS fires visualViewport scroll continuously while it pans.
+ */
+export function useViewportRect(): ViewportRect {
+  const read = (): ViewportRect => {
+    const vv = window.visualViewport;
+    const keyboardUp = vv !== null && isSystemKeyboardUp(window);
+    return keyboardViewportRect(readSafeViewportSize(), vv, keyboardUp ? windowLayerTop() : 0, keyboardUp);
+  };
   const [rect, setRect] = useState(read);
   useEffect(() => {
-    const onResize = () => setRect(read());
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    let frame: number | null = null;
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    const measure = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        const next = read();
+        setRect((current) => (sameRect(current, next) ? current : next));
+      });
+    };
+    // The last event can carry a value from the middle of the keyboard animation.
+    const onChange = () => {
+      measure();
+      if (settle !== null) clearTimeout(settle);
+      settle = setTimeout(() => { settle = null; measure(); }, KEYBOARD_SETTLE_MS);
+    };
+    window.addEventListener('resize', onChange);
+    window.visualViewport?.addEventListener('resize', onChange);
+    window.visualViewport?.addEventListener('scroll', onChange);
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      if (settle !== null) clearTimeout(settle);
+      window.removeEventListener('resize', onChange);
+      window.visualViewport?.removeEventListener('resize', onChange);
+      window.visualViewport?.removeEventListener('scroll', onChange);
+    };
   }, []);
   return rect;
 }
