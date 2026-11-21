@@ -4,6 +4,7 @@ import type { MosaicBranch } from 'react-mosaic-component';
 import 'react-mosaic-component/react-mosaic-component.css';
 import './MosaicOverrides.css';
 import { MosaicTile } from './MosaicTile';
+import { composerMenuOption, useSessionComposerHost } from '../Terminal/sessionComposerHost.ts';
 import { MosaicToolbar } from './MosaicToolbar';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';
@@ -731,6 +732,8 @@ export function MosaicContainer({
   const menuSessionId = contextMenu.targetId ? tabMap.get(contextMenu.targetId)?.sessionId ?? null : null;
   const menuScreen = useVerifiedScreenPaths(menuSessionId, menuPaths);
 
+  const composerHost = useSessionComposerHost();
+
   // Build context menu items for the target tab
   const buildMenuItems = useCallback(
     (tabId: string) => {
@@ -770,6 +773,8 @@ export function MosaicContainer({
         onRedrawScreen: onRedrawTerminal ? () => onRedrawTerminal(tabId) : undefined,
         // FR-ARCH-017 AC-1: a mouse can select on the terminal itself.
         onSelectText: isTouchMenuScreen() && onSelectTerminalText ? () => onSelectTerminalText(tabId) : undefined,
+        // FR-CMP-001 AC-4: on every screen.
+        composer: composerHost ? composerMenuOption(composerHost, tabId) : undefined,
         registeredPresetMenu: {
           presets: registeredPresetSnapshot,
           onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),
@@ -795,6 +800,7 @@ export function MosaicContainer({
       onSelectTerminalText,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,
+      composerHost,
     ],
   );
 

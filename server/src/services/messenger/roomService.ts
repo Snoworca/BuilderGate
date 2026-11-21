@@ -983,9 +983,8 @@ export class RoomService {
       };
     }
     this.hostMissed(record, posted);
-    // FR-MSG-011 AC-1: host away — paste here now, unless the predicted agent run would be held (M-6).
+    // FR-MSG-011 AC-1: host away — paste here now (FR-MSG-016: nothing is held).
     const pending = await this.serial(record.room.id, async () => {
-      if (this.locallyHeld(record, message)) return EMPTY_OUTCOME;
       this.deliverLocally(record, [message]);
       return this.localPastes.get(message.clientMsgId) ?? EMPTY_OUTCOME;
     });
@@ -1005,18 +1004,6 @@ export class RoomService {
       ok: true, messageId: message.clientMsgId, seq: null, held: false, status: 'waiting-host',
       delivery: deliveryOf(local, waiting + localTargets - settled),
     };
-  }
-
-  /** M-6: the hold the host would apply, predicted from its last count and this server's unsent messages. */
-  private locallyHeld(record: RoomRecord, message: RoomMessage): boolean {
-    if (message.from.kind !== 'agent') return false;
-    let run = record.room.agentRun;
-    for (const queued of this.outboxOf(record.room.id)) {
-      if (queued.from.kind === 'human') run = 0;
-      else if (queued.from.kind === 'agent') run += 1;
-      if (queued.clientMsgId === message.clientMsgId) break;
-    }
-    return run >= record.room.settings.holdLimit;
   }
 
   // ---------------------------------------------------------------------------------------------

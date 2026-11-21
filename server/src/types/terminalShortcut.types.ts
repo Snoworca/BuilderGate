@@ -6,7 +6,9 @@ export type TerminalShortcutAction =
   | { type: 'pass-through' }
   | { type: 'block' }
   /** REL-BGSTAB-053: the browser redraws the screen; nothing is sent to the terminal. */
-  | { type: 'redraw' };
+  | { type: 'redraw' }
+  /** FR-CMP-001 AC-3: the browser opens, focuses or closes the session composer. */
+  | { type: 'toggle-composer' };
 
 export interface TerminalShortcutKeyDescriptor {
   key: string;

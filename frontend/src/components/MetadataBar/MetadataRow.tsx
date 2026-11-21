@@ -19,6 +19,7 @@ import { ContextMenu } from '../ContextMenu/ContextMenu.tsx';
 import { availableChipWidth, chipView, nameMaxWidth, stageFor } from '../Git/gitChipModel.ts';
 import { useGitSummary } from '../Git/useGitSummary.ts';
 import type { GitSummaryStore } from '../Git/gitSummaryStore.ts';
+import { SessionComposerToggle } from '../Terminal/SessionComposerToggle.tsx';
 
 interface Props {
   tab: WorkspaceTabRuntime;
@@ -398,6 +399,9 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
       {/* Elapsed time */}
       {view.showTime && <ElapsedTime createdAt={tab.createdAt} marginLeft={displayPath && view.showCwd ? '0' : 'auto'} />}
       {!view.showTime && !view.showCwd && <span style={{ marginLeft: 'auto' }} />}
+
+      {/* FR-CMP-001 AC-2: the composer toggle; icon only at the narrow width stages. */}
+      <SessionComposerToggle tabId={tab.id} showLabel={view.showCwd} />
     </div>
   );
 }

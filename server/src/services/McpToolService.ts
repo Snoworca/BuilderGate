@@ -227,6 +227,8 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   // FR-MCP-023
   MCP_TERMINAL_INPUT_TOOL,
   'buildergate.session.set_alias',
+  // FR-MCP-029
+  'buildergate.session.rename_self',
   'buildergate.session.open_agent',
   'buildergate.session.close',
   'buildergate.session.close_self',
@@ -356,6 +358,15 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
       confirmationNonce: { type: 'string' },
     },
     required: ['sessionKey', 'expectedSessionKey', 'confirmClose', 'confirmationNonce'],
+    additionalProperties: false,
+  },
+  // FR-MCP-029 AC-1.
+  'buildergate.session.rename_self': {
+    type: 'object',
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 32 },
+    },
+    required: ['name'],
     additionalProperties: false,
   },
   'buildergate.session.close_self': {
@@ -881,6 +892,10 @@ async function callLocalTool(
       return withAudit(deps, state, 'buildergate.session.set_alias', actor, context, {
         targetSessionKey: asString(args.sessionKey),
       }, await handleSetAlias(deps, actor, args));
+    case 'buildergate.session.rename_self':
+      return withAudit(deps, state, 'buildergate.session.rename_self', actor, context, {
+        targetSessionKey: asString(actor.sessionKey),
+      }, await handleRenameSelf(deps, actor, args));
     case 'buildergate.message.send':
       return handleMessageSend(deps, state, actor, args, context);
     case MCP_TERMINAL_INPUT_TOOL:
@@ -1167,6 +1182,34 @@ async function handleSetAlias(deps: McpToolServiceDeps, actor: StringRecord, arg
     alias,
     session: sanitizeSession(target),
   };
+}
+
+/** FR-MCP-029: the caller's own session only, with the scope every session agent has. */
+async function handleRenameSelf(deps: McpToolServiceDeps, actor: StringRecord, args: StringRecord): Promise<StringRecord> {
+  const scope = requireScope(actor, 'mcp:status.write');
+  if (scope) {
+    return scope;
+  }
+  const sessionKey = asString(actor.sessionKey);
+  if (!sessionKey) {
+    return { ok: false, code: 'UNBOUND_ACTOR', message: 'This MCP connection is not bound to a session; rename_self renames the calling session.' };
+  }
+  const name = typeof args.name === 'string' ? args.name.trim() : '';
+  if (name.length < 1 || name.length > 32) {
+    return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: { name: '1 to 32 characters' } };
+  }
+  if (!deps.setSessionAlias) {
+    return { ok: false, code: 'NOT_IMPLEMENTED' };
+  }
+  try {
+    const updated = asRecord(await deps.setSessionAlias(sessionKey, name, sessionKey));
+    if (isMcpToolFailure(updated)) {
+      return updated;
+    }
+    return { ok: true, sessionKey, name: asString(updated.name) ?? name };
+  } catch (error) {
+    return mapAliasProviderError(error);
+  }
 }
 
 function mapAliasProviderError(error: unknown): StringRecord {
@@ -2980,6 +3023,8 @@ function toolDescription(name: string): string {
     'buildergate.session.open_agent': 'Launch a follower agent session from an agent profile.',
     'buildergate.session.close': 'Close another session. Requires confirmation fields.',
     'buildergate.session.close_self': 'Close this follower session.',
+    'buildergate.session.rename_self': 'Rename your own session (the one this connection is bound to); 1-32 characters. '
+      + 'The name shows in the BuilderGate tab and in session lists, and the terminal title no longer overrides it.',
     'buildergate.message.reply_to_leader': 'Send a paste or submit request from a follower to its leader session.',
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
     ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
