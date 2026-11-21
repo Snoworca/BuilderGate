@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-19T02:39:21.569Z",
+  "generatedAt": "2026-11-21T09:07:53.237Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "43135046b2e2fadf60f6844ef6e124901c776b67e448767fa88ef159a53207bd",
+    "value": "dba437e0bcb04cc0bfa8f2da84cf168e91c5de71c0b7bb6e4d370ab498cc0510",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -16,13 +16,13 @@
         "path": "docs/spec/10.product-architecture.srs.md",
         "sha256": "c4b4447dff79203a7b74b8bdb993495e737c645ecbbc05f27a4cf920f6ea2cd5",
         "size": 94646,
-        "mtimeMs": 1795055961513.177
+        "mtimeMs": 1795180897124.495
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "dea4ae1dc65c963d67b093f6a9029a1b5511655c52b341ba1ca1eed9b14d8c8f",
         "size": 135171,
-        "mtimeMs": 1794968181847.0342
+        "mtimeMs": 1795180896935.9956
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
@@ -92,9 +92,9 @@
       },
       {
         "path": "docs/spec/50.messenger.srs.md",
-        "sha256": "98dcb2d894798e48c920313b4a6b29e1a921d2794e02fd16eff0b468dce2cc68",
-        "size": 40032,
-        "mtimeMs": 1794295065670.4714
+        "sha256": "c9329132bfb20dfd019f7753021daa2d25c05d6888152509b1879bf324f24b25",
+        "size": 41391,
+        "mtimeMs": 1795252073185.2346
       },
       {
         "path": "docs/spec/90.appendix.md",
