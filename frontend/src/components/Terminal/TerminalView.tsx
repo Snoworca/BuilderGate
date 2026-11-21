@@ -452,6 +452,8 @@ interface Props {
   onManualRepair?: () => void;
   /** REL-BGSTAB-053: the redraw shortcut (Ctrl+Alt+R by default, or a user binding). */
   onRedrawShortcut?: () => void;
+  /** FR-CMP-001 AC-3: the composer shortcut (Alt+N by default, or a user binding). */
+  onComposerShortcut?: () => void;
   onRestorePendingSettled?: () => void;
   onCompatibilityAuthorityReady?: () => void;
   onVisibleOutputOverflow?: (info: {
@@ -462,10 +464,12 @@ interface Props {
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
-  ({ sessionId, workspaceId, terminalShortcutState, isVisible, clipboardContextKey, outputPolicyConnectionId, outputPolicyReconnectGeneration, outputPolicySelectionCoordinator, onInput, flushPendingUserInputBeforeQueryReply, onResize, onManualRepair, onRestorePendingSettled, onCompatibilityAuthorityReady, onVisibleOutputOverflow, onRedrawShortcut }, ref) => {
+  ({ sessionId, workspaceId, terminalShortcutState, isVisible, clipboardContextKey, outputPolicyConnectionId, outputPolicyReconnectGeneration, outputPolicySelectionCoordinator, onInput, flushPendingUserInputBeforeQueryReply, onResize, onManualRepair, onRestorePendingSettled, onCompatibilityAuthorityReady, onVisibleOutputOverflow, onRedrawShortcut, onComposerShortcut }, ref) => {
     // The key handler is attached once; it reads the latest callback here.
     const onRedrawShortcutRef = useRef(onRedrawShortcut);
     onRedrawShortcutRef.current = onRedrawShortcut;
+    const onComposerShortcutRef = useRef(onComposerShortcut);
+    onComposerShortcutRef.current = onComposerShortcut;
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -4363,6 +4367,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           if (shortcutResolution.action.type === 'redraw') {
             ev.preventDefault();
             onRedrawShortcutRef.current?.();
+            return false;
+          }
+
+          // FR-CMP-001 AC-3: the composer key goes to the app, not to the program.
+          if (shortcutResolution.action.type === 'toggle-composer') {
+            ev.preventDefault();
+            onComposerShortcutRef.current?.();
             return false;
           }
 

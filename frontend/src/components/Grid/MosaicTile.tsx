@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { DisconnectedOverlay } from '../Workspace/DisconnectedOverlay';
 import { MetadataRow } from '../MetadataBar/MetadataRow';
+import { SessionComposer } from '../Terminal/SessionComposer';
 import { useLongPress } from '../../hooks/useLongPress';
 import { dismissSoftKeyboard } from '../../hooks/doubleTap';
 import { TAB_COLORS } from '../../types/workspace';
@@ -133,6 +134,9 @@ export function MosaicTile({
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {children}
       </div>
+
+      {/* FR-CMP-001 AC-1: the composer, between the terminal and the status row; nothing when closed. */}
+      <SessionComposer tab={tab} />
 
       {/* Metadata bar */}
       <MetadataRow

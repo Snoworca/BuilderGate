@@ -166,6 +166,8 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
     case 'delete':
       return info.count > 0;
     case 'newfile':
+      // FR-FEX-029 AC-1: on a file too -- it goes into the folder holding that file.
+      return true;
     case 'newdir':
     case 'refresh':
       return info.target === 'empty' || info.isDir;

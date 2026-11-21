@@ -53,8 +53,7 @@ export const MCP_ROOM_TOOL_DESCRIPTIONS: Record<McpRoomToolName, string> = {
     + 'of this server, @bob::api for one on bob\'s server; quote names with spaces).',
   'buildergate.room.send': `Post to a room as your session. ${ROOM_MESSAGE_RULES} `
     + 'Name sessions with @mentions (from room.members) to paste only to them; with none the whole room gets it. '
-    + 'On status: "waiting-host" the storage PC is off — the message is kept and sent later, keep working instead of waiting. '
-    + 'On held: true the room has had too many agent messages in a row: stop messaging the room until a human writes.',
+    + 'On status: "waiting-host" the storage PC is off — the message is kept and sent later, keep working instead of waiting.',
   'buildergate.room.history': 'Read earlier room messages by sequence number (before/after, limit ≤ 100). Long messages are cut when '
     + 'pasted; read the full text here.',
 };

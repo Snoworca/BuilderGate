@@ -62,9 +62,9 @@ function truncate(raw: string): string {
   return text.length > TRUNCATE_AT ? `${text.slice(0, TRUNCATE_AT)}${TRUNCATED_SUFFIX}` : text;
 }
 
-/** Whether `message` is for the local session `sessionId` (FR-MSG-003 AC-2/AC-4, FR-MSG-004 AC-1). */
+/** Whether `message` is for the local session `sessionId` (FR-MSG-003 AC-2/AC-4, FR-MSG-004 AC-1). FR-MSG-016: held is ignored. */
 export function isForSession(message: RoomMessage, sessionId: string): boolean {
-  if (message.from.kind === 'system' || message.held === true) return false;
+  if (message.from.kind === 'system') return false;
   if (message.from.sessionKey && `${message.from.node}::${message.from.sessionKey}` === sessionId) return false;
   if (message.to.length === 0) return true;
   return message.to.includes(sessionId);

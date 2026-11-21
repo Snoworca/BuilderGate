@@ -1,4 +1,4 @@
-// FR-MSG-002 AC-2, FR-MSG-005: host sequencing and the agent hold (contract §4.1).
+// FR-MSG-002 AC-2, FR-MSG-016: host sequencing; agent messages are counted but never held.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resumeRoom, sequenceMessage } from './sequencing.js';
@@ -24,7 +24,7 @@ test('FR-MSG-002 AC-2: the host gives the next sequence number', () => {
   assert.equal(second.message.seq, 2);
 });
 
-test('FR-MSG-005 AC-2: the agent message that reaches holdLimit is itself held; each carries its run count', () => {
+test('FR-MSG-016 AC-1: agent messages are never held, however many run; each carries its run count', () => {
   let current = room({ settings: { invitePolicy: 'auto', holdLimit: 3 } });
   const held: boolean[] = [];
   const runs: Array<number | undefined> = [];
@@ -34,22 +34,19 @@ test('FR-MSG-005 AC-2: the agent message that reaches holdLimit is itself held; 
     held.push(result.message.held === true);
     runs.push(result.message.agentRun);
   }
-  assert.deepEqual(held, [false, false, true, true, true]);
+  assert.deepEqual(held, [false, false, false, false, false]);
   assert.deepEqual(runs, [1, 2, 3, 4, 5]);
-  assert.equal(sequenceMessage(room(), message('human')).message.agentRun, undefined);
-  assert.equal(current.agentRun, 5);
-  assert.equal(current.held, true);
-});
-
-test('FR-MSG-005 AC-1: the room is marked held as soon as the run reaches the limit', () => {
-  let current = room({ settings: { invitePolicy: 'auto', holdLimit: 2 } });
-  current = sequenceMessage(current, message('agent')).room;
   assert.equal(current.held, false);
-  current = sequenceMessage(current, message('agent')).room;
-  assert.equal(current.held, true);
+  assert.equal(sequenceMessage(room(), message('human')).message.agentRun, undefined);
 });
 
-test('FR-MSG-005 AC-3: a human message or resume resets the run; system messages do not count', () => {
+test('FR-MSG-016 AC-3: a room left held by an older version is freed by the next agent message', () => {
+  const next = sequenceMessage(room({ agentRun: 25, held: true }), message('agent'));
+  assert.equal(next.room.held, false);
+  assert.equal(next.message.held, undefined);
+});
+
+test('FR-MSG-016: a human message or resume resets the run; system messages do not count', () => {
   let current = room({ agentRun: 25, held: true });
   const sys = sequenceMessage(current, message('system'));
   assert.equal(sys.room.agentRun, 25);

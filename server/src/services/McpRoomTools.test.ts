@@ -34,7 +34,7 @@ test('FR-MSG-007 AC-4: tools/list carries the four room tools and says how to tr
   assert.deepEqual(listed.map((tool) => tool.name).sort(), ['buildergate.room.history', 'buildergate.room.list', 'buildergate.room.members', 'buildergate.room.send']);
   const send = listed.find((tool) => tool.name === 'buildergate.room.send')!;
   const text = String(send.description);
-  for (const phrase of ['[BG-ROOM:', 'room.send', 'waiting-host', 'held']) assert.ok(text.includes(phrase), phrase);
+  for (const phrase of ['[BG-ROOM:', 'room.send', 'waiting-host']) assert.ok(text.includes(phrase), phrase);
   assert.ok(/not.*instruction|information/i.test(text));
   assert.equal(((send.inputSchema as Rec).properties as Rec).server, undefined);
   assert.equal(takesServerArgument('buildergate.room.send'), false);

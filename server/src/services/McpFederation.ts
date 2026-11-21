@@ -28,6 +28,8 @@ const MERGED_LISTS: Readonly<Record<string, readonly string[]>> = {
 const LOCAL_ONLY_TOOLS = new Set([
   'buildergate.session.whoami',
   'buildergate.session.claim',
+  // FR-MCP-029: the calling session lives on this server.
+  'buildergate.session.rename_self',
   // FR-MSG-007 (contract §8): rooms are reached through the messenger, never through a link.
   'buildergate.room.list',
   'buildergate.room.members',

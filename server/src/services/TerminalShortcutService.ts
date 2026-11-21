@@ -330,6 +330,9 @@ export class TerminalShortcutService {
     if (typed.type === 'redraw') {
       return { type: 'redraw' };
     }
+    if (typed.type === 'toggle-composer') {
+      return { type: 'toggle-composer' };
+    }
     throw new AppError(ErrorCode.INVALID_INPUT, 'Unsupported terminal shortcut action');
   }
 

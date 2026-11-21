@@ -67,6 +67,17 @@ export interface BuildTerminalMenuOptions {
    * @req FR-ARCH-017
    */
   onSelectText?: () => void;
+  /**
+   * Shows or hides the session's composer, on every screen. Optional for the same reason as
+   * onOpenFileExplorer.
+   * @req FR-CMP-001
+   */
+  composer?: ComposerMenuOptions;
+}
+
+export interface ComposerMenuOptions {
+  open: boolean;
+  onToggle: () => void;
 }
 
 export interface TerminalMenuPathOptions {
@@ -98,6 +109,7 @@ export function buildTerminalContextMenuItems(
     openPath,
     onRedrawScreen,
     onSelectText,
+    composer,
   } = options;
 
   const newSessionItem: ContextMenuItem =
@@ -207,6 +219,16 @@ export function buildTerminalContextMenuItems(
             label: t('contextMenu.selectText'),
             icon: 'document',
             onClick: onSelectText,
+          } satisfies ContextMenuItem,
+        ]
+      : []),
+    // FR-CMP-001 AC-4: after text selection, where a phone user finds the ways to write.
+    ...(composer
+      ? [
+          {
+            label: composer.open ? t('contextMenu.composer.hide') : t('contextMenu.composer.show'),
+            icon: 'edit',
+            onClick: composer.onToggle,
           } satisfies ContextMenuItem,
         ]
       : []),

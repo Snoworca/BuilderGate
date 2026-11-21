@@ -3,6 +3,8 @@ export type TerminalClipboardSource =
   | 'tab-context-menu'
   | 'grid-context-menu'
   | 'command-preset'
+  // FR-CMP-003 AC-3: the session composer's send, through the same paste path.
+  | 'composer'
   // SEC-BGSTAB-001 AC-5: 터미널이 OSC52 로 요청한 클립보드 쓰기. 사용자 행위가 아니므로
   // copySelection 이 아니라 copyText 로 들어오며, generation guard 와 관측 채널은
   // 나머지 네 경로와 똑같이 상속한다.

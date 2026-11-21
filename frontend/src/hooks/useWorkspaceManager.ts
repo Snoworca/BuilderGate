@@ -14,6 +14,7 @@ import {
 import { resolveActiveWorkspaceAfterRemoval } from './workspaceActiveSelection';
 import { isWorkspaceAlreadyDeletedError } from '../components/Workspace/workspaceDeleteFlow';
 import { remoteTabActivations } from '../components/Terminal/remoteTabActivation';
+import { clearSessionComposer } from '../components/Terminal/sessionComposerStore.ts';
 import {
   applyMoveTabResultToTabs,
   applyTabReorderResultToTabs,
@@ -67,7 +68,10 @@ function clearTerminalSnapshot(sessionId?: string | null): void {
 function clearWorkspaceSnapshots(runtimeTabs: WorkspaceTabRuntime[], workspaceId: string): void {
   runtimeTabs
     .filter(tab => tab.workspaceId === workspaceId)
-    .forEach(tab => clearTerminalSnapshot(tab.sessionId));
+    .forEach(tab => {
+      clearTerminalSnapshot(tab.sessionId);
+      clearSessionComposer(tab.id);
+    });
 }
 
 function applyWorkspaceTabChanges(tab: WorkspaceTabRuntime, changes: WorkspaceTabChanges): WorkspaceTabRuntime {
@@ -412,6 +416,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         setTabs(prev => {
           const removed = prev.find(t => t.id === id);
           clearTerminalSnapshot(removed?.sessionId);
+          // FR-CMP-003: a closed session's composer draft and history go with it.
+          clearSessionComposer(id);
           if (removed) {
             pruneMosaicLayoutForDeletedTab(removed.workspaceId, id);
           }
@@ -577,6 +583,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         setWorkspaces(prev => applyActiveTabId(prev, workspaceId, plan.nextActiveTabId));
         pruneMosaicLayoutForDeletedTab(workspaceId, tabId);
         clearTerminalSnapshot(closedTab?.sessionId);
+        clearSessionComposer(tabId);
       },
       requestDelete: (targetWorkspaceId, targetTabId) => workspaceApi.deleteTab(targetWorkspaceId, targetTabId),
       revertLocalClose: () => {

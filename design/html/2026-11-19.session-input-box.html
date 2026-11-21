@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세션 입력창 기획</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1d2330; --muted:#5c6577; --line:#dfe3ea;
+  --accent:#2f6fed; --accent-soft:#e7efff; --warn:#b45309; --warn-soft:#fff4e5;
+  --ok:#15803d; --ok-soft:#e8f6ec; --bad:#b91c1c; --bad-soft:#fdecec;
+  --term:#1e1e1e; --term-ink:#d4d4d4; --term-dim:#8a8a8a; --term-line:#333;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111418; --panel:#191d23; --ink:#e6e9ef; --muted:#9aa3b2; --line:#2b313a;
+    --accent:#6b9bff; --accent-soft:#1d2a44; --warn:#f2b45a; --warn-soft:#33270f;
+    --ok:#5fd28a; --ok-soft:#123222; --bad:#ff8080; --bad-soft:#3a1717;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111418; --panel:#191d23; --ink:#e6e9ef; --muted:#9aa3b2; --line:#2b313a;
+  --accent:#6b9bff; --accent-soft:#1d2a44; --warn:#f2b45a; --warn-soft:#33270f;
+  --ok:#5fd28a; --ok-soft:#123222; --bad:#ff8080; --bad-soft:#3a1717;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;margin:0 0 4px}
+h2{font-size:21px;margin:48px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:16px;margin:24px 0 8px}
+p{margin:8px 0}
+.sub{color:var(--muted);margin:0 0 20px}
+code{font-family:var(--mono);font-size:.88em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.tldr{border-left:4px solid var(--accent)}
+.note{background:var(--warn-soft);border-color:transparent;border-left:4px solid var(--warn)}
+.good{background:var(--ok-soft);border-color:transparent;border-left:4px solid var(--ok)}
+ul,ol{padding-left:22px;margin:6px 0}
+li{margin:3px 0}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:block;overflow-x:auto}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--accent-soft);font-weight:600;white-space:nowrap}
+.rec{color:var(--ok);font-weight:600}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.cap{font-size:13px;color:var(--muted);margin:6px 2px 0}
+nav.toc{font-size:14px}
+nav.toc a{color:var(--accent);text-decoration:none}
+
+/* ---- 목업 공통 ---- */
+.mock{background:var(--term);border-radius:10px;overflow:hidden;border:1px solid #000;color:var(--term-ink);font-family:var(--mono);font-size:12.5px;display:flex;flex-direction:column}
+.mock .bar{display:flex;align-items:center;gap:8px;padding:5px 10px;background:#2a2a2a;color:#bbb;font-size:12px}
+.mock .bar .dot{width:8px;height:8px;border-radius:50%;background:#5fd28a}
+.mock .term{padding:8px 10px;line-height:1.5;white-space:pre;overflow:hidden;flex:1}
+.mock .dim{color:var(--term-dim)}
+.mock .room{color:#7fb8ff}
+.mock .cursor{background:#d4d4d4;color:#1e1e1e}
+.mock .meta{display:flex;align-items:center;gap:10px;padding:4px 10px;border-top:1px solid var(--term-line);background:#202020;color:#9a9a9a;font-size:11.5px}
+.mock .meta .grow{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mock .chip{border:1px solid #3a3a3a;border-radius:4px;padding:0 6px;color:#b9c7ff}
+.tog{display:inline-flex;align-items:center;gap:4px;border:1px solid #3d3d3d;border-radius:5px;padding:1px 7px;color:#ddd;background:#2b2b2b;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:11.5px}
+.tog.on{background:#28406e;border-color:#3f63a8;color:#fff}
+.tog kbd{font-family:var(--mono);font-size:10px;color:#9fb3da}
+.comp{border-top:1px solid #3a3a3a;background:#252526;position:relative}
+.comp .handle{height:7px;cursor:ns-resize;display:flex;justify-content:center;align-items:center}
+.comp .handle i{width:36px;height:3px;border-radius:2px;background:#555}
+.comp .row{display:flex;gap:8px;align-items:flex-end;padding:2px 10px 8px}
+.comp .ta{flex:1;background:#1b1b1b;border:1px solid #3f63a8;border-radius:8px;padding:6px 9px;color:#e8e8e8;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:13px;line-height:1.5;min-height:34px;white-space:pre-wrap}
+.comp .ta .ph{color:#777}
+.comp .send{width:30px;height:30px;border-radius:50%;background:#2f6fed;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+.comp .send.off{background:#3a3a3a;color:#777}
+.comp .hint{padding:0 10px 6px;font-size:11px;color:#888;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif}
+.comp .badge{position:absolute;right:52px;top:12px;font-size:10.5px;background:#4a3a12;color:#f2c46a;border-radius:4px;padding:0 5px;font-family:-apple-system,sans-serif}
+.phone{width:300px;max-width:100%;margin:0 auto;border:10px solid #000;border-radius:34px;overflow:hidden;background:#000}
+.phone .mock{border:0;border-radius:0}
+.phone .kbbar{display:flex;gap:4px;padding:5px 6px;background:#2a2a2a}
+.phone .kbbar span{flex:1;text-align:center;background:#3a3a3a;border-radius:5px;color:#ddd;font-size:11px;padding:4px 0}
+.phone .kb{height:120px;background:#3b3b3e;display:grid;grid-template-columns:repeat(10,1fr);gap:4px;padding:6px}
+.phone .kb i{background:#6b6b6f;border-radius:4px}
+.menu{position:absolute;right:14px;top:70px;background:#2d2d30;border:1px solid #454545;border-radius:10px;width:190px;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:13px;color:#e6e6e6;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden}
+.menu div{padding:8px 12px;border-bottom:1px solid #3a3a3a}
+.menu div.hi{background:#28406e}
+.menu div:last-child{border-bottom:0}
+.cells{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#111;padding:6px;border-radius:10px}
+.cells .mock{font-size:10.5px;height:200px}
+.cells .mock.lead{outline:2px solid #3f63a8}
+</style>
+</head>
+<body>
+<main>
+<h1>세션 입력창 (Composer) 기획</h1>
+<p class="sub">총괄 세션에 메시지가 쏟아져 사용자 입력이 끊기는 문제를 해결하기 위해, 각 세션 창 하단에 별도 입력창을 둔다 · 2026-11-19 · 소스 변경 없음(기획 시안)</p>
+
+<div class="card tldr">
+<b>한눈에 보기</b>
+<ul>
+<li>입력이 끊기는 근본 원인은 <b>사용자 타이핑과 외부 붙여넣기가 같은 PTY 입력 줄을 공유</b>한다는 점이다. 메신저·MCP 붙여넣기는 사용자가 쓰다 만 줄 한가운데로 들어가고, 약 1초 뒤 서버가 보내는 Enter 가 <b>사용자의 미완성 문장까지 함께 제출</b>한다.</li>
+<li>해결: 세션마다 터미널 아래에 <b>입력창</b>을 둔다. 사용자는 여기서 안전하게 쓰고, 보내는 순간에만 한 번에(bracketed paste + Enter) PTY 로 들어간다.</li>
+<li>열고 닫기는 세 가지다: 세션 하단 상태 줄(<code>MetadataRow</code>) 맨 오른쪽 토글 버튼, <code>Alt+N</code>, 모바일 컨텍스트 메뉴의 「입력창 표시」.</li>
+<li>기본값: <b>Enter 전송 · Shift+Enter 줄바꿈</b>, 높이는 위로 드래그해 조절(전역 1개 값), 열림 상태와 초안은 세션별로 저장한다. 설정 화면에 새 항목을 추가하지 않는다.</li>
+</ul>
+</div>
+
+<nav class="toc card">
+<b>목차</b> ·
+<a href="#cause">1. 문제 분석</a> ·
+<a href="#scen">2. 사용자 시나리오</a> ·
+<a href="#mock">3. 화면 시안</a> ·
+<a href="#ix">4. 상호작용 설계</a> ·
+<a href="#edge">5. 예외 상황</a> ·
+<a href="#open">6. 결정 필요 사항</a> ·
+<a href="#impl">7. 구현 스케치</a>
+</nav>
+
+<!-- ================================================================ -->
+<h2 id="cause">1. 문제 분석 — 입력이 왜 끊기는가</h2>
+
+<h3>1.1 외부 메시지가 PTY 에 들어가는 경로</h3>
+<table>
+<tr><th>단계</th><th>코드 위치</th><th>동작</th></tr>
+<tr><td>계획</td><td><code>server/src/services/messenger/delivery.ts</code> <code>planDelivery</code></td><td>받는 세션마다 <code>[BG-ROOM:방 | 보낸이 → @대상] 본문</code> 형태의 <code>PasteJob</code> 을 만든다. <code>submit</code> 은 세션의 <code>enter</code> 설정을 따른다.</td></tr>
+<tr><td>직렬화</td><td><code>roomService.ts</code> <code>enqueuePaste</code> · <code>drainPastes</code> · <code>pasteBatch</code></td><td>세션별 큐. 붙여넣기 하나가 진행 중일 때 들어온 것들은 끝난 직후 <b>한 덩어리로</b> 붙여 넣는다(FR-MSG-004 AC-3). <b>사용자가 타이핑 중인지는 보지 않는다.</b></td></tr>
+<tr><td>프레이밍</td><td><code>pasteFrame.ts</code> <code>buildRoomPaste</code></td><td>bracketed paste 모드면 <code>ESC[200~ … ESC[201~</code> 로 감싼다.</td></tr>
+<tr><td>쓰기</td><td><code>server/src/index.ts</code> <code>createMessengerPaster</code> → <code>submitWithSeparateEnter</code></td><td>본문을 먼저 쓰고, <b>설정된 지연(<code>submitEnterDelay</code>, 기본 약 1초) 뒤에 Enter(<code>\r</code>)를 따로 쓴다.</b> MCP <code>message.send</code> · <code>reply-to-leader</code> · 웹훅도 같은 게이트웨이(<code>SessionInputGateway</code>)를 탄다.</td></tr>
+</table>
+
+<h3>1.2 사용자가 xterm 에 직접 칠 때 일어나는 일</h3>
+<div class="card note">
+<ol>
+<li>사용자가 Claude Code 입력란에 <code>리팩터 범위를 server/ 로 한정하고</code> 까지 친다(커서는 줄 끝).</li>
+<li>메신저 메시지가 도착한다. 서버는 그 줄의 커서 위치에 <code>[BG-ROOM:…] 빌드 끝났습니다</code> 를 붙여 넣는다 — 에이전트 TUI 는 이것을 사용자 입력과 구분하지 못한다.</li>
+<li>약 1초 뒤 서버가 Enter 를 보낸다. <b>사용자의 미완성 문장 + 메시지가 한 프롬프트로 제출된다.</b></li>
+<li>사용자가 이어서 친 글자는 이미 다음 입력란으로 넘어가 있거나, 붙여넣기와 Enter 사이 1초 틈에 끼어 메시지 중간에 섞인다.</li>
+</ol>
+<p><b>원인 정리:</b> ① 입력 줄이 하나뿐이다(사용자와 외부 송신자가 공유). ② 서버는 사용자의 타이핑 상태를 모른다. ③ 본문과 Enter 가 분리돼 있어 그 틈에 사용자 키 입력이 들어갈 수 있다. 총괄 세션은 받는 메시지 수가 가장 많아 세 가지가 모두 자주 겹친다.</p>
+</div>
+
+<h3>1.3 입력창이 해결하는 것과 해결하지 못하는 것</h3>
+<div class="grid2">
+<div class="card good"><b>해결한다</b>
+<ul>
+<li>쓰는 동안의 초안이 PTY 밖(브라우저 textarea)에 있으므로 외부 붙여넣기와 <b>섞이지 않는다</b>.</li>
+<li>보내기는 단일 bracketed paste + Enter 이므로 다른 붙여넣기와 <b>원자적으로 순서가 정해진다</b>(아래 7.3 의 같은 큐 사용 시).</li>
+<li>한글 IME 조합이 xterm 의 숨은 textarea 가 아니라 일반 textarea 에서 일어나 조합 깨짐이 줄어든다.</li>
+</ul></div>
+<div class="card note"><b>해결하지 못한다 (보완 필요)</b>
+<ul>
+<li>사용자가 입력창을 쓰지 않고 여전히 xterm 에 직접 칠 때 → 6장 D-1 의 「타이핑 중 배달 보류」로 보완한다.</li>
+<li>에이전트 TUI 입력란에 이미 남아 있던 글자 → 보내기 직전에 그 내용이 있는지 알 수 없다(7.4 참고).</li>
+</ul></div>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="scen">2. 사용자 시나리오</h2>
+<table>
+<tr><th>상황</th><th>흐름</th><th>기대 결과</th></tr>
+<tr><td><span class="tag">데스크톱</span><br>총괄 세션에 긴 지시 작성</td><td>총괄 세션 클릭 → <code>Alt+N</code> → 입력창에 3~4줄 작성(Shift+Enter 로 줄바꿈) → 그 사이 메시지 5건이 터미널에 들어옴 → Enter</td><td>초안은 전혀 영향받지 않는다. 보내기 순간 하나의 프롬프트로 제출된다. 입력창은 비고 포커스는 그대로 입력창에 남는다.</td></tr>
+<tr><td><span class="tag">데스크톱</span><br>잠깐 다른 세션 확인</td><td>입력창에 쓰다가 다른 타일 클릭 → 로그 확인 → 총괄 세션으로 돌아옴</td><td>초안이 그대로 남아 있다. 상태 줄 토글에 「초안 있음」 점이 보인다.</td></tr>
+<tr><td><span class="tag">그리드</span><br>4분할 중 총괄만 상시 열기</td><td>총괄 타일만 입력창을 켜 둔다. 나머지 세 타일은 꺼 둔다.</td><td>열림 상태는 세션별로 기억되므로 새로고침 뒤에도 총괄 타일에만 열려 있다.</td></tr>
+<tr><td><span class="tag">그리드</span><br>작은 타일(높이 &lt; 220px)</td><td>9분할 타일에서 <code>Alt+N</code></td><td>입력창이 한 줄 높이로 열리고, 터미널은 최소 6줄을 보장받는다. 드래그 최대치도 그에 맞춰 줄어든다.</td></tr>
+<tr><td><span class="tag">모바일</span><br>이동 중 지시</td><td>터미널 길게 누름 → 컨텍스트 메뉴 「입력창 표시」 → 입력창에 한글로 작성 → 전송 버튼</td><td>모바일 키바 위에 입력창이 붙는다. 모바일에서는 Enter 가 줄바꿈이고 전송은 버튼으로만 한다(iOS 메시지 앱과 같은 관례).</td></tr>
+<tr><td><span class="tag">모든 환경</span><br>지난 지시 다시 보내기</td><td>빈 입력창에서 ↑</td><td>이 세션에서 입력창으로 보낸 이전 항목이 차례로 채워진다. 수정 후 Enter.</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="mock">3. 화면 시안</h2>
+
+<h3>3.1 데스크톱 — 입력창 열림</h3>
+<div class="mock" style="height:420px">
+  <div class="bar"><span class="dot"></span>총괄 · claude</div>
+  <div class="term"><span class="dim">● 세 하위 세션에 작업을 나눠 보냈습니다.</span>
+<span class="room">[BG-ROOM:빌드 | api-worker → @총괄] 서버 테스트 542/542 통과</span>
+<span class="room">[BG-ROOM:빌드 | web-worker → @총괄] 프런트 빌드 성공, 경고 2건</span>
+<span class="room">[BG-ROOM:리뷰 | reviewer → @총괄] PR #212 지적 3건 남김</span>
+<span class="dim">● 확인했습니다. 다음 지시를 기다립니다.</span>
+
+<span class="dim">╭──────────────────────────────────────────────╮</span>
+<span class="dim">│</span> &gt; <span class="cursor"> </span>
+<span class="dim">╰──────────────────────────────────────────────╯</span></div>
+  <div class="comp">
+    <div class="handle" title="위로 드래그해 높이 조절"><i></i></div>
+    <div class="row">
+      <div class="ta">reviewer 지적 3건 중 1·3번만 반영해.
+2번은 다음 릴리즈로 미루고, web-worker 경고 2건은<span class="cursor"> </span></div>
+      <div class="send" title="보내기 (Enter)">↑</div>
+    </div>
+    <div class="hint">Enter 보내기 · \ + Enter 또는 Shift+Enter 줄바꿈 · ↑ 이전 항목 · Esc 터미널로</div>
+  </div>
+  <div class="meta"><span>● 총괄</span><span class="grow">…/ProjectMaster</span><span class="chip">main</span><span>01:24:10</span><span class="tog on">입력창 <kbd>Alt+N</kbd></span></div>
+</div>
+<p class="cap">입력창은 터미널과 상태 줄(<code>MetadataRow</code>) 사이에 놓인다. 위쪽 손잡이를 드래그하면 높이가 바뀌고, 드래그가 끝날 때 터미널이 한 번만 다시 맞춰진다. 메시지가 계속 들어와도 입력창 내용은 그대로다.</p>
+
+<h3>3.2 데스크톱 — 닫힘 (초안이 남아 있음)</h3>
+<div class="mock" style="height:170px">
+  <div class="term"><span class="room">[BG-ROOM:빌드 | api-worker → @총괄] 배포 준비 완료</span>
+<span class="dim">│</span> &gt; <span class="cursor"> </span></div>
+  <div class="meta"><span>● 총괄</span><span class="grow">…/ProjectMaster</span><span class="chip">main</span><span>01:25:02</span><span class="tog">입력창 <span style="color:#f2c46a">●</span> <kbd>Alt+N</kbd></span></div>
+</div>
+<p class="cap">닫혀 있어도 터미널 공간을 전혀 차지하지 않는다. 토글 옆 노란 점은 「보내지 않은 초안이 있음」을 뜻한다. 마우스를 올리면 「입력창 열기 (Alt+N) · 보내지 않은 초안 있음」 툴팁을 띄운다.</p>
+
+<div class="grid2">
+<div>
+<h3>3.3 모바일 — 컨텍스트 메뉴</h3>
+<div class="phone"><div class="mock" style="height:420px;position:relative">
+  <div class="bar"><span class="dot"></span>총괄</div>
+  <div class="term"><span class="room">[BG-ROOM:빌드 | api…] 통과</span>
+<span class="room">[BG-ROOM:리뷰 | rev…] 3건</span>
+&gt; <span class="cursor"> </span></div>
+  <div class="menu">
+    <div>복사</div><div>붙여넣기</div><div>텍스트 선택</div>
+    <div class="hi">입력창 표시</div><div>화면 다시 그리기</div><div>세션 닫기</div>
+  </div>
+  <div class="meta"><span class="grow">● 총괄</span><span>01:25</span></div>
+</div></div>
+<p class="cap">터미널을 길게 누르면 뜨는 기존 메뉴(<code>buildTerminalContextMenuItems</code>)에 한 줄을 더한다. 열려 있으면 「입력창 숨기기」로 바뀐다.</p>
+</div>
+<div>
+<h3>3.4 모바일 — 입력창 열림</h3>
+<div class="phone"><div class="mock" style="height:auto">
+  <div class="term" style="height:150px"><span class="room">[BG-ROOM:빌드 | api…] 통과</span>
+&gt; <span class="cursor"> </span></div>
+  <div class="comp">
+    <div class="handle"><i></i></div>
+    <div class="row"><div class="ta">배포는 내일 오전에 진행해</div><div class="send">↑</div></div>
+  </div>
+  <div class="kbbar"><span>Esc</span><span>Tab</span><span>Ctrl</span><span>↑</span><span>↓</span><span>⌨</span></div>
+  <div class="kb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+</div></div>
+<p class="cap">모바일에서는 입력창이 모바일 키바(<code>MobileKeyBar</code>) 바로 위에 붙는다. 시스템 키보드의 Enter 는 줄바꿈이고 전송은 ↑ 버튼이다. 손잡이 드래그는 지원하되 최대 높이를 화면의 35% 로 묶는다.</p>
+</div>
+</div>
+
+<h3>3.5 그리드 — 총괄 타일만 입력창 사용</h3>
+<div class="cells">
+  <div class="mock lead">
+    <div class="term"><span class="room">[BG-ROOM:빌드…] 통과</span>
+<span class="room">[BG-ROOM:리뷰…] 3건</span>
+&gt; <span class="cursor"> </span></div>
+    <div class="comp"><div class="handle"><i></i></div><div class="row"><div class="ta">1·3번만 반영해</div><div class="send">↑</div></div></div>
+    <div class="meta"><span class="grow">● 총괄</span><span class="tog on">입력창</span></div>
+  </div>
+  <div class="mock"><div class="term"><span class="dim">$ npm test</span>
+542 passing</div><div class="meta"><span class="grow">● api-worker</span><span class="tog">입력창</span></div></div>
+  <div class="mock"><div class="term"><span class="dim">$ vite build</span>
+✓ built in 8.1s</div><div class="meta"><span class="grow">● web-worker</span><span class="tog">입력창</span></div></div>
+  <div class="mock"><div class="term"><span class="dim">● PR #212 리뷰 중…</span></div><div class="meta"><span class="grow">● reviewer</span><span class="tog">입력창</span></div></div>
+</div>
+<p class="cap">작은 타일에서는 힌트 줄을 숨기고 입력창을 한 줄로 시작한다. 타일 폭이 좁으면 토글은 글자 없이 아이콘만 보인다(<code>MetadataRow</code> 의 폭 단계 판단을 그대로 쓴다).</p>
+
+<!-- ================================================================ -->
+<h2 id="ix">4. 상호작용 설계</h2>
+
+<h3>4.1 표시·숨김</h3>
+<table>
+<tr><th>수단</th><th>동작</th></tr>
+<tr><td>상태 줄 토글</td><td>세션 하단 <code>MetadataRow</code> 맨 오른쪽(경과 시간 뒤)에 둔다. 앱 전체 하단의 <code>FileJobStatusBar</code> 는 파일 작업 중에만 나타나는 줄이라 상시 토글을 둘 수 없다. 따라서 요청의 「가장 우측 하단 상태표시줄」은 <b>각 세션의 하단 상태 줄 오른쪽 끝</b>으로 해석한다. 누르면 열림/닫힘이 바뀌고, 열 때 입력창에 포커스를 준다.</td></tr>
+<tr><td><code>Alt+N</code></td><td>포커스가 있는 세션 기준 3단 동작:<br>① 닫혀 있으면 → 열고 입력창에 포커스<br>② 열려 있고 터미널에 포커스 → 입력창으로 포커스만 이동<br>③ 입력창에 포커스 → 닫고 터미널로 포커스 복귀<br>한 키로 「쓰러 가기」와 「치우기」를 모두 한다. IME 조합 중(<code>isComposing</code>)에는 무시한다.</td></tr>
+<tr><td>모바일 컨텍스트 메뉴</td><td>「입력창 표시」 / 「입력창 숨기기」. 터치 화면에서만 노출하지 않고 모든 환경에 같은 항목을 두어도 무방하다(데스크톱에서 단축키를 모르는 사용자도 찾을 수 있다). <span class="rec">권장: 모든 환경에 노출.</span></td></tr>
+</table>
+
+<h3>4.2 크기 조절</h3>
+<ul>
+<li>입력창 위쪽 7px 손잡이를 위로 끌면 커지고, 아래로 끌면 작아진다. 더블클릭하면 기본 높이로 돌아간다.</li>
+<li><b>최소</b>: 한 줄(약 44px). <b>최대</b>: 타일 높이의 50%, 단 터미널이 최소 6줄을 유지하는 범위까지.</li>
+<li><b>자동 늘림</b>: 사용자가 정한 높이를 「최대치」로 보고, 내용이 짧으면 그보다 작게, 길어지면 그 높이까지 자란 뒤 스크롤한다. 따라서 대부분의 사용자는 한 번도 드래그할 필요가 없다.</li>
+<li><b>터미널 재맞춤 시점</b>: 드래그 중에는 입력창만 그리고, <b>손을 뗄 때 한 번만</b> xterm fit → PTY resize 를 보낸다. 드래그마다 SIGWINCH 를 보내면 에이전트 TUI 가 화면을 계속 다시 그린다. 자동 늘림도 같은 이유로 줄 수가 바뀔 때만, 150ms 디바운스로 반영한다.</li>
+<li><b>저장</b>: 높이는 <b>전역 하나</b>(브라우저 저장소), 열림 상태는 <b>세션별</b>. <span class="rec">권장 이유:</span> 높이는 취향이고 세션마다 다를 이유가 없지만, 어느 세션에 입력창이 필요한지는 세션의 역할(총괄 여부)에 따라 다르다.</li>
+</ul>
+
+<h3>4.3 보내기 키와 IME</h3>
+<table>
+<tr><th>키</th><th>데스크톱</th><th>모바일</th></tr>
+<tr><td>Enter</td><td><b>보내기</b></td><td>줄바꿈</td></tr>
+<tr><td><b>줄 끝 <code>\</code> + Enter</b></td><td><b>줄바꿈</b> (끝의 <code>\</code> 는 지우고 새 줄을 넣는다 — Claude Code 와 같다)</td><td>줄바꿈</td></tr>
+<tr><td>Shift+Enter</td><td>줄바꿈</td><td>줄바꿈</td></tr>
+<tr><td>Ctrl/Cmd+Enter</td><td>보내기 (습관 호환)</td><td>—</td></tr>
+<tr><td>전송 버튼 ↑</td><td>보내기</td><td><b>보내기</b></td></tr>
+</table>
+<ul>
+<li><b>한글 IME 보호</b>: <code>event.isComposing === true</code> 이거나 <code>keyCode === 229</code> 인 Enter 는 보내기로 처리하지 않는다. 조합 확정용 Enter 가 마지막 글자를 떼어 놓고 전송하는 흔한 버그를 막는다. 저장소의 <code>utils/iosHangulInput.ts</code> 가 쓰는 판정과 같은 기준을 공용 함수로 쓴다.</li>
+<li><b>빈 초안</b>(공백만)은 보내지 않는다. 전송 버튼도 비활성으로 보인다.</li>
+<li><b>Enter 를 Claude Code 와 맞춘 이유</b>: 총괄 세션의 실제 입력 대상이 Claude Code·Codex 이고, 둘 다 Enter 제출이다. 입력창만 다르게 두면 손이 헷갈린다.</li>
+</ul>
+
+<h3>4.4 보내기 동작</h3>
+<ol>
+<li>초안을 기존 붙여넣기 정제 경로(<code>sanitizeTerminalPasteText</code>, 크기 상한 <code>TERMINAL_PASTE_MAX_BYTES</code>)에 통과시킨다.</li>
+<li>bracketed paste 로 본문을 쓰고, 서버의 <code>submitEnterDelay</code> 와 같은 규칙으로 Enter 를 따로 쓴다. 에이전트 TUI 가 긴 붙여넣기를 처리하기 전에 Enter 가 도착해 줄바꿈으로 먹히는 문제를 서버가 이미 이렇게 풀고 있기 때문이다.</li>
+<li>성공하면 입력창을 비우고 그 내용을 세션별 보낸 기록에 넣는다. 포커스는 입력창에 남긴다(연속 지시가 흔하다).</li>
+<li>실패하면(세션 종료, 크기 초과, 여러 줄 미지원 등) <b>초안을 그대로 두고</b> 입력창 바로 위에 한 줄 오류를 띄운다. 초안이 사라지는 일은 없어야 한다.</li>
+</ol>
+
+<h3>4.5 포커스 규칙</h3>
+<ul>
+<li>입력창을 열면 입력창에 포커스. 닫으면 그 세션의 터미널로 포커스.</li>
+<li><code>Esc</code> 는 입력창에서 <b>터미널로 포커스만 옮긴다</b>(입력창은 열린 채). PTY 에 ESC 를 보내지 않는다. 에이전트를 중단하려면 터미널에서 Esc 를 한 번 더 누른다.</li>
+<li>입력창 포커스 중에는 xterm 의 키 처리·터미널 단축키(<code>TerminalShortcutManager</code>)가 동작하지 않는다. 일반 textarea 이므로 Ctrl+C/V/A, 단어 이동 등 OS 편집 동작이 그대로 동작한다.</li>
+<li>터미널을 클릭하면 터미널로 포커스가 간다(기존 동작 유지). 입력창이 열려 있는 세션에서 터미널에 직접 쳐도 막지 않는다.</li>
+</ul>
+
+<h3>4.6 초안과 기록</h3>
+<ul>
+<li><b>초안 저장</b>: 세션별로 입력할 때마다(300ms 디바운스) 브라우저 저장소에 저장한다. 새로고침·탭 전환·창 닫기 뒤에도 남는다. 세션을 닫으면 그 세션의 초안과 기록을 지운다.</li>
+<li><b>↑ / ↓ 기록</b>: 커서가 첫 줄에 있고 초안이 비었거나 기록 탐색 중일 때만 ↑ 가 이전 항목을 채운다. 그 외에는 평범한 커서 이동이다(여러 줄 편집을 방해하지 않기 위해). 세션당 최근 50개.</li>
+<li>기록 탐색 중 수정하던 초안은 ↓ 로 맨 끝까지 내려가면 다시 나타난다(셸의 관례).</li>
+</ul>
+
+<!-- ================================================================ -->
+<h2 id="edge">5. 예외 상황</h2>
+<table>
+<tr><th>상황</th><th>처리</th></tr>
+<tr><td>bracketed paste 를 켜지 않은 프로그램(일반 셸 등)에 여러 줄 보내기</td><td>기존 경로가 <code>unsupported-multiline-paste</code> 로 거부한다. 입력창은 보내기 버튼 옆에 「이 세션은 여러 줄을 받지 못합니다」를 띄우고 초안을 유지한다. 한 줄 초안은 그대로 보낸다.</td></tr>
+<tr><td>세션이 끊김(<code>disconnected</code>) / 재연결 중</td><td>입력창은 계속 쓸 수 있고 전송 버튼만 비활성. 재연결되면 다시 활성화. 자동 재전송은 하지 않는다(의도치 않은 지시 방지).</td></tr>
+<tr><td>세션 종료</td><td>입력창을 닫고 초안을 지운다. 단, 닫기 직전 초안이 있으면 세션 닫기 확인창에 「보내지 않은 입력이 있습니다」를 한 줄 덧붙인다.</td></tr>
+<tr><td>매우 큰 붙여넣기(입력창에 MB 단위)</td><td>입력은 받되 전송 시 크기 상한으로 거부하고 바이트 수를 알려 준다(기존 <code>paste-too-large</code> 메시지 재사용).</td></tr>
+<tr><td>모바일 가상 키보드가 올라와 화면이 줄어듦</td><td>입력창 최대 높이를 <code>visualViewport</code> 기준 35% 로 다시 계산한다. 터미널이 6줄 아래로 줄면 입력창을 먼저 줄인다.</td></tr>
+<tr><td>타일을 최대화/복원, 탭 모드 ↔ 그리드 모드 전환</td><td>열림 상태·초안은 세션 키 기준이라 그대로 따라간다.</td></tr>
+<tr><td>보내는 순간 메신저 붙여넣기가 진행 중</td><td>7.3 의 같은 큐를 쓰면 붙여넣기 + Enter 가 끝난 뒤 입력창 내용이 들어간다. 같은 큐를 쓰지 않으면 1초 틈에 끼어들 수 있다 — 그래서 같은 큐를 권장한다.</td></tr>
+<tr><td>macOS 의 Option+N</td><td>macOS 에서 Option+N 은 데드 키(˜, ñ 입력)다. <code>event.key</code> 가 아니라 <code>event.code === 'KeyN'</code> 로 판정하고 <code>preventDefault</code> 한다. 다만 스페인어 등 ñ 를 쓰는 사용자는 입력이 막힌다 — 6장 D-3 참고.</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="open">6. 결정 필요 사항</h2>
+<table>
+<tr><th>#</th><th>질문</th><th>선택지</th><th>권장</th></tr>
+<tr><td>D-1</td><td>사용자가 <b>xterm 에 직접</b> 칠 때도 들어오는 메시지를 보류할까?</td><td>A. 입력창만 제공(보류 없음)<br>B. 클라이언트가 「타이핑 중」 임대(마지막 키 입력 후 3초)를 서버에 알리고, <code>roomService.drainPastes</code> 가 임대 동안 기다림(최대 10초, 넘으면 그냥 배달)<br>C. 입력창에 초안이 있을 때도 보류</td><td class="rec">1차는 A, 2차로 B. C 는 불필요 — 초안이 PTY 밖에 있어 섞이지 않으므로 보류하면 지연만 생긴다. B 는 메신저 붙여넣기만 대상으로 하고, MCP <code>message.send</code> 는 2차 범위에서 따로 판단한다.</td></tr>
+<tr><td>D-2</td><td>Enter 의 기본 동작</td><td>A. Enter 보내기 / Shift+Enter 줄바꿈<br>B. Enter 줄바꿈 / Ctrl+Enter 보내기</td><td class="rec"><b>결정됨(2026-11-19 사용자)</b>: A. 그리고 Claude Code 처럼 줄 끝에 <code>\</code> 를 입력하고 Enter 를 누르면 <code>\</code> 를 지우고 줄바꿈한다. 모바일은 Enter 줄바꿈 고정. 설정 항목은 만들지 않는다.</td></tr>
+<tr><td>D-3</td><td><code>Alt+N</code> 충돌</td><td>A. 앱이 항상 가로챔<br>B. 기존 터미널 단축키 체계(<code>TerminalShortcutManager</code>)에 기본 바인딩으로 등록해 사용자가 바꿀 수 있게 함</td><td class="rec">B. readline 의 <code>ESC n</code>(비증분 기록 검색), macOS 의 ñ 입력과 겹치므로 바꿀 수 있어야 한다. 기본값은 요청대로 <code>Alt+N</code>. Claude Code·Codex 의 기본 키 바인딩에 Alt+N 이 있는지는 구현 전에 한 번 더 확인한다.</td></tr>
+<tr><td>D-4</td><td>입력창 열림 상태의 기본값</td><td>A. 모든 세션 닫힘<br>B. 에이전트 세션(Claude/Codex 감지)은 열림</td><td class="rec">A. 화면을 함부로 차지하지 않는다. 총괄 세션에서 한 번 열면 그 세션은 계속 열린 채로 기억된다.</td></tr>
+<tr><td>D-5</td><td>저장 위치</td><td>A. 브라우저 저장소(기기별)<br>B. 서버(워크스페이스 상태와 함께, 기기 간 공유)</td><td class="rec">1차는 A. 기기 간 초안 동기화는 실제 요구가 나오면 B 로 옮긴다.</td></tr>
+<tr><td>D-6</td><td>보내기 직전 에이전트 입력란에 이미 남은 글자</td><td>A. 무시<br>B. 보내기 전 Ctrl+U 등으로 입력란을 비움</td><td class="rec">A. TUI 마다 「줄 지우기」 키가 다르고, 사용자가 일부러 써 둔 글을 지울 수 있다.</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="impl">7. 구현 스케치</h2>
+
+<h3>7.1 새로 만들 것</h3>
+<table>
+<tr><th>파일</th><th>책임</th></tr>
+<tr><td><code>frontend/src/components/Terminal/SessionComposer.tsx</code> + <code>.css</code></td><td>textarea, 손잡이, 전송 버튼, 오류 줄. 높이 계산·드래그 종료 시 콜백.</td></tr>
+<tr><td><code>frontend/src/components/Terminal/sessionComposerModel.ts</code></td><td>순수 로직: 키 판정(보내기/줄바꿈/IME 무시), 높이 클램프(최소 1줄 · 최대 50% · 터미널 6줄 보장), 기록 탐색 상태. 단위 테스트 대상.</td></tr>
+<tr><td><code>frontend/src/components/Terminal/sessionComposerStore.ts</code></td><td>세션별 열림·초안·기록과 전역 높이. <code>useSyncExternalStore</code> 로 구독(<code>fileJobPopoverState.ts</code> 와 같은 형태). 저장소 접근은 try/catch.</td></tr>
+</table>
+
+<h3>7.2 손댈 곳</h3>
+<table>
+<tr><th>파일</th><th>변경</th></tr>
+<tr><td><code>components/Grid/MosaicTile.tsx</code></td><td>터미널 <code>children</code> 과 <code>MetadataRow</code> 사이에 <code>SessionComposer</code> 를 조건부 렌더.</td></tr>
+<tr><td><code>App.tsx</code> (탭 모드 렌더, <code>TerminalHostSlot</code> 아래)</td><td>탭 모드도 같은 위치에 렌더. 모바일 키바(<code>MobileKeyBar</code>) 위에 놓이는지 확인.</td></tr>
+<tr><td><code>components/MetadataBar/MetadataRow.tsx</code></td><td>경과 시간 뒤에 토글 버튼과 초안 점. 폭 단계(<code>stageFor</code>)에 따라 아이콘만 표시.</td></tr>
+<tr><td><code>utils/contextMenuBuilder.ts</code> <code>buildTerminalContextMenuItems</code></td><td>「입력창 표시 / 숨기기」 항목 추가.</td></tr>
+<tr><td><code>components/Terminal/TerminalView.tsx</code></td><td>xterm 키 처리기(<code>attachCustomKeyEventHandler</code> 부근)에서 Alt+N 을 앱으로 넘김. 핸들의 <code>pasteText</code>·<code>sendInput</code> 을 입력창 보내기에 재사용.</td></tr>
+<tr><td><code>utils/terminalShortcutBindings.ts</code> · <code>types/terminalShortcut.ts</code></td><td>「입력창 토글」 액션을 기본 바인딩 <code>Alt+N</code> 으로 추가(D-3 B).</td></tr>
+<tr><td><code>frontend/public/locales/messages.{en,ko}.json</code></td><td>키 예: <code>composer.toggle.open</code>, <code>composer.toggle.close</code>, <code>composer.draftPending</code>, <code>composer.placeholder</code>, <code>composer.send</code>, <code>composer.hint</code>, <code>composer.error.multiline</code>, <code>contextMenu.composer.show</code>, <code>contextMenu.composer.hide</code>. 자리표시자 바로 뒤 조사 금지 규칙을 지키고, 저장 후 <code>i18nGuards.test.ts</code> 를 돌린다.</td></tr>
+</table>
+
+<h3>7.3 보내기 경로 — 두 가지 안</h3>
+<div class="grid2">
+<div class="card"><b>안 1. 클라이언트 조합 (빠름)</b>
+<p>핸들의 <code>pasteText(draft, 'composer')</code> 뒤에 <code>sendInput('\r')</code> 를 지연을 두고 보낸다. 기존 정제·크기 상한·여러 줄 가드를 그대로 쓴다.</p>
+<p>단점: 서버의 메신저 큐와 별개라, 메신저 붙여넣기의 「본문 → 1초 → Enter」 틈에 끼어들 수 있다.</p></div>
+<div class="card good"><b>안 2. 서버의 같은 세션 큐 사용 (권장)</b>
+<p>WS 에 <code>composer:submit</code>(세션 ID, 본문) 메시지를 더하고, 서버는 메신저와 같은 세션별 직렬화 지점을 통해 <code>buildRoomPaste</code> + <code>submitWithSeparateEnter</code> 로 쓴다. 감사 출처는 <code>SessionInputGateway</code> 의 새 ingress <code>composer</code>.</p>
+<p>장점: 붙여넣기 두 개가 서로의 본문과 Enter 사이에 끼는 일이 구조적으로 없어진다. D-1 B(타이핑 임대)도 같은 지점에 붙일 수 있다.</p></div>
+</div>
+<p>현재 직렬화 큐는 <code>roomService</code> 안(메신저 전용)에 있고 MCP <code>message.send</code> 는 따로 쓴다. 안 2 를 하려면 이 큐를 <b>세션별 「제출 차선」</b> 하나로 끌어내 메신저·입력창·(필요하면) MCP 가 함께 쓰게 하는 것이 깔끔하다. 범위가 커지면 1차는 안 1 로 내고, 2차에서 차선 통합과 D-1 B 를 함께 한다.</p>
+
+<h3>7.4 알아 둘 제약</h3>
+<ul>
+<li>입력창이 열리고 닫힐 때마다 터미널 줄 수가 바뀌어 PTY resize 가 나간다. 이 저장소에는 리사이즈 임대·재그리기 관련 장치(<code>terminalResizeSendLedger.ts</code>, <code>terminalRedrawNudge.ts</code>)가 있으므로 기존 fit 경로를 그대로 타게 하고 별도 resize 를 만들지 않는다.</li>
+<li>정책 자원(<code>resourceLimits.*</code>)을 새로 읽게 되면 <code>server/src/services/TerminalResourcePolicy.test.ts</code> 를 직접 돌려야 한다(저장소 전역 감시 테스트).</li>
+<li>현재 이 기능에 해당하는 SRS 요구사항이 없다. 구현 전에 요구사항(입력창 표시·크기·보내기·초안, 그리고 D-1 B 를 한다면 배달 보류)을 먼저 등록해야 한다.</li>
+</ul>
+
+<h3>7.5 검증 계획 (요약)</h3>
+<ul>
+<li>단위: <code>sessionComposerModel</code> — IME 조합 중 Enter 무시, Shift+Enter 줄바꿈, 높이 클램프, ↑ 기록 조건.</li>
+<li>E2E(2222): 입력창에 쓰는 동안 MCP/메신저로 총괄 세션에 메시지 3건을 보냄 → 초안 불변 확인 → Enter → PTY 에 초안이 한 번에 들어가고 메시지와 섞이지 않았는지 화면 텍스트로 확인. Alt+N 3단 동작, 새로고침 뒤 초안·열림 상태 유지.</li>
+</ul>
+
+</main>
+</body>
+</html>

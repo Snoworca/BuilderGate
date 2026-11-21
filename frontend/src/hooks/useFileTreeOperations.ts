@@ -232,6 +232,8 @@ export function useFileTreeOperations({
     return parent.entries.find((entry) => joinChildPath(parentPathOf(path), entry.name) === path)?.type ?? null;
   };
   const targetDirectory = menu !== null && menu.target === 'item' && menu.isDir && menu.path !== null ? menu.path : state.root;
+  // FR-FEX-029 AC-1: 새 파일 on a file goes next to that file.
+  const newFileDirectory = menu !== null && menu.target === 'item' && !menu.isDir && menu.path !== null ? parentPathOf(menu.path) : targetDirectory;
 
   // FR-FEX-027 AC-1: the one selected file, when its name is an archive's.
   const selectedArchive = (): string | null => {
@@ -322,7 +324,7 @@ export function useFileTreeOperations({
     // FR-FEX-029: the window makes the file itself, so a refusal keeps it open with the reason.
     newfile: () => {
       if (askNewFile === undefined) return;
-      const directory = targetDirectory;
+      const directory = newFileDirectory;
       const listing = state.childrenByPath.get(directory);
       const entries = listing?.status === 'loaded'
         ? listing.entries.map((entry) => ({ name: entry.name, type: entry.type === 'directory' ? 'directory' as const : 'file' as const }))
