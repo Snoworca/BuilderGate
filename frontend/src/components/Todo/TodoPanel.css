@@ -94,12 +94,30 @@
 }
 
 .todo-row {
+  /* FR-TODO-003 AC-13: one title line; the marks sit on the first line of a wrapped title. */
+  --row-line: calc(var(--todo-font-size) * 1.5);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   min-height: 28px;
-  padding: 2px 8px;
+  padding: 4px 8px;
   cursor: pointer;
+}
+
+.todo-row > .todo-row__id,
+.todo-row > .todo-row__progress {
+  line-height: var(--row-line);
+}
+
+.todo-row > .todo-row__note,
+.todo-row > .todo-row__author,
+.todo-row > .todo-row__done-toggle {
+  align-self: flex-start;
+  margin-top: calc((var(--row-line) - 16px) / 2);
+}
+
+.todo-row > .todo-row__done-toggle {
+  margin-top: calc((var(--row-line) - 24px) / 2);
 }
 
 .todo-row:hover {
@@ -130,6 +148,7 @@
 }
 
 .todo-row--d1 {
+  --row-line: calc((var(--todo-font-size) + 4px) * 1.4);
   min-height: 34px;
   font-weight: 600;
   margin-top: 6px;
@@ -189,6 +208,7 @@
 /* FR-TODO-003 AC-11: the category's status. */
 .todo-status {
   flex: 0 0 auto;
+  margin-top: calc((var(--row-line) - 20px) / 2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -253,6 +273,7 @@
   width: 15px;
   height: 15px;
   margin: 0;
+  margin-top: calc((var(--row-line) - 15px) / 2);
   border: 1.5px solid var(--line-strong);
   border-radius: 4px;
   background: var(--bg-sunken) center / 11px 11px no-repeat;
@@ -296,9 +317,10 @@
 .todo-row__title {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: var(--row-line);
 }
 
 /*
@@ -311,7 +333,7 @@
 
 .todo-row__actions {
   position: absolute;
-  top: 50%;
+  top: calc(4px + var(--row-line) / 2);
   right: 8px;
   transform: translateY(-50%);
   display: none;

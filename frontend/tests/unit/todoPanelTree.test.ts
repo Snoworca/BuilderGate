@@ -72,3 +72,21 @@ test('FR-TODO-003 AC-10..AC-12: the panel draws the tree, the status icon and th
   assert.match(css, /\.todo-check:focus-visible\s*\{[^}]*box-shadow/);
   assert.match(css, /\.todo-row--d1 \.todo-row__title\s*\{[^}]*calc\(var\(--todo-font-size\) \+ 4px\)/);
 });
+
+test('FR-TODO-003 AC-13: a long title wraps instead of being cut, and the marks stay on its first line', () => {
+  const css = readFileSync(new URL('../../src/components/Todo/TodoPanel.css', import.meta.url), 'utf-8');
+  const rule = (selector: string) => {
+    const blocks = [...css.matchAll(new RegExp(`(^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`, 'g'))].map((m) => m[2]);
+    return blocks.join('\n');
+  };
+  const title = rule('.todo-row__title');
+  assert.doesNotMatch(title, /white-space:\s*nowrap/);
+  assert.doesNotMatch(title, /text-overflow:\s*ellipsis/);
+  assert.match(title, /white-space:\s*normal/);
+  assert.match(title, /overflow-wrap:\s*anywhere/);
+  assert.match(title, /line-height:\s*var\(--row-line\)/);
+  assert.match(rule('.todo-row'), /align-items:\s*flex-start/);
+  assert.match(rule('.todo-check'), /margin-top:\s*calc\(\(var\(--row-line\) - 15px\) \/ 2\)/);
+  assert.match(rule('.todo-status'), /margin-top:\s*calc\(\(var\(--row-line\) - 20px\) \/ 2\)/);
+  assert.match(rule('.todo-row__actions'), /top:\s*calc\(4px \+ var\(--row-line\) \/ 2\)/);
+});
