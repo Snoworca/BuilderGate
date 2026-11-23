@@ -33,6 +33,7 @@ import {
   type TabAgentContext,
 } from './agentSession/agentSessionResolver.js';
 import { buildResumeCommand, claudeAttachTarget, stripSessionSelectors } from './agentSession/resumeCommand.js';
+import { applyClaudePermissionMode, decideLivePermissionMode, readClaudePermissionModes } from './agentSession/claudePermissionMode.js';
 import {
   normalizeRecoveryExecutable,
   splitLaunchCommand,
@@ -766,7 +767,44 @@ export class SessionSnapshotService {
       ? entry.sessionId
       : null;
     const ended = found?.sessionId ?? saved;
-    return ended ? { ...attach, sessionId: ended, resumeArguments: ['--resume', ended] } : attach;
+    if (!ended) return attach;
+    // FR-AITUI-025 AC-4: the background session's launch line is not the tab's; its transcript
+    // is the only record of the mode it ran in.
+    const { last } = await readClaudePermissionModes(roots.claudeHome, ended, [found?.cwd ?? null, entry.cwd]);
+    const resume = ['--resume', ended];
+    return { ...attach, sessionId: ended, resumeArguments: last ? applyClaudePermissionMode(resume, last) : resume };
+  }
+
+  /**
+   * FR-AITUI-025 AC-1: a live Claude tab is saved with the permission mode it runs in. Only a tab
+   * whose Claude still runs is looked at: an entry carried from an earlier save keeps its command.
+   */
+  private async withLivePermissionModes(entries: SnapshotEntry[], processes: ProcessInfo[] | undefined): Promise<SnapshotEntry[]> {
+    const records = new Map(this.deps.listTabs().map((record) => [record.tab.id, record]));
+    return Promise.all(entries.map(async (entry) => {
+      if (entry.mode !== 'agent' || entry.agent !== 'claude' || claudeAttachTarget(entry.resumeArguments)) return entry;
+      if (!isValidAgentSessionId('claude', entry.sessionId)) return entry;
+      const record = records.get(entry.tabId);
+      const runtime = record ? this.deps.getRuntime(record.tab.sessionId) : null;
+      if (!runtime) return entry;
+      const tree = typeof runtime.ptyPid === 'number' && processes ? descendantsOf(runtime.ptyPid, processes) : null;
+      const detected = tree ? detectAgentFromProcesses(tree) : null;
+      const agentProcess = detected?.agent === 'claude' ? detected.process : null;
+      if (runtime.foregroundAppId !== 'claude' && !agentProcess) return entry;
+      try {
+        const roots = this.deps.rootsFor ? await this.deps.rootsFor(entry.cwd) : undefined;
+        if (!roots) return entry;
+        const mode = decideLivePermissionMode({
+          launchKnown: Boolean(runtime.launchCommand && splitLaunchCommand(runtime.launchCommand)),
+          processCommandLine: agentProcess?.commandLine ?? null,
+          agentStartedAtMs: runtime.agentStartedAt ?? runtime.foregroundStartedAt ?? agentProcess?.createdAtMs,
+          transcript: await readClaudePermissionModes(roots.claudeHome, entry.sessionId, [entry.cwd]),
+        });
+        return mode ? { ...entry, resumeArguments: applyClaudePermissionMode(entry.resumeArguments, mode) } : entry;
+      } catch {
+        return entry;
+      }
+    }));
   }
 
   /** The agent entry for a resolved id, resumed with the command the agent was launched with. */
@@ -820,7 +858,8 @@ export class SessionSnapshotService {
   async save(tabIds: string[]): Promise<{ snapshot: SessionSnapshot; results: SaveResultItem[] }> {
     const wanted = new Set(tabIds);
     const records = this.deps.listTabs().filter((record) => wanted.has(record.tab.id));
-    const { contexts, resolved } = await this.resolveAll(records, await this.processList());
+    const processes = await this.processList();
+    const { contexts, resolved } = await this.resolveAll(records, processes);
 
     const entries: SnapshotEntry[] = [];
     const results: SaveResultItem[] = [];
@@ -843,7 +882,7 @@ export class SessionSnapshotService {
         method: result.method,
       });
     }
-    const snapshot = await this.addManual(entries);
+    const snapshot = await this.addManual(await this.withLivePermissionModes(entries, processes));
     return { snapshot, results };
   }
 
@@ -1116,10 +1155,10 @@ export class SessionSnapshotService {
       const processes = agentish ? await this.processList() : undefined;
       const { contexts, resolved } = await this.resolveAll(records, processes, new Map(), (ctx) => liveHintOnly(ctx, processes));
       const inherited = new Set<SnapshotEntry>();
-      const entries = dropCarriedDuplicates(
+      const entries = await this.withLivePermissionModes(dropCarriedDuplicates(
         contexts.map(({ record, ctx }) => this.autoEntryFor(record, ctx, resolved.get(ctx.tabId) ?? null, inherited)),
         inherited,
-      );
+      ), processes);
       const snapshot: SessionSnapshot = {
         version: 1,
         id: AUTO_ID,
