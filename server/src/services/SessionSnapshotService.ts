@@ -33,7 +33,7 @@ import {
   type TabAgentContext,
 } from './agentSession/agentSessionResolver.js';
 import { buildResumeCommand, claudeAttachTarget, stripSessionSelectors } from './agentSession/resumeCommand.js';
-import { applyClaudePermissionMode, decideLivePermissionMode, readClaudePermissionModes } from './agentSession/claudePermissionMode.js';
+import { applyClaudePermissionMode, decideLivePermissionMode, readClaudePermissionModes, type ClaudePermissionMode } from './agentSession/claudePermissionMode.js';
 import {
   normalizeRecoveryExecutable,
   splitLaunchCommand,
@@ -783,28 +783,40 @@ export class SessionSnapshotService {
     const records = new Map(this.deps.listTabs().map((record) => [record.tab.id, record]));
     return Promise.all(entries.map(async (entry) => {
       if (entry.mode !== 'agent' || entry.agent !== 'claude' || claudeAttachTarget(entry.resumeArguments)) return entry;
-      if (!isValidAgentSessionId('claude', entry.sessionId)) return entry;
       const record = records.get(entry.tabId);
       const runtime = record ? this.deps.getRuntime(record.tab.sessionId) : null;
-      if (!runtime) return entry;
-      const tree = typeof runtime.ptyPid === 'number' && processes ? descendantsOf(runtime.ptyPid, processes) : null;
-      const detected = tree ? detectAgentFromProcesses(tree) : null;
-      const agentProcess = detected?.agent === 'claude' ? detected.process : null;
-      if (runtime.foregroundAppId !== 'claude' && !agentProcess) return entry;
-      try {
-        const roots = this.deps.rootsFor ? await this.deps.rootsFor(entry.cwd) : undefined;
-        if (!roots) return entry;
-        const mode = decideLivePermissionMode({
-          launchKnown: Boolean(runtime.launchCommand && splitLaunchCommand(runtime.launchCommand)),
-          processCommandLine: agentProcess?.commandLine ?? null,
-          agentStartedAtMs: runtime.agentStartedAt ?? runtime.foregroundStartedAt ?? agentProcess?.createdAtMs,
-          transcript: await readClaudePermissionModes(roots.claudeHome, entry.sessionId, [entry.cwd]),
-        });
-        return mode ? { ...entry, resumeArguments: applyClaudePermissionMode(entry.resumeArguments, mode) } : entry;
-      } catch {
-        return entry;
-      }
+      const mode = await this.livePermissionMode(runtime, entry.sessionId, entry.cwd, processes);
+      return mode ? { ...entry, resumeArguments: applyClaudePermissionMode(entry.resumeArguments, mode) } : entry;
     }));
+  }
+
+  /**
+   * The permission mode a tab's running Claude is in, when it differs from what its launch line
+   * already says; null keeps the launch arguments as they are.
+   */
+  private async livePermissionMode(
+    runtime: SnapshotTabRuntime | null,
+    sessionId: string,
+    cwd: string | null,
+    processes: ProcessInfo[] | undefined,
+  ): Promise<ClaudePermissionMode | null> {
+    if (!runtime || !isValidAgentSessionId('claude', sessionId)) return null;
+    const tree = typeof runtime.ptyPid === 'number' && processes ? descendantsOf(runtime.ptyPid, processes) : null;
+    const detected = tree ? detectAgentFromProcesses(tree) : null;
+    const agentProcess = detected?.agent === 'claude' ? detected.process : null;
+    if (runtime.foregroundAppId !== 'claude' && !agentProcess) return null;
+    try {
+      const roots = this.deps.rootsFor ? await this.deps.rootsFor(cwd) : undefined;
+      if (!roots) return null;
+      return decideLivePermissionMode({
+        launchKnown: Boolean(runtime.launchCommand && splitLaunchCommand(runtime.launchCommand)),
+        processCommandLine: agentProcess?.commandLine ?? null,
+        agentStartedAtMs: runtime.agentStartedAt ?? runtime.foregroundStartedAt ?? agentProcess?.createdAtMs,
+        transcript: await readClaudePermissionModes(roots.claudeHome, sessionId, [cwd]),
+      });
+    } catch {
+      return null;
+    }
   }
 
   /** The agent entry for a resolved id, resumed with the command the agent was launched with. */
@@ -940,13 +952,20 @@ export class SessionSnapshotService {
 
   async preview(): Promise<{ tabs: PreviewTab[]; launchers: LauncherMap }> {
     const records = this.deps.listTabs();
-    const { contexts, resolved } = await this.resolveAll(records, await this.processList());
+    const processes = await this.processList();
+    const { contexts, resolved } = await this.resolveAll(records, processes);
     const tabs: PreviewTab[] = [];
     for (const { record, ctx } of contexts) {
       const runtime = this.deps.getRuntime(record.tab.sessionId);
       const result = resolved.get(ctx.tabId) ?? null;
       const agent = result?.agent ?? ctx.agent ?? agentFromCommand(record.tab.recoveryCommand);
       const launch = agent ? this.launchOf(agent, record, runtime) : null;
+      // FR-AITUI-025 AC-6: the dialog's arguments carry the mode the tab's Claude runs in, so a
+      // save made through it (which keeps the arguments as shown) resumes in that mode.
+      if (launch && agent === 'claude' && result && !claudeAttachTarget(launch.args)) {
+        const mode = await this.livePermissionMode(runtime, result.sessionId, ctx.cwd, processes);
+        if (mode) launch.args = applyClaudePermissionMode(launch.args, mode);
+      }
       let candidates: AgentSessionCandidate[] = [];
       if (agent && this.deps.rootsFor) {
         const roots = await this.deps.rootsFor(ctx.cwd);
