@@ -329,6 +329,63 @@ test('FR-AITUI-025 AC-1: a save picked in the save list follows the same rule', 
   });
 });
 
+/** What the save dialog sends back for a tab when the user changes nothing. */
+async function dialogItem(service: SessionSnapshotService, tabId: string) {
+  const { tabs } = await service.preview();
+  const tab = tabs.find((t) => t.tabId === tabId);
+  assert.ok(tab && tab.agent && tab.sessionId && tab.launcher);
+  return { tab, item: { tabId, mode: 'agent' as const, agent: tab.agent, sessionId: tab.sessionId, launcher: tab.launcher, args: tab.args } };
+}
+
+test('FR-AITUI-025 AC-6: the save dialog shows the mode the tab runs in when the launch line was never seen', async () => {
+  await withFixture(async (f) => {
+    delete f.runtime.sb.launchCommand;
+    const service = f.make();
+    await service.initialize();
+    const { tab, item } = await dialogItem(service, 'tb');
+    assert.deepEqual(tab.args, ['--dangerously-skip-permissions']);
+    const { snapshot } = await service.saveAll([item]);
+    assert.deepEqual(snapshot.entries.find((e) => e.tabId === 'tb')?.resumeArguments, ['--dangerously-skip-permissions', '--resume', MINE_ID]);
+  });
+});
+
+test('FR-AITUI-025 AC-6: the save dialog shows a mode changed after a flag-less launch', async () => {
+  await withFixture(async (f) => {
+    // Resumed without a flag by an older build, then switched to bypass with Shift+Tab.
+    f.runtime.sb.launchCommand = `claude --resume ${MINE_ID}`;
+    f.processes[3] = { ...f.processes[3], commandLine: `claude.exe --resume ${MINE_ID}` };
+    writeTranscript(f.roots.claudeHome, slug(SHARED), MINE_ID, [message('bypassPermissions', AFTER)]);
+    const service = f.make();
+    await service.initialize();
+    const { tab, item } = await dialogItem(service, 'tb');
+    assert.deepEqual(tab.args, ['--dangerously-skip-permissions']);
+    const { snapshot } = await service.saveAll([item]);
+    assert.deepEqual(snapshot.entries.find((e) => e.tabId === 'tb')?.resumeArguments, ['--dangerously-skip-permissions', '--resume', MINE_ID]);
+  });
+});
+
+test('FR-AITUI-025 AC-6: arguments the user edits in the save dialog are saved as edited', async () => {
+  await withFixture(async (f) => {
+    delete f.runtime.sb.launchCommand;
+    const service = f.make();
+    await service.initialize();
+    const { item } = await dialogItem(service, 'tb');
+    const { snapshot } = await service.saveAll([{ ...item, args: [] }]);
+    assert.deepEqual(snapshot.entries.find((e) => e.tabId === 'tb')?.resumeArguments, ['--resume', MINE_ID]);
+  });
+});
+
+test('FR-AITUI-025 AC-6: a tab whose Claude runs in default mode shows no permission flag', async () => {
+  await withFixture(async (f) => {
+    f.runtime.sb.launchCommand = 'claude';
+    f.processes[3] = { ...f.processes[3], commandLine: `claude.exe --resume ${MINE_ID}` };
+    const service = f.make();
+    await service.initialize();
+    const { tab } = await dialogItem(service, 'tb');
+    assert.deepEqual(tab.args, []);
+  });
+});
+
 test('FR-AITUI-025 AC-4/AC-5: a restore types the saved command, and the report shows it', async () => {
   await withFixture(async (f) => {
     await autoSaved(f);
