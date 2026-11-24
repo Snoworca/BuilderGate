@@ -1333,6 +1333,39 @@ export function stripHostAgentIdentity(source: NodeJS.ProcessEnv): Record<string
   return result;
 }
 
+/**
+ * The server process's own runtime mode and listen port. Every launcher sets
+ * both on the server (`tools/daemon/launcher.js`, and a script that runs
+ * `server/dist/index.js` directly) so that the server runs its build and
+ * listens on its port. Compared upper-cased: Windows environment names are
+ * case-insensitive, so `Port` is the same variable to the shell.
+ * @req FR-MCP-030
+ */
+const SERVER_RUNTIME_ENV_NAMES: readonly string[] = ['NODE_ENV', 'PORT'];
+
+/**
+ * Copies an environment, leaving behind the server's runtime mode and port.
+ *
+ * Carried into a terminal, `NODE_ENV=production` turns a Vite dev server's
+ * `import.meta.env.DEV` false and makes `npm install` skip devDependencies, and
+ * `PORT` sends any app that listens on `process.env.PORT` to the BuilderGate
+ * port. The server cannot tell a launcher's value from a user's, and the
+ * launcher always sets both, so both go; a caller's `envPatch` is merged over
+ * the result afterwards and puts either back by name.
+ * @req FR-MCP-030
+ */
+export function stripServerRuntimeEnv(source: NodeJS.ProcessEnv): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue;
+    if (SERVER_RUNTIME_ENV_NAMES.includes(key.toUpperCase())) continue;
+    result[key] = value;
+  }
+
+  return result;
+}
+
 export class SessionManager {
   private sessions: Map<string, SessionData> = new Map();
   // FR-AITUI-006 AC-5: session ids agents print on screen, per session.
@@ -4657,7 +4690,9 @@ export class SessionManager {
    * - powershell: OSC 133 미지원, 기본 env 반환
    */
   private buildShellEnv(shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd'): Record<string, string> {
-    const baseEnv = stripHostAgentIdentity(process.env);
+    // SEC-MCP-003 and FR-MCP-030: neither the host agent's identity nor the
+    // server's own runtime mode and port belong to a terminal.
+    const baseEnv = stripServerRuntimeEnv(stripHostAgentIdentity(process.env));
 
     // REL-BGSTAB-034: xterm.js renders 24-bit colour; say so, or TUIs (Codex) fall back to a
     // dim/bold approximation. On Windows the value is also forwarded into WSL sessions.

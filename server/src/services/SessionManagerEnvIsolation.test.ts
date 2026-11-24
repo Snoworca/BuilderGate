@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { SessionManager, stripHostAgentIdentity } from './SessionManager.js';
+import { SessionManager, stripHostAgentIdentity, stripServerRuntimeEnv } from './SessionManager.js';
 
 /**
  * SEC-MCP-003 — a terminal session does not inherit the host's agent identity.
@@ -70,6 +70,21 @@ const REAL_KEEPERS = ['PATH', 'HOME', 'USERPROFILE', 'SystemRoot', 'TEMP'];
  */
 function isHostAgentName(key: string): boolean {
   return key.startsWith('CLAUDE') || key === 'AI_AGENT';
+}
+
+/**
+ * FR-MCP-030 — the server's own runtime mode and listen port, which every
+ * launcher sets on the server process (`tools/daemon/launcher.js`).
+ */
+const SERVER_RUNTIME = {
+  NODE_ENV: 'production',
+  PORT: '2002',
+};
+
+/** FR-MCP-030's rule, written out for the same reason as the one above. */
+function isServerRuntimeName(key: string): boolean {
+  const upper = key.toUpperCase();
+  return upper === 'NODE_ENV' || upper === 'PORT';
 }
 
 interface SpawnCall {
@@ -222,8 +237,11 @@ test('SEC-MCP-003 every variable in the vendor namespace is dropped, by prefix a
   });
 });
 
-test('SEC-MCP-003 nothing outside the namespace is removed', () => {
-  withEnv({ ...HOST_MARKERS, ...KEEPERS }, () => {
+// FR-MCP-030 AC-3: the server runtime names are carried as well, and the
+// written-out rule below counts them, so the two rules together are judged
+// against everything the process held.
+test('SEC-MCP-003 FR-MCP-030 AC-3 nothing outside the two rules is removed', () => {
+  withEnv({ ...HOST_MARKERS, ...KEEPERS, ...SERVER_RUNTIME }, () => {
     const { manager, calls } = setup();
     const id = manager.createSession('env-isolation-keepers', 'bash').id;
 
@@ -261,13 +279,18 @@ test('SEC-MCP-003 nothing outside the namespace is removed', () => {
       // The count is compared as well as the named keys. A filter that removed
       // everything would satisfy the absences above and fail here, and so would
       // one that removed a variable nobody thought to name.
-      const carried = Object.keys(process.env).filter(key => isHostAgentName(key));
+      const isRemovedName = (key: string) => isHostAgentName(key) || isServerRuntimeName(key);
+      const carried = Object.keys(process.env).filter(isRemovedName);
       const removed = Object.keys(process.env).filter(key => env[key] === undefined);
       assert.ok(carried.length > 0, 'the server process carried no host variable, so this cannot judge');
+      assert.ok(
+        carried.filter(isServerRuntimeName).length >= 2,
+        'the server process carried no runtime variable, so this cannot judge',
+      );
       assert.deepEqual(
-        removed.filter(key => !isHostAgentName(key)),
+        removed.filter(key => !isRemovedName(key)),
         [],
-        'the filter removed variables outside the host agent namespace',
+        'the filter removed variables outside the two rules',
       );
       // The counts match, which is the half the criterion names and the half a
       // subset check leaves open: a filter that dropped one of the two rules
@@ -378,4 +401,75 @@ test('SEC-MCP-003 an undefined value is dropped rather than carried as the strin
   const filtered = stripHostAgentIdentity({ KEPT: 'yes', GONE: undefined });
 
   assert.deepEqual(filtered, { KEPT: 'yes' });
+});
+
+/**
+ * FR-MCP-030 — a terminal session does not inherit the server's own runtime
+ * mode and listen port.
+ *
+ * Every launcher sets `NODE_ENV=production` and `PORT=<listen port>` on the
+ * server process. Carried into a tab, the first turns a Vite dev server's
+ * `import.meta.env.DEV` false and makes `npm install` skip devDependencies; the
+ * second sends any app that listens on `process.env.PORT` to the BuilderGate
+ * port. Measured on 2026-11-24 in a tab of the server on 2002.
+ */
+
+test('FR-MCP-030 AC-1 AC-4 the server runtime mode and port do not reach a spawned terminal and stay on the server', () => {
+  withEnv(SERVER_RUNTIME, () => {
+    const { manager, calls } = setup();
+    const id = manager.createSession('env-isolation-runtime', 'bash').id;
+
+    try {
+      const env = spawnedEnv(calls);
+      const leaked = Object.keys(env).filter(isServerRuntimeName);
+      assert.deepEqual(leaked, [], 'the server runtime mode or port reached the spawned terminal');
+
+      // AC-1: they really were set on the server process, so the absence above
+      // is not vacuous. AC-4: and they are still there after the spawn, because
+      // the rule works on a copy.
+      assert.equal(process.env.NODE_ENV, 'production');
+      assert.equal(process.env.PORT, '2002');
+    } finally {
+      teardown(manager, [id]);
+    }
+  });
+});
+
+test('FR-MCP-030 AC-2 a runtime variable the caller named in envPatch survives the rule', () => {
+  withEnv(SERVER_RUNTIME, () => {
+    const { manager, calls } = setup();
+    const id = manager.createSession('env-isolation-runtime-patch', 'bash', undefined, {
+      envPatch: { NODE_ENV: 'development', PORT: '5173' },
+    }).id;
+
+    try {
+      const env = spawnedEnv(calls);
+      assert.equal(env.NODE_ENV, 'development', 'a NODE_ENV the caller asked for was filtered out');
+      assert.equal(env.PORT, '5173', 'a PORT the caller asked for was filtered out');
+    } finally {
+      teardown(manager, [id]);
+    }
+  });
+});
+
+test('FR-MCP-030 the rule takes the two names in any case and nothing that merely contains them', () => {
+  // Windows environment names are case-insensitive, so a key stored as `Port`
+  // is the same variable to the shell. Names that only contain the two words
+  // belong to something else.
+  const filtered = stripServerRuntimeEnv({
+    NODE_ENV: 'production',
+    PORT: '2002',
+    node_env: 'production',
+    Port: '2002',
+    VITE_PORT: 'keep',
+    NODE_ENV_FILE: 'keep',
+    NODE_OPTIONS: 'keep',
+    GONE: undefined,
+  });
+
+  assert.deepEqual(Object.keys(filtered).sort(), [
+    'NODE_ENV_FILE',
+    'NODE_OPTIONS',
+    'VITE_PORT',
+  ]);
 });
