@@ -93,6 +93,8 @@ import {
   runComposerShortcut,
   type SessionComposerHost,
 } from './components/Terminal/sessionComposerHost.ts';
+import { decideTerminalClickFocus } from './components/Terminal/sessionComposerModel.ts';
+import { sessionComposerStore } from './components/Terminal/sessionComposerStore.ts';
 import { isTouchMenuScreen } from './utils/terminalTextExport';
 import { TodoButton, TodoPanel } from './components/Todo/TodoPanel';
 import { todoPanelMenuOption, todoPanelStore } from './components/Todo/todoPanelStore.ts';
@@ -437,6 +439,28 @@ function AppContent() {
   });
   const isMobileRef = useRef(isMobile);
   isMobileRef.current = isMobile;
+
+  // FR-CMP-003 AC-6: with a session's composer open, a plain click on its terminal puts the caret in
+  // the composer. The click has already reached the terminal (and a program that reads the mouse);
+  // only the focus moves. Esc in the composer gives the keys back to the terminal.
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest('.xterm')) return;
+      const tabId = target.closest<HTMLElement>('[data-tab-id]')?.dataset.tabId;
+      if (!tabId) return;
+      const focus = decideTerminalClickFocus({
+        composerOpen: sessionComposerStore.getSession(tabId).open,
+        button: event.button,
+        hasSelection: terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false,
+        mobile: isMobileRef.current,
+      });
+      // After the terminal's own click handling, which focuses the terminal again in the same click.
+      if (focus === 'composer') window.setTimeout(() => sessionComposerStore.requestFocus(tabId), 0);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, []);
   const redrawTargetsFor = useCallback((tabId: string | null): string[] => {
     const workspace = wmRef.current.activeWorkspace;
     return redrawTargetTabIds({

@@ -29,6 +29,7 @@
     "./tests/unit/todoPanelShortcut.test.ts",
     "./tests/unit/todoPanelInlineDetail.test.ts",
     "./tests/unit/todoPanelTree.test.ts",
+    "./tests/unit/sessionComposerClickFocus.test.ts",
     "./tests/unit/gitChipModel.test.ts",
     "./tests/unit/gitSummaryStore.test.ts",
     "./tests/unit/gitBranchChip.test.ts",

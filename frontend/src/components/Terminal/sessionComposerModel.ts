@@ -201,3 +201,20 @@ export function composerSendErrorKey(reason: string): MessageKey {
   if (reason === 'unsupported-multiline-paste') return 'composer.error.multiline';
   return 'composer.error.unavailable';
 }
+
+export interface TerminalClickFocusInput {
+  composerOpen: boolean;
+  /** MouseEvent.button: 0 is the main button. */
+  button: number;
+  /** The terminal has a selection after the click (a drag or a double click made one). */
+  hasSelection: boolean;
+  mobile: boolean;
+}
+
+/**
+ * FR-CMP-003 AC-6: where the caret goes after a click on a session's terminal. The click itself has
+ * already reached the terminal; this only decides the focus.
+ */
+export function decideTerminalClickFocus({ composerOpen, button, hasSelection, mobile }: TerminalClickFocusInput): 'composer' | 'terminal' {
+  return composerOpen && button === 0 && !hasSelection && !mobile ? 'composer' : 'terminal';
+}
