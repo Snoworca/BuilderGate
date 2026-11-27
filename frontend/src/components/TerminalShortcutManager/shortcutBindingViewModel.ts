@@ -12,7 +12,7 @@ import {
   describeTerminalShortcutKey,
   isCodexNewlineAction,
   isCodexNewlineShortcutDescriptor,
-} from '../../utils/terminalShortcutBindings';
+} from '../../utils/terminalShortcutBindings.ts';
 
 export const TERMINAL_SHORTCUT_SCOPE_OPTIONS: Array<{ scope: TerminalShortcutScope; labelKey: MessageKey }> = [
   { scope: 'workspace', labelKey: 'shortcut.scope.workspace' },
@@ -50,6 +50,7 @@ export function actionLabel(action: TerminalShortcutAction): string {
   if (action.type === 'redraw') return t('shortcut.action.redraw');
   if (action.type === 'toggle-composer') return t('shortcut.action.toggleComposer');
   if (action.type === 'toggle-todo') return t('shortcut.action.toggleTodo');
+  if (action.type === 'new-tab') return t('shortcut.action.newTab');
   if (isCodexNewlineAction(action)) return t('shortcut.action.sendCodexNewline');
   // CUSTOM is the stored tag of a user string, not a name to show.
   if (action.label === 'CUSTOM') return tn('shortcut.action.sendCustomChars', Array.from(action.data).length);

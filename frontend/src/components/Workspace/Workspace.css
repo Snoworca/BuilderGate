@@ -113,6 +113,13 @@
   border-bottom: 2px dashed var(--accent);
 }
 
+/* FR-ARCH-019 AC-1: the workspace a dragged tab would drop on. */
+.workspace-item.tab-drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background-color: var(--bg-active);
+}
+
 .workspace-item-name {
   flex: 1 1 auto;
   min-width: 0;

@@ -15,11 +15,51 @@ export interface ComputeDragReorderTargetInput {
   itemRects: DragReorderRect[];
 }
 
+/** FR-ARCH-019 AC-1: what lies under the pointer outside the list being reordered. */
+export interface ExternalDropPoint {
+  /** A place outside the list the item can be dropped on, or null. */
+  targetId: string | null;
+  /** Whether the pointer is still over the list, where releasing reorders. */
+  overList: boolean;
+}
+
+export interface ExternalDropOptions {
+  resolve: (clientX: number, clientY: number) => ExternalDropPoint;
+  onStart?: (fromIndex: number) => void;
+  onHover?: (targetId: string | null) => void;
+  onDrop: (fromIndex: number, targetId: string) => void;
+  onEnd?: () => void;
+}
+
 interface UseDragReorderOptions {
   onReorder: (fromIndex: number, toIndex: number) => void;
   isLocked: (index: number) => boolean;
   longPressMs?: number;
   axis?: DragReorderAxis;
+  /** FR-ARCH-019 AC-1: lets the item be dropped outside the list (a tab onto a workspace). */
+  externalDrop?: ExternalDropOptions;
+}
+
+export type DragRelease =
+  | { kind: 'external'; targetId: string }
+  | { kind: 'reorder'; to: number }
+  | { kind: 'none' };
+
+/**
+ * FR-ARCH-019 AC-1: what releasing a drag does. An external target wins; otherwise the list
+ * reorders when the item lands somewhere other than its own place, and nothing happens when the
+ * pointer is neither over the list nor over a target.
+ */
+export function resolveDragRelease({ fromIndex, dropTargetIndex, externalTargetId }: {
+  fromIndex: number;
+  dropTargetIndex: number | null;
+  externalTargetId: string | null;
+}): DragRelease {
+  if (externalTargetId !== null) return { kind: 'external', targetId: externalTargetId };
+  if (dropTargetIndex === null) return { kind: 'none' };
+  // Dropping after the dragged item: account for its removal.
+  const to = dropTargetIndex > fromIndex ? dropTargetIndex - 1 : dropTargetIndex;
+  return to === fromIndex ? { kind: 'none' } : { kind: 'reorder', to };
 }
 
 export interface UseDragReorderReturn {
@@ -54,6 +94,7 @@ export function useDragReorder({
   isLocked,
   longPressMs = 300,
   axis = 'x',
+  externalDrop,
 }: UseDragReorderOptions): UseDragReorderReturn {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -65,6 +106,10 @@ export function useDragReorder({
   const isDragging = useRef(false);
   const dragIndexRef = useRef<number | null>(null);
   const onReorderRef = useRef(onReorder);
+  const externalDropRef = useRef(externalDrop);
+  externalDropRef.current = externalDrop;
+  const dropTargetIndexRef = useRef<number | null>(null);
+  const externalTargetRef = useRef<string | null>(null);
   // Store the original rect of the dragged tab for ghost offset
   const dragOriginRect = useRef<DOMRect | null>(null);
   // Offset from pointer to tab left edge
@@ -102,13 +147,15 @@ export function useDragReorder({
       return;
     }
 
-    // Update ghost position
+    // Update ghost position. With an external drop the ghost follows the pointer on both axes,
+    // so it can be carried out of the list.
+    const external = externalDropRef.current;
     const originRect = dragOriginRect.current;
     if (originRect) {
       setGhostStyle({
         position: 'fixed',
-        left: axis === 'x' ? e.clientX - pointerOffset.current.x : originRect.left,
-        top: axis === 'y' ? e.clientY - pointerOffset.current.y : originRect.top,
+        left: axis === 'x' || external ? e.clientX - pointerOffset.current.x : originRect.left,
+        top: axis === 'y' || external ? e.clientY - pointerOffset.current.y : originRect.top,
         width: originRect.width,
         height: originRect.height,
         pointerEvents: 'none',
@@ -118,7 +165,14 @@ export function useDragReorder({
     }
 
     // Compute drop target
-    const target = computeDropTarget(axis === 'x' ? e.clientX : e.clientY);
+    let target = computeDropTarget(axis === 'x' ? e.clientX : e.clientY);
+    if (external) {
+      const point = external.resolve(e.clientX, e.clientY);
+      externalTargetRef.current = point.targetId;
+      external.onHover?.(point.targetId);
+      if (point.targetId !== null || !point.overList) target = null;
+    }
+    dropTargetIndexRef.current = target;
     setDropTargetIndex(target);
   }
 
@@ -134,17 +188,19 @@ export function useDragReorder({
 
     if (isDragging.current && dragIndexRef.current !== null) {
       const from = dragIndexRef.current;
-      setDropTargetIndex(prev => {
-        if (prev !== null && prev !== from) {
-          // Adjust: if dropping after the dragged item, account for removal
-          const to = prev > from ? prev - 1 : prev;
-          if (to !== from) {
-            onReorderRef.current(from, to);
-          }
-        }
-        return null;
+      const release = resolveDragRelease({
+        fromIndex: from,
+        dropTargetIndex: dropTargetIndexRef.current,
+        externalTargetId: externalTargetRef.current,
       });
+      if (release.kind === 'reorder') onReorderRef.current(from, release.to);
+      if (release.kind === 'external') externalDropRef.current?.onDrop(from, release.targetId);
+      externalDropRef.current?.onEnd?.();
     }
+
+    setDropTargetIndex(null);
+    dropTargetIndexRef.current = null;
+    externalTargetRef.current = null;
 
     isDragging.current = false;
     dragIndexRef.current = null;
@@ -196,6 +252,9 @@ export function useDragReorder({
 
         setDragIndex(index);
         setDropTargetIndex(index);
+        dropTargetIndexRef.current = index;
+        externalTargetRef.current = null;
+        externalDropRef.current?.onStart?.(index);
       }, longPressMs);
     },
   }), [axis, isLocked, longPressMs]);

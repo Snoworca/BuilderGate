@@ -8,7 +8,8 @@ import type {
 
 export type TerminalShortcutResolution =
   | { kind: 'matched'; bindingId: string; action: TerminalShortcutAction; source: 'user' | 'profile' }
-  | { kind: 'skipped'; reason: 'ime-active' | 'reserved' | 'repeat-disabled' | 'disabled' | 'not-loaded' }
+  | { kind: 'skipped'; reason: 'ime-active' | 'reserved' | 'disabled' | 'not-loaded' }
+  | { kind: 'skipped'; reason: 'repeat-disabled'; action: TerminalShortcutAction }
   | { kind: 'pass-through'; reason: 'no-match' | 'action-pass-through' };
 
 interface ResolveTerminalShortcutInput {
@@ -113,9 +114,11 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
     // The redraw is a way out of a broken screen, and the composer is reached by its key from
     // the first moment, so both work before the settings load.
     const builtIn = matchBuiltInGlobalShortcut(event);
-    return builtIn
-      ? actionResolution(builtIn.id, builtIn.action, 'profile')
-      : { kind: 'skipped', reason: 'not-loaded' };
+    if (!builtIn) return { kind: 'skipped', reason: 'not-loaded' };
+    if (event.repeat && !builtIn.allowRepeat) {
+      return { kind: 'skipped', reason: 'repeat-disabled', action: builtIn.action };
+    }
+    return actionResolution(builtIn.id, builtIn.action, 'profile');
   }
 
   const activeProfile = getActiveTerminalShortcutProfile(state, workspaceId, sessionId);
@@ -127,7 +130,7 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
       return { kind: 'skipped', reason: 'disabled' };
     }
     if (event.repeat && !userBinding.allowRepeat) {
-      return { kind: 'skipped', reason: 'repeat-disabled' };
+      return { kind: 'skipped', reason: 'repeat-disabled', action: userBinding.action };
     }
     return actionResolution(userBinding.id, userBinding.action, 'user');
   }
@@ -136,7 +139,7 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
     ?? matchBuiltInGlobalShortcut(event);
   if (builtInBinding) {
     if (event.repeat && !builtInBinding.allowRepeat) {
-      return { kind: 'skipped', reason: 'repeat-disabled' };
+      return { kind: 'skipped', reason: 'repeat-disabled', action: builtInBinding.action };
     }
     return actionResolution(builtInBinding.id, builtInBinding.action, 'profile');
   }
@@ -218,10 +221,27 @@ export const TODO_SHORTCUT_BINDING: TerminalShortcutBinding = {
   description: 'Alt+T -> toggle the to-do panel',
 };
 
+/**
+ * FR-ARCH-018 AC-1: Alt+Shift+T opens a new tab like the tab bar + button. Ctrl+N and Ctrl+T are
+ * the browser's in an ordinary tab, and Ctrl+letters belong to the shell. Matched by code like
+ * Alt+T, so Hangul mode matches; a user binding on the same key wins, and the action can be bound
+ * to another key (Ctrl+N in an installed app window, where the browser hands it to the page).
+ */
+export const NEW_TAB_SHORTCUT_BINDING: TerminalShortcutBinding = {
+  ...COMPOSER_SHORTCUT_BINDING,
+  id: 'builtin:new-tab:alt-shift-t',
+  key: 'T',
+  code: 'KeyT',
+  shiftKey: true,
+  action: { type: 'new-tab' },
+  description: 'Alt+Shift+T -> open a new tab',
+};
+
 function matchBuiltInGlobalShortcut(event: TerminalShortcutKeyDescriptor): TerminalShortcutBinding | undefined {
   if (matchesRedrawShortcut(event)) return REDRAW_SHORTCUT_BINDING;
   if (matchesBinding(event, COMPOSER_SHORTCUT_BINDING)) return COMPOSER_SHORTCUT_BINDING;
   if (matchesBinding(event, TODO_SHORTCUT_BINDING)) return TODO_SHORTCUT_BINDING;
+  if (matchesBinding(event, NEW_TAB_SHORTCUT_BINDING)) return NEW_TAB_SHORTCUT_BINDING;
   return undefined;
 }
 
@@ -232,6 +252,43 @@ function matchBuiltInGlobalShortcut(event: TerminalShortcutKeyDescriptor): Termi
 export function matchesTodoShortcut(event: TerminalShortcutKeyDescriptor, state: TerminalShortcutState | null): boolean {
   const result = resolveTerminalShortcut({ event, state, workspaceId: null, sessionId: '', imeActive: false, hasSelection: false });
   return result.kind === 'matched' && result.action.type === 'toggle-todo';
+}
+
+export type AppWindowShortcut = 'toggle-todo' | 'new-tab';
+
+export interface WindowShortcutKeyEvent
+  extends Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey' | 'location' | 'repeat' | 'isComposing' | 'defaultPrevented'> {
+  target: unknown;
+}
+
+/**
+ * FR-TODO-002 AC-2 / FR-ARCH-018 AC-2: the app keys pressed outside a terminal. A terminal
+ * handles its own keys (a user binding there may send the key to the program), so a key from
+ * inside one is left to it, as is a key in an IME composition, a held-down repeat, or one another
+ * handler already consumed. Global bindings decide, since no session or workspace is in play.
+ */
+export function appShortcutForWindowKey(event: WindowShortcutKeyEvent, state: TerminalShortcutState | null): AppWindowShortcut | null {
+  if (event.isComposing || event.defaultPrevented || event.repeat) return null;
+  const target = event.target as { closest?: (selector: string) => unknown } | null;
+  if (target && typeof target.closest === 'function' && target.closest('.xterm')) return null;
+  const result = resolveTerminalShortcut({
+    event: buildTerminalShortcutKeyDescriptor(event), state, workspaceId: null, sessionId: '', imeActive: false, hasSelection: false,
+  });
+  if (result.kind !== 'matched') return null;
+  return result.action.type === 'toggle-todo' || result.action.type === 'new-tab' ? result.action.type : null;
+}
+
+const APP_SHORTCUT_ACTIONS: ReadonlySet<TerminalShortcutAction['type']> = new Set(['redraw', 'toggle-composer', 'toggle-todo', 'new-tab']);
+
+/**
+ * FR-ARCH-018 AC-1: a held-down key bound to an app action. The first press ran the action; the
+ * repeats must not reach the program as the raw key either, so the terminal swallows them. A held
+ * send binding without repeat keeps its pass-through.
+ */
+export function isAppShortcutRepeat(resolution: TerminalShortcutResolution): boolean {
+  return resolution.kind === 'skipped'
+    && resolution.reason === 'repeat-disabled'
+    && APP_SHORTCUT_ACTIONS.has(resolution.action.type);
 }
 
 export function getBuiltInProfileBindings(profile: TerminalShortcutProfile): TerminalShortcutBinding[] {

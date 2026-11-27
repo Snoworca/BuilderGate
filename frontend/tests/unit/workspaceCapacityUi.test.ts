@@ -107,10 +107,12 @@ for (const limit of [2, 12, 4.5, 8]) {
       const tree = moveDialog({
         open: true, workspaces: [workspace('source'), workspace('target', 1)],
         tabs: Array.from({ length: count }, (_, i) => ({ id: `t${i}`, workspaceId: 'target', sortOrder: i, status: 'idle' })),
-        sourceWorkspaceId: 'source', maxTabsPerWorkspace, moving: false, error: null, onMove: (id: string) => moves.push(id), onClose: noop,
+        sourceWorkspaceId: 'source', maxTabsPerWorkspace, moving: false, error: null, onMove: (id: string) => moves.push(id), onMoveToNewWorkspace: noop, onClose: noop,
       });
       const rendered = buttons(tree);
-      assert.equal(rendered.length, 3, 'two workspace choices and cancellation must be rendered');
+      // FR-ARCH-019 AC-3 adds the new-workspace entry, which no tab capacity disables.
+      assert.equal(rendered.length, 4, 'two workspace choices, the new-workspace entry and cancellation must be rendered');
+      assert.equal(rendered[2].props.disabled, false, 'the new-workspace entry is never full');
       assert.equal(rendered[0].props.disabled, true, 'current workspace remains ineligible');
       assert.equal(rendered[1].props.disabled, count >= limit);
       if (!rendered[1].props.disabled) rendered[1].props.onClick!();
@@ -139,6 +141,8 @@ const workspaceItem = component('../../src/components/Workspace/WorkspaceItem.ts
   ContextMenu: 'context-menu', workspaceActivity,
   WorkspaceAwaitingInputBadge: 'workspace-awaiting-input-badge',
   useDoubleTap: () => ({ onTouchStart: noop, onTouchMove: noop, onTouchEnd: noop }),
+  // FR-ARCH-019 AC-1: no tab is being dragged.
+  useTabDropHoverId: () => null,
 });
 const capacityTabs = (count: number) => Array.from({ length: count }, (_, index) => ({
   id: `tab-${index}`, sessionId: `session-${index}`, workspaceId: 'target', name: `Terminal ${index}`,

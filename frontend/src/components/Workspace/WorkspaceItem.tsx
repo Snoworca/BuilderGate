@@ -6,6 +6,7 @@ import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { workspaceActivity } from './workspaceActivity.ts';
 import { WorkspaceAwaitingInputBadge } from './AwaitingInputBadge.tsx';
+import { useTabDropHoverId } from './tabDragStore.ts';
 import './Workspace.css';
 import { t } from '../../i18n/i18n.ts';
 
@@ -36,6 +37,8 @@ export function WorkspaceItem({
   const inputRef = useRef<HTMLInputElement>(null);
   const ctx = useContextMenu();
   const activity = workspaceActivity(runningCount);
+  // FR-ARCH-019 AC-1: lit while a tab dragged from the tab bar would drop here.
+  const isTabDropTarget = useTabDropHoverId() === workspace.id;
 
   useEffect(() => {
     if (editing) inputRef.current?.focus();
@@ -64,7 +67,8 @@ export function WorkspaceItem({
       <div
         role="option"
         aria-selected={isActive}
-        className={`workspace-item ${isActive ? 'active' : ''} ${isDragTarget ? 'drag-target' : ''}`}
+        className={`workspace-item ${isActive ? 'active' : ''} ${isDragTarget ? 'drag-target' : ''} ${isTabDropTarget ? 'tab-drop-target' : ''}`}
+        data-workspace-drop-id={workspace.id}
         onClick={onClick}
         onContextMenu={(e) => { e.preventDefault(); ctx.open(e.clientX, e.clientY, workspace.id); }}
         onTouchStart={itemDoubleTap.onTouchStart}

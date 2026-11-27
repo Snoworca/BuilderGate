@@ -17,6 +17,8 @@ interface WorkspaceMoveDialogProps {
   moving: boolean;
   error: string | null;
   onMove: (targetWorkspaceId: string) => void;
+  /** FR-ARCH-019 AC-3: creates a workspace and moves the tab into it. */
+  onMoveToNewWorkspace: () => void;
   onClose: () => void;
 }
 
@@ -35,6 +37,7 @@ export function WorkspaceMoveDialog({
   moving,
   error,
   onMove,
+  onMoveToNewWorkspace,
   onClose,
 }: WorkspaceMoveDialogProps) {
   if (!open) {
@@ -82,6 +85,19 @@ export function WorkspaceMoveDialog({
               </span>
             </button>
           ))}
+          <button
+            type="button"
+            className="workspace-move-target workspace-move-target-new"
+            disabled={moving}
+            onClick={onMoveToNewWorkspace}
+          >
+            <span className="workspace-move-target-name">
+              {t('workspace.move.newWorkspace')}
+            </span>
+            <span className="workspace-move-target-meta">
+              {t('workspace.move.newWorkspaceHint')}
+            </span>
+          </button>
         </div>
 
         {error && (

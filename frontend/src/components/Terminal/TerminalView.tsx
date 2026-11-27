@@ -171,6 +171,7 @@ import {
 import {
   buildTerminalShortcutKeyDescriptor,
   describeTerminalShortcutKey,
+  isAppShortcutRepeat,
   resolveTerminalShortcut,
 } from '../../utils/terminalShortcutBindings';
 import type { TerminalShortcutState } from '../../types';
@@ -204,6 +205,7 @@ import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoi
 import { readTerminalTapRows, type TerminalTapRows } from '../../utils/terminalTouchTapPolicy.ts';
 import { readTerminalBufferText } from '../../utils/terminalTextExport.ts';
 import { todoPanelStore } from '../Todo/todoPanelStore.ts';
+import { requestNewTab } from '../../utils/newTabRequests.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -4385,6 +4387,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             return false;
           }
 
+          // FR-ARCH-018 AC-1: the new-tab key goes to the app, not to the program.
+          if (shortcutResolution.action.type === 'new-tab') {
+            ev.preventDefault();
+            requestNewTab();
+            return false;
+          }
+
           if (shortcutResolution.action.type === 'send') {
             ev.preventDefault();
             const debugInput = buildTerminalInputDebugPayload(shortcutResolution.action.data, {
@@ -4409,6 +4418,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             ...shortcutDetails,
             reason: shortcutResolution.reason,
           });
+          // FR-ARCH-018 AC-1: a held app key ran its action once; its repeats reach nothing.
+          if (isAppShortcutRepeat(shortcutResolution)) {
+            ev.preventDefault();
+            return false;
+          }
         } else if (shortcutResolution.reason === 'action-pass-through') {
           recordTerminalDebugEvent(sessionId, 'shortcut_binding_passed_through', {
             ...shortcutDetails,

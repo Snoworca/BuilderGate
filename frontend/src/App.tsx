@@ -46,6 +46,7 @@ import {
   DisconnectedOverlay,
   WorkspaceMoveDialog,
 } from './components/Workspace';
+import { isTabMovable, resolveWorkspaceDropTarget } from './components/Workspace/workspaceMoveTargets.ts';
 import {
   WORKSPACE_DELETE_MIN_BUSY_MS,
   WORKSPACE_DELETE_SLOW_AFTER_MS,
@@ -98,7 +99,9 @@ import { sessionComposerStore } from './components/Terminal/sessionComposerStore
 import { isTouchMenuScreen } from './utils/terminalTextExport';
 import { TodoButton, TodoPanel } from './components/Todo/TodoPanel';
 import { todoPanelMenuOption, todoPanelStore } from './components/Todo/todoPanelStore.ts';
-import { matchesTodoShortcut } from './utils/terminalShortcutBindings.ts';
+import { appShortcutForWindowKey } from './utils/terminalShortcutBindings.ts';
+import { requestNewTab, subscribeNewTabRequests } from './utils/newTabRequests.ts';
+import { resolveNewTabRequest } from './hooks/newTabRequest.ts';
 import { LoopDialog } from './components/Loop/LoopDialog';
 import { MessengerButton, MessengerLayer, SessionRoomsContext, useMessenger } from './components/Messenger';
 import { McpControlDialog } from './components/McpControlManager';
@@ -125,7 +128,6 @@ import type {
   TerminalClipboardSource,
 } from './utils/terminalClipboardCoordinator';
 import { TAB_COLORS } from './types/workspace';
-import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
 import type { CommandPreset, ShellInfo, TerminalShortcutState } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
@@ -144,13 +146,6 @@ function buildMissingTerminalClipboardResult(
     reason: 'context-changed',
     source,
   };
-}
-
-function isWorkspaceMoveDisabled(tab: WorkspaceTabRuntime | undefined): boolean {
-  return !tab
-    || tab.status === 'disconnected'
-    || tab.lifecycleState === 'stopped'
-    || tab.recoverable === false;
 }
 
 function TerminalWorkspaceStage({
@@ -211,22 +206,25 @@ function TerminalWorkspaceStage({
 function AppContent() {
   const { logout } = useAuth();
   const terminalShortcuts = useTerminalShortcutContext();
-  // FR-TODO-002 AC-2: the panel key outside a terminal. A terminal handles it itself (and a user
-  // binding there may send the key to the program), so keys from inside one are left to it.
+  // FR-TODO-002 AC-2 / FR-ARCH-018 AC-2: the panel and new-tab keys outside a terminal. A terminal
+  // handles them itself (and a user binding there may send the key to the program), so keys from
+  // inside one are left to it.
   const terminalShortcutStateRef = useRef(terminalShortcuts.state);
   terminalShortcutStateRef.current = terminalShortcuts.state;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing || event.defaultPrevented || event.repeat) return;
-      if (event.target instanceof Element && event.target.closest('.xterm')) return;
-      if (!matchesTodoShortcut(event, terminalShortcutStateRef.current)) return;
+      const shortcut = appShortcutForWindowKey(event, terminalShortcutStateRef.current);
+      if (shortcut === null) return;
       event.preventDefault();
-      todoPanelStore.toggle();
+      if (shortcut === 'new-tab') requestNewTab();
+      else todoPanelStore.toggle();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
   const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const { isMobile, isTouchInput, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
@@ -409,12 +407,25 @@ function AppContent() {
     const activeTabObj = wmRef.current.activeWorkspaceTabs.find(
       t => t.id === ws?.activeTabId
     );
-    const effectiveShell = shell ?? activeTabObj?.shellType;
-    const cwd = shell
-      ? resolveCwd(shell, activeTabObj?.shellType, activeTabObj?.cwd)
-      : activeTabObj?.cwd;
-    wmRef.current.addTab(wsId, effectiveShell, undefined, cwd);
+    // FR-ARCH-018: the + button and the new-tab shortcut create the same tab.
+    const request = resolveNewTabRequest({
+      activeTab: activeTabObj,
+      tabCount: wmRef.current.activeWorkspaceTabs.length,
+      maxTabs: wmRef.current.limits.maxTabsPerWorkspace,
+      shell,
+    });
+    if (!request) return;
+    wmRef.current.addTab(wsId, request.shell, undefined, request.cwd);
   }, []);
+
+  // FR-ARCH-018 AC-1/AC-2: Alt+Shift+T, from a terminal or from anywhere else in the app.
+  // FR-ARCH-018 AC-2: the key reaches here from a terminal and from the window alike. A tab made
+  // behind a modal dialog or the settings screen would open out of sight, so neither makes one.
+  const newTabKeyBlocked = () => screenRef.current !== 'workspace' || document.querySelector('[aria-modal="true"]') !== null;
+  useEffect(() => subscribeNewTabRequests(() => {
+    if (newTabKeyBlocked()) return;
+    handleTabBarAddTab();
+  }), [handleTabBarAddTab]);
 
   // 탭 모드: 확인 모달을 통해 닫기
   const handleCloseTab = useCallback((tabId: string) => {
@@ -623,7 +634,8 @@ function AppContent() {
 
   const handleRequestWorkspaceMove = useCallback((tabId: string) => {
     const tab = wmRef.current.tabs.find(item => item.id === tabId);
-    if (!tab || isWorkspaceMoveDisabled(tab)) {
+    // FR-ARCH-019 AC-2: any tab moves, whatever its session state.
+    if (!tab || !isTabMovable(tab)) {
       return;
     }
     setWorkspaceMoveError(null);
@@ -653,6 +665,50 @@ function AppContent() {
       setWorkspaceMoveBusy(false);
     }
   }, [pendingWorkspaceMove]);
+
+  // FR-ARCH-019 AC-3: the move dialog's new-workspace entry.
+  const handleMoveTabToNewWorkspace = useCallback(async () => {
+    if (!pendingWorkspaceMove) {
+      return;
+    }
+
+    try {
+      setWorkspaceMoveBusy(true);
+      setWorkspaceMoveError(null);
+      await wmRef.current.moveTabToNewWorkspace(
+        pendingWorkspaceMove.sourceWorkspaceId,
+        pendingWorkspaceMove.tabId,
+      );
+      setPendingWorkspaceMove(null);
+    } catch (error) {
+      setWorkspaceMoveError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setWorkspaceMoveBusy(false);
+    }
+  }, [pendingWorkspaceMove]);
+
+  // FR-ARCH-019 AC-1: a tab dragged from the tab bar onto a sidebar workspace.
+  const canDropTabOnWorkspace = useCallback((workspaceId: string) => {
+    const sourceWorkspaceId = wmRef.current.activeWorkspaceId;
+    if (!sourceWorkspaceId) return false;
+    return resolveWorkspaceDropTarget({
+      workspaces: wmRef.current.workspaces,
+      tabs: wmRef.current.tabs,
+      sourceWorkspaceId,
+      maxTabsPerWorkspace: wmRef.current.limits.maxTabsPerWorkspace,
+      hoveredWorkspaceId: workspaceId,
+    }) !== null;
+  }, []);
+
+  const handleDropTabOnWorkspace = useCallback((tabId: string, workspaceId: string) => {
+    const tab = wmRef.current.tabs.find(item => item.id === tabId);
+    if (!tab || !canDropTabOnWorkspace(workspaceId)) return;
+    // A failed move opens the move dialog for this tab with the error, so it is seen and can be retried.
+    void wmRef.current.moveTab(tab.workspaceId, tabId, workspaceId).catch((error: unknown) => {
+      setPendingWorkspaceMove({ sourceWorkspaceId: tab.workspaceId, tabId });
+      setWorkspaceMoveError(error instanceof Error ? error.message : String(error));
+    });
+  }, [canDropTabOnWorkspace]);
 
   const handleSelectTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
@@ -904,7 +960,7 @@ function AppContent() {
       },
       hasSelection,
       moveWorkspace: {
-        disabled: isWorkspaceMoveDisabled(targetTab),
+        disabled: !isTabMovable(targetTab),
         onRequest: () => {
           closeTabContextMenu();
           handleRequestWorkspaceMove(targetTab.id);
@@ -1208,6 +1264,9 @@ function AppContent() {
                   onReorderTabs={handleReorderTabs}
                   availableShells={availableShells}
                   sessionRooms={messenger.state?.sessionRooms}
+                  onRequestMoveTab={handleRequestWorkspaceMove}
+                  onMoveTabToWorkspace={handleDropTabOnWorkspace}
+                  canDropOnWorkspace={canDropTabOnWorkspace}
                 />}
 
                 <SessionRoomsContext.Provider value={messenger.state?.sessionRooms}>
@@ -1492,6 +1551,7 @@ function AppContent() {
           moving={workspaceMoveBusy}
           error={workspaceMoveError}
           onMove={handleMoveTabToWorkspace}
+          onMoveToNewWorkspace={handleMoveTabToNewWorkspace}
           onClose={() => {
             if (!workspaceMoveBusy) {
               setPendingWorkspaceMove(null);

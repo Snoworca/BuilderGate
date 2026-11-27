@@ -27,6 +27,8 @@
     "./tests/unit/sessionComposerShortcut.test.ts",
     "./tests/unit/todoPanelModel.test.ts",
     "./tests/unit/todoPanelShortcut.test.ts",
+    "./tests/unit/newTabShortcut.test.ts",
+    "./tests/unit/tabWorkspaceMove.test.ts",
     "./tests/unit/todoPanelInlineDetail.test.ts",
     "./tests/unit/todoPanelTree.test.ts",
     "./tests/unit/sessionComposerClickFocus.test.ts",
