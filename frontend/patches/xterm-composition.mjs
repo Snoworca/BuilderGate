@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 export const PATCHED_XTERM_VERSION = '6.0.0';
 // Bump when the replacement below changes, so an install patched by an older revision is noticed.
-export const PATCH_REVISION = 5;
+export const PATCH_REVISION = 6;
 export const PATCH_MARKER = `_bgPatchRevision(){return ${PATCH_REVISION}}`;
 
 const XTERM_DIR = fileURLToPath(new URL('../node_modules/@xterm/xterm/', import.meta.url));
@@ -41,7 +41,7 @@ export function patchBundle(source, name) {
 
   const ctorOld = 'this._compositionPosition={start:0,end:0},this._dataAlreadySent=""}';
   if (source.split(ctorOld).length !== 2) fail(`${name}: CompositionHelper constructor not found exactly once`);
-  let s = source.replace(ctorOld, 'this._compositionPosition={start:0,end:0},this._dataAlreadySent="",this._sentUpTo=0,this._pendingSends=0,this._flushEpoch=0}');
+  let s = source.replace(ctorOld, 'this._compositionPosition={start:0,end:0},this._dataAlreadySent="",this._sentUpTo=0,this._pendingSends=0,this._flushEpoch=0,this._textarea._bgCompositionHelper=this}');
 
   const start = s.indexOf('compositionstart(){this._isComposing=!0');
   if (start < 0) fail(`${name}: compositionstart not found`);
@@ -96,10 +96,25 @@ export function patchBundle(source, name) {
     'if(t.length>e.length||n!==this._flushEpoch)return void this._sendUpTo(t.length);',
     `t.length<e.length?(this._coreService.triggerDataEvent(\`\${${del[1]}}\`,!0),this._clampSent()):`,
     't.length===e.length&&t!==e&&(this._coreService.triggerDataEvent(t,!0),this._sentUpTo=t.length)}}),0)}',
+    // Paste and blur empty the textarea (#261): send what is pending first, as a key that ends
+    // the composition at once would.
+    '_bgFlush(){(this._isComposing||this._pendingSends>0)&&this._finalizeComposition(!1)}',
     `_bgPatchRevision(){return ${PATCH_REVISION}}`,
   ].join('');
 
-  return s.slice(0, start) + replacement + s.slice(end.index);
+  s = s.slice(0, start) + replacement + s.slice(end.index);
+
+  // xterm's paste(): send any pending composition before the pasted text, then clear.
+  const pasteSite = /(\w+)\.triggerDataEvent\((\w+),!0\),(\w+)\.value=""\}/g;
+  const pasteMatches = [...s.matchAll(pasteSite)];
+  if (pasteMatches.length !== 1) fail(`${name}: paste() not found exactly once (${pasteMatches.length})`);
+  s = s.replace(pasteSite, '$3._bgCompositionHelper?._bgFlush(),$1.triggerDataEvent($2,!0),$3.value=""}');
+
+  // The textarea's blur handler clears it too.
+  const blurOld = '_handleTextAreaBlur(){this.textarea.value=""';
+  if (s.split(blurOld).length !== 2) fail(`${name}: _handleTextAreaBlur not found exactly once`);
+  s = s.replace(blurOld, '_handleTextAreaBlur(){this._compositionHelper?._bgFlush(),this.textarea.value=""');
+  return s;
 }
 
 function main() {

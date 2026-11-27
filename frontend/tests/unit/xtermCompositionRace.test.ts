@@ -206,6 +206,11 @@ describe('FR-BGSTAB-039 xterm composition commits under delayed timers', () => {
     // Enter empties the textarea; a timer armed before it must not read that as a deletion.
     { name: '229 digit then Enter', expected: '3\r', script: "kd(229,'3');ins('3');kd(13,'Enter');" },
     // A digit typed after Enter while an older timer is pending has no timer of its own.
+    // #261: paste and blur empty the textarea before the commit timer reads it.
+    { name: 'Hangul then paste event', expected: '한abc', script: "compose(['ㅎ','하','한']);pasteEvent('abc');" },
+    { name: 'Hangul then term.paste', expected: '한xy', script: "compose(['ㅎ','하','한']);term.paste('xy');" },
+    { name: 'Hangul then blur', expected: '한', script: "compose(['ㅎ','하','한']);ta.dispatchEvent(new FocusEvent('blur'));" },
+    { name: 'Hangul, blur, Hangul', expected: '한글', script: "compose(['ㅎ','하','한']);ta.dispatchEvent(new FocusEvent('blur'));compose(['ㄱ','그','글']);" },
     { name: 'digit after Enter with an older timer pending', expected: '한한3\r3입\r', script: "compose(['ㅎ','하','한']);compose(['ㅎ','하','한']);flush();kd(229,'3');ins('3');kd(13,'Enter');kd(229,'3');ins('3');flushOne();compose(['ㅇ','이','입']);kd(13,'Enter');" },
   ];
 
@@ -218,7 +223,7 @@ describe('FR-BGSTAB-039 xterm composition commits under delayed timers', () => {
         await scenarioPage.addScriptTag({ content: readFileSync(XTERM_LIB, 'utf8') });
         const data = await scenarioPage.evaluate((script) => {
           const w = window as unknown as Record<string, unknown> & { Terminal: new (o: object) => {
-            open(e: Element): void; textarea: HTMLTextAreaElement; onData(cb: (d: string) => void): void;
+            open(e: Element): void; textarea: HTMLTextAreaElement; onData(cb: (d: string) => void): void; paste(d: string): void;
           } };
           const real = window.setTimeout.bind(window);
           let held: Array<() => void> = [];
@@ -253,8 +258,13 @@ describe('FR-BGSTAB-039 xterm composition commits under delayed timers', () => {
             for (const step of steps) cu(step);
             ta.value = ta.value.slice(0, base) + commit; ce(commit);
           };
+          const pasteEvent = (text: string) => {
+            const dt = new DataTransfer();
+            dt.setData('text/plain', text);
+            ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+          };
           // The scenario scripts use these names.
-          Object.assign(w, { kd, ins, cs, cu, ce, compose, flush, flushOne, ta });
+          Object.assign(w, { kd, ins, cs, cu, ce, compose, flush, flushOne, pasteEvent, ta, term });
           Object.defineProperty(w, 'base', { get: () => base, set: (v: number) => { base = v; }, configurable: true });
           new Function(script)();
           flush();
