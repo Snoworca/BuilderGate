@@ -180,6 +180,8 @@ export interface UseWorkspaceManagerReturn {
   closeTab: (workspaceId: string, tabId: string) => Promise<void>;
   reorderTabs: (workspaceId: string, tabIds: string[]) => Promise<void>;
   moveTab: (sourceWorkspaceId: string, tabId: string, targetWorkspaceId: string) => Promise<void>;
+  /** FR-ARCH-019 AC-3: creates a workspace and moves the tab into it; rejects on failure. */
+  moveTabToNewWorkspace: (sourceWorkspaceId: string, tabId: string) => Promise<void>;
   restartTab: (workspaceId: string, tabId: string) => Promise<void>;
   setActiveTab: (workspaceId: string, tabId: string | null) => Promise<void>;
   setViewMode: (workspaceId: string, mode: 'tab' | 'grid') => Promise<void>;
@@ -638,6 +640,20 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     }
   }, [setActiveWorkspaceIdAndPersist]);
 
+  const moveTabToNewWorkspace = useCallback(async (sourceWorkspaceId: string, tabId: string) => {
+    let workspace: Workspace;
+    try {
+      workspace = await workspaceApi.create();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+      throw err;
+    }
+    // Add locally -- WS workspace:created is excluded for the originating client (x-client-id).
+    setWorkspaces(prev => prev.some(w => w.id === workspace.id) ? prev : [...prev, workspace]);
+    // moveTab makes the new workspace active and reports its own failure.
+    await moveTab(sourceWorkspaceId, tabId, workspace.id);
+  }, [moveTab]);
+
   const restartTab = useCallback(async (workspaceId: string, tabId: string) => {
     try {
       const oldTab = tabs.find(t => t.id === tabId);
@@ -763,6 +779,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     closeTab,
     reorderTabs,
     moveTab,
+    moveTabToNewWorkspace,
     restartTab,
     setActiveTab,
     setViewMode,

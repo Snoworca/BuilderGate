@@ -558,7 +558,8 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService deleteTab does not terminate session when pre-delete save fails', run: testWorkspaceServiceDeleteTabSaveFailureDoesNotTerminate },
     { name: 'WorkspaceService moveTab preserves live session and reindexes source and target', run: testWorkspaceServiceMoveTabPreservesLiveSession },
     { name: 'WorkspaceService moveTab appends moved tab to target workspace', run: testWorkspaceServiceMoveTabAppendsToTarget },
-    { name: 'WorkspaceService moveTab rejects full target and ended sessions', run: testWorkspaceServiceMoveTabRejectsInvalidTargets },
+    { name: 'WorkspaceService moveTab rejects a full target', run: testWorkspaceServiceMoveTabRejectsInvalidTargets },
+    { name: 'FR-ARCH-019 AC-2: WorkspaceService moveTab moves a stopped tab or one without a live session', run: testWorkspaceServiceMoveTabMovesEndedSessions },
     { name: 'WorkspaceService moveTab restores state when save fails', run: testWorkspaceServiceMoveTabSaveFailureRestoresState },
     { name: 'WorkspaceService rejects invalid reorder payloads', run: testWorkspaceServiceRejectsInvalidReorderPayloads },
     { name: 'WorkspaceService passes session cleanup reasons', run: testWorkspaceServicePassesSessionCleanupReasons },
@@ -19295,15 +19296,39 @@ async function testWorkspaceServiceMoveTabRejectsInvalidTargets(): Promise<void>
     (error: unknown) => error instanceof AppError && error.code === ErrorCode.TAB_LIMIT_EXCEEDED,
   );
 
-  (workspaceService as any).config.maxTabsPerWorkspace = 8;
+}
+
+// FR-ARCH-019 AC-2: a stopped tab has no process, so moving it changes only its workspace;
+// restart follows tab.workspaceId, so it restarts in the new workspace.
+async function testWorkspaceServiceMoveTabMovesEndedSessions(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceMoveState();
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-3');
   const stoppedTab = (workspaceService as any).state.tabs.find((tab: any) => tab.id === 'tab-2');
   stoppedTab.lifecycleState = 'stopped';
   stoppedTab.recoverable = false;
 
-  await assert.rejects(
-    () => (workspaceService as any).moveTab('ws-1', 'tab-2', 'ws-2'),
-    (error: unknown) => error instanceof AppError && String(error.code) === 'SESSION_NOT_MOVABLE',
-  );
+  const result = await (workspaceService as any).moveTab('ws-1', 'tab-2', 'ws-2');
+  const moved = workspaceService.getState().tabs.find(tab => tab.id === 'tab-2');
+  assert.equal(result.targetWorkspaceId, 'ws-2');
+  assert.equal(moved?.workspaceId, 'ws-2');
+  assert.equal(moved?.lifecycleState, 'stopped');
+  assert.equal(moved?.recoverable, false);
+  assert.deepEqual(calls.createSession, []);
+  assert.deepEqual(calls.terminateSession, []);
+
+  // A tab whose session is gone but was never marked stopped (a disconnected tab) moves too.
+  const orphan = (workspaceService as any).state.tabs.find((tab: any) => tab.id === 'tab-1');
+  orphan.lifecycleState = 'active';
+  orphan.recoverable = true;
+  const second = await (workspaceService as any).moveTab('ws-1', 'tab-1', 'ws-2');
+  assert.equal(second.targetWorkspaceId, 'ws-2');
+
+  // The moved stopped tab restarts in its new workspace.
+  const restarted = await workspaceService.restartTab('ws-2', 'tab-2');
+  assert.equal(restarted.workspaceId, 'ws-2');
+  assert.equal(calls.createSession.length, 1);
 }
 
 async function testWorkspaceServiceMoveTabSaveFailureRestoresState(): Promise<void> {

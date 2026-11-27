@@ -14,6 +14,8 @@ import './WorkspaceTabBar.css';
 import { t, tn } from '../../i18n/i18n.ts';
 import { roomDotLabelInput } from '../Messenger/messengerWindowModel.ts';
 import { TabAwaitingInputBadge } from './AwaitingInputBadge.tsx';
+import { findWorkspaceDropId } from './workspaceMoveTargets.ts';
+import { tabDragStore } from './tabDragStore.ts';
 
 interface Props {
   tabs: WorkspaceTabRuntime[];
@@ -27,7 +29,16 @@ interface Props {
   availableShells?: ShellInfo[];
   /** FR-MSG-013 AC-3: room names per session key, for the purple dot. */
   sessionRooms?: Record<string, string[]>;
+  /** FR-ARCH-019 AC-2: opens the move dialog for a tab, from the tab's own menu. */
+  onRequestMoveTab?: (tabId: string) => void;
+  /** FR-ARCH-019 AC-1: a tab dragged onto a sidebar workspace moves there. */
+  onMoveTabToWorkspace?: (tabId: string, workspaceId: string) => void;
+  /** FR-ARCH-019 AC-1: whether a workspace takes the dragged tab (not its own, not full). */
+  canDropOnWorkspace?: (workspaceId: string) => boolean;
 }
+
+/** How far above and below the tab bar releasing still reorders, so a drag need not be exact. */
+const TAB_BAR_REORDER_SLACK_PX = 40;
 
 function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIcon']): string | null {
   if (recoveryIcon?.type === 'builtin') {
@@ -45,12 +56,14 @@ export function WorkspaceTabBar({
   maxTabs,
   onSelectTab, onCloseTab, onRenameTab, onAddTab,
   onReorderTabs, availableShells, sessionRooms,
+  onRequestMoveTab, onMoveTabToWorkspace, canDropOnWorkspace,
 }: Props) {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [shellMenuOpen, setShellMenuOpen] = useState(false);
   const [shellMenuPosition, setShellMenuPosition] = useState({ x: 0, y: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
+  const tabBarRef = useRef<HTMLDivElement>(null);
   const ctx = useContextMenu();
 
   useEffect(() => {
@@ -66,10 +79,35 @@ export function WorkspaceTabBar({
     onReorderTabs(ids);
   }, [sorted, onReorderTabs]);
 
+  // FR-ARCH-019 AC-1: over a sidebar workspace that takes the tab, releasing moves it there;
+  // over the tab bar it reorders; anywhere else it does nothing.
+  const externalDrop = onMoveTabToWorkspace ? {
+    resolve: (clientX: number, clientY: number) => {
+      const hovered = findWorkspaceDropId(document.elementFromPoint(clientX, clientY));
+      const targetId = hovered !== null && (canDropOnWorkspace?.(hovered) ?? true) ? hovered : null;
+      const rect = tabBarRef.current?.getBoundingClientRect();
+      const overList = rect !== undefined
+        && clientY >= rect.top - TAB_BAR_REORDER_SLACK_PX
+        && clientY <= rect.bottom + TAB_BAR_REORDER_SLACK_PX;
+      return { targetId, overList };
+    },
+    onStart: (fromIndex: number) => {
+      const tab = sorted[fromIndex];
+      if (tab) tabDragStore.begin({ tabId: tab.id, sourceWorkspaceId: tab.workspaceId });
+    },
+    onHover: (workspaceId: string | null) => tabDragStore.hover(workspaceId),
+    onDrop: (fromIndex: number, workspaceId: string) => {
+      const tab = sorted[fromIndex];
+      if (tab) onMoveTabToWorkspace(tab.id, workspaceId);
+    },
+    onEnd: () => tabDragStore.end(),
+  } : undefined;
+
   const drag = useDragReorder({
     onReorder: handleReorder,
     isLocked: () => false,
     longPressMs: 300,
+    externalDrop,
   });
 
   const handleRenameConfirm = (tabId: string) => {
@@ -99,6 +137,7 @@ export function WorkspaceTabBar({
 
   return (
     <div
+      ref={tabBarRef}
       role="tablist"
       className="workspace-tabbar"
     >
@@ -223,6 +262,10 @@ export function WorkspaceTabBar({
               const tab = sorted.find(t => t.id === ctx.targetId);
               if (tab) { setEditName(tab.name); setEditingTabId(tab.id); }
             }},
+            // FR-ARCH-019 AC-2: a stopped tab shows no terminal menu, so the tab menu offers the move.
+            ...(onRequestMoveTab ? [{ label: t('contextMenu.moveWorkspace'), icon: 'swap' as const, onClick: () => {
+              if (ctx.targetId) onRequestMoveTab(ctx.targetId);
+            }}] : []),
             { label: t('common.close'), destructive: true, onClick: () => { if (ctx.targetId) onCloseTab(ctx.targetId); }},
           ]}
         />

@@ -34,3 +34,20 @@ test('FR-TODO-002 AC-2: a binding with the toggle-todo action is validated, stor
   });
   assert.deepEqual(binding.action, { type: 'toggle-todo' });
 });
+
+test('FR-ARCH-018 AC-3: a binding with the new-tab action is validated, stored and read back', async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bg-shortcut-newtab-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const dataPath = path.join(dir, 'terminal-shortcuts.json');
+  const service = new TerminalShortcutService({ dataPath });
+  await service.initialize();
+  // Ctrl+N: the key an installed app window hands to the page.
+  const binding = await service.createBinding({
+    scope: 'global', key: 'n', code: 'KeyN', ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, location: 0,
+    action: { type: 'new-tab' },
+  });
+  assert.deepEqual(binding.action, { type: 'new-tab' });
+  const reloaded = new TerminalShortcutService({ dataPath });
+  await reloaded.initialize();
+  assert.deepEqual(reloaded.getState().bindings.at(-1)?.action, { type: 'new-tab' });
+});

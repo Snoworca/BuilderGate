@@ -218,10 +218,27 @@ export const TODO_SHORTCUT_BINDING: TerminalShortcutBinding = {
   description: 'Alt+T -> toggle the to-do panel',
 };
 
+/**
+ * FR-ARCH-018 AC-1: Alt+Shift+T opens a new tab like the tab bar + button. Ctrl+N and Ctrl+T are
+ * the browser's in an ordinary tab, and Ctrl+letters belong to the shell. Matched by code like
+ * Alt+T, so Hangul mode matches; a user binding on the same key wins, and the action can be bound
+ * to another key (Ctrl+N in an installed app window, where the browser hands it to the page).
+ */
+export const NEW_TAB_SHORTCUT_BINDING: TerminalShortcutBinding = {
+  ...COMPOSER_SHORTCUT_BINDING,
+  id: 'builtin:new-tab:alt-shift-t',
+  key: 'T',
+  code: 'KeyT',
+  shiftKey: true,
+  action: { type: 'new-tab' },
+  description: 'Alt+Shift+T -> open a new tab',
+};
+
 function matchBuiltInGlobalShortcut(event: TerminalShortcutKeyDescriptor): TerminalShortcutBinding | undefined {
   if (matchesRedrawShortcut(event)) return REDRAW_SHORTCUT_BINDING;
   if (matchesBinding(event, COMPOSER_SHORTCUT_BINDING)) return COMPOSER_SHORTCUT_BINDING;
   if (matchesBinding(event, TODO_SHORTCUT_BINDING)) return TODO_SHORTCUT_BINDING;
+  if (matchesBinding(event, NEW_TAB_SHORTCUT_BINDING)) return NEW_TAB_SHORTCUT_BINDING;
   return undefined;
 }
 
@@ -232,6 +249,30 @@ function matchBuiltInGlobalShortcut(event: TerminalShortcutKeyDescriptor): Termi
 export function matchesTodoShortcut(event: TerminalShortcutKeyDescriptor, state: TerminalShortcutState | null): boolean {
   const result = resolveTerminalShortcut({ event, state, workspaceId: null, sessionId: '', imeActive: false, hasSelection: false });
   return result.kind === 'matched' && result.action.type === 'toggle-todo';
+}
+
+export type AppWindowShortcut = 'toggle-todo' | 'new-tab';
+
+export interface WindowShortcutKeyEvent
+  extends Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey' | 'location' | 'repeat' | 'isComposing' | 'defaultPrevented'> {
+  target: unknown;
+}
+
+/**
+ * FR-TODO-002 AC-2 / FR-ARCH-018 AC-2: the app keys pressed outside a terminal. A terminal
+ * handles its own keys (a user binding there may send the key to the program), so a key from
+ * inside one is left to it, as is a key in an IME composition, a held-down repeat, or one another
+ * handler already consumed. Global bindings decide, since no session or workspace is in play.
+ */
+export function appShortcutForWindowKey(event: WindowShortcutKeyEvent, state: TerminalShortcutState | null): AppWindowShortcut | null {
+  if (event.isComposing || event.defaultPrevented || event.repeat) return null;
+  const target = event.target as { closest?: (selector: string) => unknown } | null;
+  if (target && typeof target.closest === 'function' && target.closest('.xterm')) return null;
+  const result = resolveTerminalShortcut({
+    event: buildTerminalShortcutKeyDescriptor(event), state, workspaceId: null, sessionId: '', imeActive: false, hasSelection: false,
+  });
+  if (result.kind !== 'matched') return null;
+  return result.action.type === 'toggle-todo' || result.action.type === 'new-tab' ? result.action.type : null;
 }
 
 export function getBuiltInProfileBindings(profile: TerminalShortcutProfile): TerminalShortcutBinding[] {

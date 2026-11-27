@@ -47,6 +47,7 @@ import { t } from '../../i18n/i18n.ts';
 import type { TerminalPathsAtPoint } from '../../utils/terminalPathLinks';
 import type { TerminalPathTarget } from '../../utils/terminalPathDetection';
 import { useVerifiedScreenPaths } from '../../hooks/useVerifiedScreenPaths';
+import { isTabMovable } from '../Workspace/workspaceMoveTargets.ts';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
@@ -109,13 +110,6 @@ function buildMissingTerminalClipboardResult(): TerminalClipboardActionResult {
     reason: 'context-changed',
     source: 'command-preset',
   };
-}
-
-function isWorkspaceMoveDisabled(tab: WorkspaceTabRuntime | undefined): boolean {
-  return !tab
-    || tab.status === 'disconnected'
-    || tab.lifecycleState === 'stopped'
-    || tab.recoverable === false;
 }
 
 export function MosaicContainer({
@@ -754,7 +748,8 @@ export function MosaicContainer({
         onPaste: () => handlePaste(tabId),
         hasSelection,
         moveWorkspace: {
-          disabled: !onRequestMoveTab || isWorkspaceMoveDisabled(tab),
+          // FR-ARCH-019 AC-2: any tab moves, whatever its session state.
+          disabled: !onRequestMoveTab || !isTabMovable(tab),
           onRequest: () => {
             closeContextMenu();
             onRequestMoveTab?.(tabId);

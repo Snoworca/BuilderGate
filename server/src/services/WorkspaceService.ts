@@ -713,9 +713,9 @@ export class WorkspaceService {
       throw new AppError(ErrorCode.TAB_LIMIT_EXCEEDED);
     }
 
-    if (!this.isMovableTab(tab)) {
-      throw new AppError(ErrorCode.SESSION_NOT_MOVABLE);
-    }
+    // FR-ARCH-019 AC-2: any tab moves, whatever its session state. A stopped or disconnected tab
+    // has no process to carry, so the move changes only its workspace, and restart follows
+    // tab.workspaceId. SESSION_NOT_MOVABLE stays defined for clients of older servers.
 
     const snapshot = this.cloneState(this.state);
 
@@ -1008,19 +1008,6 @@ export class WorkspaceService {
       }
     }
     return normalized;
-  }
-
-  private isMovableTab(tab: WorkspaceTab): boolean {
-    if (tab.lifecycleState === 'stopped') {
-      return false;
-    }
-    if (tab.recoverable === false) {
-      return false;
-    }
-    if (!this.sessionManager.hasSession(tab.sessionId)) {
-      return false;
-    }
-    return true;
   }
 
   private cloneState(state: WorkspaceState): WorkspaceState {

@@ -10,7 +10,9 @@ export type TerminalShortcutAction =
   /** FR-CMP-001 AC-3: the browser opens, focuses or closes the session composer. */
   | { type: 'toggle-composer' }
   /** FR-TODO-002 AC-2: shows or hides the to-do panel; sends nothing to the terminal. */
-  | { type: 'toggle-todo' };
+  | { type: 'toggle-todo' }
+  /** FR-ARCH-018: opens a new tab like the tab bar + button; sends nothing to the terminal. */
+  | { type: 'new-tab' };
 
 export interface TerminalShortcutKeyDescriptor {
   key: string;

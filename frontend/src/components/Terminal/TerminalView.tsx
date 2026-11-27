@@ -204,6 +204,7 @@ import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoi
 import { readTerminalTapRows, type TerminalTapRows } from '../../utils/terminalTouchTapPolicy.ts';
 import { readTerminalBufferText } from '../../utils/terminalTextExport.ts';
 import { todoPanelStore } from '../Todo/todoPanelStore.ts';
+import { requestNewTab } from '../../utils/newTabRequests.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -4382,6 +4383,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           if (shortcutResolution.action.type === 'toggle-todo') {
             ev.preventDefault();
             todoPanelStore.toggle();
+            return false;
+          }
+
+          // FR-ARCH-018 AC-1: the new-tab key goes to the app, not to the program.
+          if (shortcutResolution.action.type === 'new-tab') {
+            ev.preventDefault();
+            requestNewTab();
             return false;
           }
 

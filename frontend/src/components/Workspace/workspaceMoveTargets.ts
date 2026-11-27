@@ -45,3 +45,32 @@ export function buildWorkspaceMoveTargets({
       };
     });
 }
+
+/**
+ * FR-ARCH-019 AC-2: any tab can move, whatever its session state; a stopped or disconnected tab
+ * has no process to carry, so only its workspace changes.
+ */
+export function isTabMovable(tab: WorkspaceTabRuntime | undefined): boolean {
+  return tab !== undefined;
+}
+
+/**
+ * FR-ARCH-019 AC-1: the workspace a dragged tab would drop on. The same rule as the move dialog:
+ * the tab's own workspace, a full one or an unknown id is not a target.
+ */
+export function resolveWorkspaceDropTarget(input: BuildWorkspaceMoveTargetsInput & { hoveredWorkspaceId: string | null }): string | null {
+  if (input.hoveredWorkspaceId === null) return null;
+  const target = buildWorkspaceMoveTargets(input).find(item => item.workspace.id === input.hoveredWorkspaceId);
+  return target && !target.disabled ? target.workspace.id : null;
+}
+
+interface DropIdElement {
+  dataset?: { workspaceDropId?: string };
+}
+
+/** FR-ARCH-019 AC-1: the sidebar workspace under the pointer, from data-workspace-drop-id. */
+export function findWorkspaceDropId(element: { closest?: (selector: string) => unknown } | null): string | null {
+  if (!element || typeof element.closest !== 'function') return null;
+  const item = element.closest('[data-workspace-drop-id]') as DropIdElement | null;
+  return item?.dataset?.workspaceDropId ?? null;
+}
