@@ -46,6 +46,8 @@ interface PendingSequencerInput {
 export class TerminalInputSequencer {
   private nextSeq = 1;
   private pending: PendingSequencerInput | null = null;
+  // The coalescing window. It opens when a chunk is sent at once and stays open for
+  // coalesceDelayMs; chunks that arrive while it is open wait in `pending` for its end.
   private pendingTimer: ReturnType<typeof setTimeout> | null = null;
   private emitter: SequencedTerminalInputEmitter;
   private readonly coalesceDelayMs: number;
@@ -73,7 +75,17 @@ export class TerminalInputSequencer {
   submit(data: string, metadata?: InputDebugMetadata): void {
     if (!isCoalesciblePrintableChunk(data)) {
       this.flush('control-boundary');
+      this.clearTimer();
       this.emitSequenced(data, metadata, 1, 'boundary');
+      return;
+    }
+
+    // @req PERF-BGSTAB-029 AC-1
+    // A key typed on its own does not wait for a timer: it is sent now, and only what follows
+    // within the window is coalesced.
+    if (!this.pending && this.pendingTimer === null) {
+      this.emitSequenced(data, mergeInputMetadata(data, metadata ? [metadata] : []), 1, 'leading-edge');
+      this.openWindow();
       return;
     }
 
@@ -91,7 +103,7 @@ export class TerminalInputSequencer {
           metadata: metadata ? [metadata] : [],
           logicalChunkCount: 1,
         };
-        this.scheduleFlush();
+        this.openWindow();
         return;
       }
       this.pending.data += data;
@@ -100,8 +112,8 @@ export class TerminalInputSequencer {
       }
       this.pending.logicalChunkCount += 1;
     }
-
-    this.scheduleFlush();
+    // The window keeps the end it was opened with, so a held chunk waits coalesceDelayMs at most.
+    if (this.pendingTimer === null) this.openWindow();
   }
 
   flush(reason = 'manual'): void {
@@ -146,11 +158,15 @@ export class TerminalInputSequencer {
     }, reason);
   }
 
-  private scheduleFlush(): void {
+  private openWindow(): void {
     this.clearTimer();
     this.pendingTimer = setTimeout(() => {
       this.pendingTimer = null;
+      if (!this.pending) return;
+      // A window that held something is followed by another, so steady typing goes out one
+      // message per window instead of alternating a lone chunk and a batch.
       this.flush('coalesce-window');
+      this.openWindow();
     }, this.coalesceDelayMs);
   }
 

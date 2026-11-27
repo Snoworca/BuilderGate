@@ -12,7 +12,20 @@
 // once, one after another, instead of waiting: the backlog is written in one burst and xterm
 // still renders it once per frame.
 // @req PERF-BGSTAB-027
+//
+// The foreground lane does not wait for an animation frame. xterm renders a write made inside a
+// frame callback on the following frame, so waiting cost an echo about two frames. Its flushes
+// run from a microtask as output arrives, and xterm draws them on the very next frame.
+//
+// Each foreground run takes one from an allowance of FOREGROUND_RUN_BURST runs that refills by
+// one every FOREGROUND_RUN_REFILL_MS. A shell echo (two frames a few milliseconds apart) fits in
+// the allowance. A flood uses it up at once and then gets one run per animation frame, which is
+// the pace it had before. A flush asked for from inside a drain is the output scheduler
+// yielding to pending input, so it always waits for the frame.
+// @req PERF-BGSTAB-030
 
+export const FOREGROUND_RUN_BURST = 3;
+export const FOREGROUND_RUN_REFILL_MS = 16;
 export const BACKGROUND_RENDER_INTERVAL_MS = 200;
 export const COMPOSITION_RENDER_HOLD_MAX_MS = 1_000;
 export const BACKGROUND_BURST_MS = 50;
@@ -34,6 +47,7 @@ export interface TerminalRenderThrottle {
 
 export interface TerminalRenderThrottleOptions {
   now?: () => number;
+  queueMicrotask?: (run: () => void) => void;
   requestFrame?: (run: () => void) => void;
   setTimer?: (run: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
@@ -48,10 +62,16 @@ interface LaneState {
   pending: (() => void) | null;
   timer: unknown;
   frameRequested: boolean;
+  // PERF-BGSTAB-030: the foreground run allowance, and whether a drain is running right now.
+  microtaskQueued: boolean;
+  running: boolean;
+  runAllowance: number;
+  allowanceAt: number;
 }
 
 export function createTerminalRenderThrottle(options: TerminalRenderThrottleOptions = {}): TerminalRenderThrottle {
   const now = options.now ?? (() => performance.now());
+  const enqueueMicrotask = options.queueMicrotask ?? ((run) => queueMicrotask(run));
   const requestFrame = options.requestFrame ?? ((run) => { requestAnimationFrame(() => run()); });
   const setTimer = options.setTimer ?? ((run, ms) => setTimeout(run, ms));
   const clearTimer = options.clearTimer ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
@@ -84,19 +104,66 @@ export function createTerminalRenderThrottle(options: TerminalRenderThrottleOpti
     const at = now();
     lane.lastRun = at;
     if (startsBurst) lane.burstUntil = at + BACKGROUND_BURST_MS;
-    drain();
+    lane.running = true;
+    try {
+      drain();
+    } finally {
+      lane.running = false;
+    }
+  };
+
+  // @req PERF-BGSTAB-030
+  const takeForegroundRun = (lane: LaneState): boolean => {
+    const at = now();
+    lane.runAllowance = Math.min(FOREGROUND_RUN_BURST, lane.runAllowance + (at - lane.allowanceAt) / FOREGROUND_RUN_REFILL_MS);
+    lane.allowanceAt = at;
+    if (lane.runAllowance < 1) return false;
+    lane.runAllowance -= 1;
+    return true;
   };
 
   const runOnNextFrame = (lane: LaneState): void => {
     cancelTimer(lane);
     if (lane.frameRequested) return;
     lane.frameRequested = true;
-    requestFrame(() => run(lane, true));
+    requestFrame(() => {
+      // A frame that comes before a foreground run is due (a fast display) waits for the next.
+      if (!lane.disposed && lane.pending && isForeground(lane) && !takeForegroundRun(lane)) {
+        lane.frameRequested = false;
+        runOnNextFrame(lane);
+        return;
+      }
+      run(lane, true);
+    });
+  };
+
+  // @req PERF-BGSTAB-030
+  const runFromMicrotask = (lane: LaneState): void => {
+    cancelTimer(lane);
+    if (lane.microtaskQueued) return;
+    lane.microtaskQueued = true;
+    enqueueMicrotask(() => {
+      lane.microtaskQueued = false;
+      if (lane.disposed || !lane.pending) return;
+      if (!isForeground(lane)) {
+        // Focus or visibility moved on in the same task: give the run back and decide again.
+        lane.runAllowance = Math.min(FOREGROUND_RUN_BURST, lane.runAllowance + 1);
+        decide(lane);
+        return;
+      }
+      run(lane, true);
+    });
   };
 
   const decide = (lane: LaneState): void => {
     if (lane.disposed || !lane.pending) return;
     if (isForeground(lane)) {
+      // A frame or microtask already asked for takes the pending flush.
+      if (lane.frameRequested || lane.microtaskQueued) return;
+      if (!lane.running && takeForegroundRun(lane)) {
+        runFromMicrotask(lane);
+        return;
+      }
       runOnNextFrame(lane);
       return;
     }
@@ -133,6 +200,7 @@ export function createTerminalRenderThrottle(options: TerminalRenderThrottleOpti
       const lane: LaneState = {
         id: terminalId, visible: false, disposed: false, lastRun: Number.NEGATIVE_INFINITY,
         burstUntil: Number.NEGATIVE_INFINITY, pending: null, timer: null, frameRequested: false,
+        microtaskQueued: false, running: false, runAllowance: FOREGROUND_RUN_BURST, allowanceAt: now(),
       };
       lanes.add(lane);
       return {

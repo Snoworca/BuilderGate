@@ -90,19 +90,21 @@ test('TerminalInputSequencer splits printable runs at the server sequence span l
     emitted.push({ input, reason });
   }, 10_000);
 
-  for (let index = 0; index < MAX_INPUT_SEQUENCE_SPAN + 1; index += 1) {
+  // PERF-BGSTAB-029: the first chunk is sent at once; the run that follows is what is split.
+  for (let index = 0; index < MAX_INPUT_SEQUENCE_SPAN + 2; index += 1) {
     sequencer.submit('x');
   }
   sequencer.flush('test-end');
 
-  assert.equal(emitted.length, 2);
-  assert.equal(emitted[0].reason, 'sequence-span-limit');
-  assert.equal(emitted[0].input.logicalChunkCount, MAX_INPUT_SEQUENCE_SPAN);
-  assert.equal(emitted[0].input.inputSeqStart, 1);
-  assert.equal(emitted[0].input.inputSeqEnd, MAX_INPUT_SEQUENCE_SPAN);
-  assert.equal(emitted[1].input.logicalChunkCount, 1);
-  assert.equal(emitted[1].input.inputSeqStart, MAX_INPUT_SEQUENCE_SPAN + 1);
+  assert.equal(emitted.length, 3);
+  assert.equal(emitted[0].reason, 'leading-edge');
+  assert.equal(emitted[1].reason, 'sequence-span-limit');
+  assert.equal(emitted[1].input.logicalChunkCount, MAX_INPUT_SEQUENCE_SPAN);
+  assert.equal(emitted[1].input.inputSeqStart, 2);
   assert.equal(emitted[1].input.inputSeqEnd, MAX_INPUT_SEQUENCE_SPAN + 1);
+  assert.equal(emitted[2].input.logicalChunkCount, 1);
+  assert.equal(emitted[2].input.inputSeqStart, MAX_INPUT_SEQUENCE_SPAN + 2);
+  assert.equal(emitted[2].input.inputSeqEnd, MAX_INPUT_SEQUENCE_SPAN + 2);
 });
 
 test('TerminalInputSequencer keeps control input as an ordered boundary after printable coalescing', () => {
@@ -111,17 +113,19 @@ test('TerminalInputSequencer keeps control input as an ordered boundary after pr
     emitted.push({ input, reason });
   }, 10_000);
 
+  sequencer.submit('x');
   sequencer.submit('a');
   sequencer.submit('b');
   sequencer.submit('\r');
 
-  assert.equal(emitted.length, 2);
-  assert.equal(emitted[0].input.data, 'ab');
-  assert.equal(emitted[0].input.inputSeqStart, 1);
-  assert.equal(emitted[0].input.inputSeqEnd, 2);
-  assert.equal(emitted[1].input.data, '\r');
-  assert.equal(emitted[1].input.inputSeqStart, 3);
+  assert.equal(emitted.length, 3);
+  assert.equal(emitted[0].input.data, 'x');
+  assert.equal(emitted[1].input.data, 'ab');
+  assert.equal(emitted[1].input.inputSeqStart, 2);
   assert.equal(emitted[1].input.inputSeqEnd, 3);
+  assert.equal(emitted[2].input.data, '\r');
+  assert.equal(emitted[2].input.inputSeqStart, 4);
+  assert.equal(emitted[2].input.inputSeqEnd, 4);
 });
 
 test('TerminalInputSequencer reuses provided client-observed metadata when coalescing printable input', () => {
@@ -142,6 +146,7 @@ test('TerminalInputSequencer reuses provided client-observed metadata when coale
       'Intl.Segmenter should not be constructed while metadata is reusable',
     );
 
+    sequencer.submit('x', { clientObservedMetricsSkipped: true });
     sequencer.submit('한', {
       clientObservedByteLength: 3,
       clientObservedCodePointCount: 1,
@@ -166,14 +171,14 @@ test('TerminalInputSequencer reuses provided client-observed metadata when coale
     (Intl as unknown as { Segmenter?: typeof Intl.Segmenter }).Segmenter = originalSegmenter;
   }
 
-  assert.equal(emitted.length, 1);
-  assert.equal(emitted[0].input.metadata?.clientObservedByteLength, 4);
-  assert.equal(emitted[0].input.metadata?.clientObservedCodePointCount, 2);
-  assert.equal(emitted[0].input.metadata?.clientObservedGraphemeCount, 2);
-  assert.equal(emitted[0].input.metadata?.clientObservedGraphemeApproximate, false);
-  assert.equal(emitted[0].input.metadata?.clientObservedHasHangul, true);
-  assert.equal(emitted[0].input.metadata?.clientObservedHasCjk, false);
-  assert.equal(emitted[0].input.metadata?.clientObservedHasEnter, false);
+  assert.equal(emitted.length, 2);
+  assert.equal(emitted[1].input.metadata?.clientObservedByteLength, 4);
+  assert.equal(emitted[1].input.metadata?.clientObservedCodePointCount, 2);
+  assert.equal(emitted[1].input.metadata?.clientObservedGraphemeCount, 2);
+  assert.equal(emitted[1].input.metadata?.clientObservedGraphemeApproximate, false);
+  assert.equal(emitted[1].input.metadata?.clientObservedHasHangul, true);
+  assert.equal(emitted[1].input.metadata?.clientObservedHasCjk, false);
+  assert.equal(emitted[1].input.metadata?.clientObservedHasEnter, false);
 });
 
 test('terminal input debug payload reuses module codec singletons and can skip high-cost details when capture is disabled', () => {
@@ -218,6 +223,7 @@ test('TerminalInputSequencer preserves debug-disabled metadata without recomputi
       'Intl.Segmenter should not run when metrics are skipped',
     );
 
+    sequencer.submit('x', { clientObservedMetricsSkipped: true });
     sequencer.submit('한', { captureSeq: 9, clientObservedMetricsSkipped: true });
     sequencer.submit('a', { clientObservedMetricsSkipped: true });
     sequencer.flush('debug-disabled');
@@ -226,11 +232,11 @@ test('TerminalInputSequencer preserves debug-disabled metadata without recomputi
     (Intl as unknown as { Segmenter?: typeof Intl.Segmenter }).Segmenter = originalSegmenter;
   }
 
-  assert.equal(emitted.length, 1);
-  assert.equal(emitted[0].input.metadata?.captureSeq, 9);
-  assert.equal(emitted[0].input.metadata?.clientObservedMetricsSkipped, true);
-  assert.equal(emitted[0].input.metadata?.clientObservedByteLength, undefined);
-  assert.equal(emitted[0].input.metadata?.clientObservedGraphemeCount, undefined);
+  assert.equal(emitted.length, 2);
+  assert.equal(emitted[1].input.metadata?.captureSeq, 9);
+  assert.equal(emitted[1].input.metadata?.clientObservedMetricsSkipped, true);
+  assert.equal(emitted[1].input.metadata?.clientObservedByteLength, undefined);
+  assert.equal(emitted[1].input.metadata?.clientObservedGraphemeCount, undefined);
 });
 
 test('terminal input debug payload resolver does not rebuild when client metadata already exists', () => {

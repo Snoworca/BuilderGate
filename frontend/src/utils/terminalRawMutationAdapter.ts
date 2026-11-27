@@ -68,6 +68,24 @@ function prependBytes(prefix: Uint8Array, data: string | Uint8Array): Uint8Array
   return merged;
 }
 
+export const IMMEDIATE_PARSE_MAX_BYTES = 4096;
+
+/**
+ * xterm's WriteBuffer defers a write to a `setTimeout` unless it follows user input, and on
+ * Windows that timer can take 15.6 ms: an echo then misses the next frame. A small live write is
+ * flagged as user-input-adjacent so xterm parses it in the same call, through its normal path;
+ * only the timer wait is removed (the server's replica does the same, PERF-BGSTAB-019). The flag
+ * is set only while xterm has nothing queued, so the write that follows is the one that uses it.
+ */
+// @req PERF-BGSTAB-030 AC-7
+function parseSmallLiveWriteImmediately(terminal: Terminal, data: string | Uint8Array): void {
+  if (data.length > IMMEDIATE_PARSE_MAX_BYTES) return;
+  const writeBuffer = (terminal as unknown as {
+    _core?: { _writeBuffer?: { _writeBuffer?: unknown[]; handleUserInput?: () => void } };
+  })._core?._writeBuffer;
+  if (writeBuffer?._writeBuffer?.length === 0) writeBuffer.handleUserInput?.();
+}
+
 // @req FR-BGSTAB-022
 export function createTerminalRawMutationAdapter(
   options: TerminalRawMutationAdapterOptions,
@@ -88,6 +106,7 @@ export function createTerminalRawMutationAdapter(
       // REL-BGSTAB-052 AC-2: an id per URI so a link redrawn in place keeps one record.
       const data = assignOscLinkIds(command.data);
       if (command.kind !== 'checkpoint') {
+        if (command.kind === 'live') parseSmallLiveWriteImmediately(terminal, data);
         terminal.write(data, onWritten);
         return;
       }

@@ -13,13 +13,17 @@ function harness() {
   const frames: Array<() => void> = [];
   const timers = new Map<number, { at: number; run: () => void }>();
   let nextTimer = 1;
+  // PERF-BGSTAB-030: a foreground lane runs from a microtask; these tests drain them with the frames.
+  const microtasks: Array<() => void> = [];
+  const runMicrotasks = () => { while (microtasks.length) microtasks.shift()!(); };
   const throttle = createTerminalRenderThrottle({
     now: () => now,
+    queueMicrotask: (run) => { microtasks.push(run); },
     requestFrame: (run) => { frames.push(run); },
     setTimer: (run, ms) => { const id = nextTimer++; timers.set(id, { at: now + ms, run }); return id; },
     clearTimer: (id) => { timers.delete(id as number); },
   });
-  const runFrames = () => { for (const run of frames.splice(0)) run(); };
+  const runFrames = () => { runMicrotasks(); for (const run of frames.splice(0)) run(); runMicrotasks(); };
   const advance = (ms: number) => {
     now += ms;
     for (const [id, timer] of [...timers].sort((a, b) => a[1].at - b[1].at)) {
