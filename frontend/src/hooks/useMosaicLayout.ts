@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import type { MosaicNode } from '../types/workspace';
 import {
-  buildEqualColumnsMosaicTree,
+  buildLinearPresetMosaicTree,
   buildRecoveredEqualMosaicTree,
   buildEqualMosaicTree,
   extractLeafIds,
   inferEqualLayoutArrangement,
+  isLinearEqualPreset,
   restoreLayoutWithSessionRecovery,
 } from '../utils/mosaic';
 import {
@@ -103,8 +104,8 @@ function resolveLayoutState(
   const equalPreset = persisted.schemaVersion === 2 ? persisted.equalPreset : 'smart';
   const resolvedTree =
     tree && mode === 'equal'
-      ? equalPreset === 'columns'
-        ? buildEqualColumnsMosaicTree(extractLeafIds(tree))
+      ? isLinearEqualPreset(equalPreset)
+        ? buildLinearPresetMosaicTree(equalPreset, extractLeafIds(tree))
         : buildRecoveredEqualMosaicTree(tree, extractLeafIds(tree), inferEqualLayoutArrangement(tree))
       : tree;
 

@@ -51,6 +51,7 @@ export type IconName =
   | 'clipboard'
   | 'move'
   | 'columns'
+  | 'rows'
   | 'upload'
   | 'folder-upload'
   | 'archive'
@@ -150,6 +151,15 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
       'M6 4v16',
       'M12 4v16',
       'M18 4v16',
+    ],
+  },
+  // FR-UIDS-017 AC-5: a frame cut into three horizontal bands: panes stacked in rows.
+  // The frame keeps it apart from the menu glyph's three loose rules.
+  rows: {
+    paths: [
+      'M4 3h16v18H4z',
+      'M4 9h16',
+      'M4 15h16',
     ],
   },
   // Three rules: the sidebar menu.

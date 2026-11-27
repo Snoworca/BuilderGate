@@ -391,6 +391,23 @@ export function buildEqualColumnsMosaicTree(ids: string[]): MosaicNode<string> {
   return buildLinearMosaicTree(ids, 'row');
 }
 
+// @req FR-UIDS-017 AC-2
+export function buildEqualRowsMosaicTree(ids: string[]): MosaicNode<string> {
+  if (ids.length === 0) throw new Error('Cannot build tree from empty ids');
+  return buildLinearMosaicTree(ids, 'column');
+}
+
+/** The equal presets that put every tile in one line: side by side (columns) or stacked (rows). */
+export type LinearEqualPreset = 'columns' | 'rows';
+
+export function isLinearEqualPreset(preset: string): preset is LinearEqualPreset {
+  return preset === 'columns' || preset === 'rows';
+}
+
+export function buildLinearPresetMosaicTree(preset: LinearEqualPreset, ids: string[]): MosaicNode<string> {
+  return preset === 'rows' ? buildEqualRowsMosaicTree(ids) : buildEqualColumnsMosaicTree(ids);
+}
+
 export function buildRecoveredEqualMosaicTree(
   sourceTree: MosaicNode<string> | null,
   currentTabIds: string[],

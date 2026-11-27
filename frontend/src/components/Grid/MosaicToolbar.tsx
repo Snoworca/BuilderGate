@@ -11,6 +11,7 @@ interface MosaicToolbarProps {
   equalPreset: EqualLayoutPreset;
   onLayoutModeChange: (mode: LayoutMode) => void;
   onColumnsLayout: () => void;
+  onRowsLayout: () => void;
 }
 
 interface ToolbarButtonProps {
@@ -44,6 +45,7 @@ export function MosaicToolbar({
   equalPreset,
   onLayoutModeChange,
   onColumnsLayout,
+  onRowsLayout,
 }: MosaicToolbarProps) {
   const [expanded, setExpanded] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,7 +112,7 @@ export function MosaicToolbar({
             mode="equal"
             icon="grid"
             label={t('grid.toolbar.equal')}
-            active={layoutMode === 'equal' && equalPreset !== 'columns'}
+            active={layoutMode === 'equal' && equalPreset === 'smart'}
             onClick={() => onLayoutModeChange('equal')}
           />
           <ToolbarButton
@@ -119,6 +121,14 @@ export function MosaicToolbar({
             label={t('grid.toolbar.vertical')}
             active={layoutMode === 'equal' && equalPreset === 'columns'}
             onClick={onColumnsLayout}
+          />
+          {/* @req FR-UIDS-017 AC-1 */}
+          <ToolbarButton
+            command="rows"
+            icon="rows"
+            label={t('grid.toolbar.horizontal')}
+            active={layoutMode === 'equal' && equalPreset === 'rows'}
+            onClick={onRowsLayout}
           />
           <ToolbarButton
             mode="focus"

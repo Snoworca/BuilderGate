@@ -3,10 +3,11 @@ import {
   containsLeaf,
   isValidMosaicTree,
   removeFromMosaicTree,
+  type LinearEqualPreset,
 } from '../utils/mosaic.ts';
 
 export type MosaicLayoutMode = 'equal' | 'focus' | 'auto' | 'none';
-export type EqualLayoutPreset = 'smart' | 'columns';
+export type EqualLayoutPreset = 'smart' | LinearEqualPreset;
 
 export interface PersistedMosaicLayout {
   schemaVersion: 1;
@@ -104,7 +105,7 @@ export function readPersistedMosaicLayout(
     if (!isValidMosaicTree(parsed.tree)) {
       return null;
     }
-    if (parsed.schemaVersion === 2 && parsed.equalPreset !== 'smart' && parsed.equalPreset !== 'columns') {
+    if (parsed.schemaVersion === 2 && parsed.equalPreset !== 'smart' && parsed.equalPreset !== 'columns' && parsed.equalPreset !== 'rows') {
       return null;
     }
     return parsed as AnyPersistedMosaicLayout;
