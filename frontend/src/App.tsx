@@ -215,8 +215,6 @@ function AppContent() {
     const onKeyDown = (event: KeyboardEvent) => {
       const shortcut = appShortcutForWindowKey(event, terminalShortcutStateRef.current);
       if (shortcut === null) return;
-      // A tab made behind a modal dialog or the settings screen would open out of sight.
-      if (shortcut === 'new-tab' && (screenRef.current !== 'workspace' || document.querySelector('[aria-modal="true"]') !== null)) return;
       event.preventDefault();
       if (shortcut === 'new-tab') requestNewTab();
       else todoPanelStore.toggle();
@@ -421,7 +419,13 @@ function AppContent() {
   }, []);
 
   // FR-ARCH-018 AC-1/AC-2: Alt+Shift+T, from a terminal or from anywhere else in the app.
-  useEffect(() => subscribeNewTabRequests(() => handleTabBarAddTab()), [handleTabBarAddTab]);
+  // FR-ARCH-018 AC-2: the key reaches here from a terminal and from the window alike. A tab made
+  // behind a modal dialog or the settings screen would open out of sight, so neither makes one.
+  const newTabKeyBlocked = () => screenRef.current !== 'workspace' || document.querySelector('[aria-modal="true"]') !== null;
+  useEffect(() => subscribeNewTabRequests(() => {
+    if (newTabKeyBlocked()) return;
+    handleTabBarAddTab();
+  }), [handleTabBarAddTab]);
 
   // 탭 모드: 확인 모달을 통해 닫기
   const handleCloseTab = useCallback((tabId: string) => {

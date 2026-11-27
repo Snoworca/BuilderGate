@@ -113,6 +113,8 @@ test('FR-ARCH-019 AC-1: only the tab bar strip reorders; a sidebar workspace nev
   assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: 'ws-3', x: 100, y: 120 }), { targetId: 'ws-3', overList: false });
   // The first sidebar workspace sits level with the tab bar: refusing it is not a reorder.
   assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: 'ws-1', x: 100, y: 80 }), { targetId: null, overList: false });
+  // Past the right end: the tab bar runs to the window edge, so a release there still reorders.
+  assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: null, x: 2400, y: 80 }), { targetId: null, overList: true });
   // Left of the tab bar at the same height, off every workspace.
   assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: null, x: 100, y: 80 }), { targetId: null, overList: false });
   assert.deepEqual(resolveTabBarDropPoint({ ...base, tabBarRect: undefined, hoveredWorkspaceId: null, x: 500, y: 80 }), { targetId: null, overList: false });

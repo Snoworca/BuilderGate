@@ -89,7 +89,8 @@ export interface TabBarDropPointInput {
 
 /**
  * FR-ARCH-019 AC-1: what a tab released at (x, y) does. Over a workspace that takes it, it moves;
- * over the tab bar strip (its width, its height plus the slack) it reorders; anywhere else,
+ * over the tab bar strip (right of its left edge, its height plus the slack; it runs to the window
+ * edge, so past its right end still counts) it reorders; anywhere else,
  * including a sidebar workspace that refuses it, nothing happens.
  */
 export function resolveTabBarDropPoint(input: TabBarDropPointInput): { targetId: string | null; overList: boolean } {
@@ -98,7 +99,7 @@ export function resolveTabBarDropPoint(input: TabBarDropPointInput): { targetId:
     return { targetId: canDrop(hoveredWorkspaceId) ? hoveredWorkspaceId : null, overList: false };
   }
   const overList = rect !== undefined
-    && x >= rect.left && x <= rect.right
+    && x >= rect.left
     && y >= rect.top - slackPx && y <= rect.bottom + slackPx;
   return { targetId: null, overList };
 }

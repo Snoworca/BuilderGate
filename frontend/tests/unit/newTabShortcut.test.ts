@@ -132,6 +132,9 @@ test('FR-ARCH-018 AC-1: a held-down app key in a terminal is swallowed, not repe
   assert.equal(isAppShortcutRepeat(held), true);
   const heldTodo = resolveTerminalShortcut({ event: altShiftT({ key: 't', shiftKey: false, repeat: true }), state, workspaceId: 'ws', sessionId: 's', imeActive: false, hasSelection: false });
   assert.equal(isAppShortcutRepeat(heldTodo), true);
+  // Before the settings load (or when they fail to), a held key is still one press.
+  const heldUnloaded = resolveTerminalShortcut({ event: altShiftT({ repeat: true }), state: null, workspaceId: 'ws', sessionId: 's', imeActive: false, hasSelection: false });
+  assert.equal(isAppShortcutRepeat(heldUnloaded), true);
   // A send binding without repeat keeps its old pass-through.
   const send: TerminalShortcutState = { ...state, bindings: [{
     id: 'u1', scope: 'global', profile: 'xterm-default', enabled: true, allowRepeat: false, matchByKeyFallback: false, sortOrder: 0,
@@ -145,7 +148,9 @@ test('FR-ARCH-018 AC-1: a held-down app key in a terminal is swallowed, not repe
   assert.match(view, /if \(isAppShortcutRepeat\(shortcutResolution\)\) \{\n\s*ev\.preventDefault\(\);\n\s*return false;/u);
 });
 
-test('FR-ARCH-018 AC-2: no tab is made behind a modal dialog or on the settings screen', () => {
+test('FR-ARCH-018 AC-2: no tab is made behind a modal dialog or on the settings screen, from a terminal or not', () => {
   const app = read('../../src/App.tsx');
-  assert.match(app, /shortcut === 'new-tab' && \(screenRef\.current !== 'workspace' \|\| document\.querySelector\('\[aria-modal="true"\]'\) !== null\)/u);
+  // The guard sits on the request subscriber, which both the terminal and the window key reach.
+  assert.match(app, /subscribeNewTabRequests\(\(\) => \{\n\s*if \(newTabKeyBlocked\(\)\) return;\n\s*handleTabBarAddTab\(\);/u);
+  assert.match(app, /const newTabKeyBlocked = \(\) => screenRef\.current !== 'workspace' \|\| document\.querySelector\('\[aria-modal="true"\]'\) !== null;/u);
 });

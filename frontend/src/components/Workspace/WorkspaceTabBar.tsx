@@ -74,6 +74,8 @@ export function WorkspaceTabBar({
 
   const handleReorder = useCallback((fromIndex: number, toIndex: number) => {
     const ids = sorted.map(t => t.id);
+    // Tabs closed during the drag can leave fromIndex past the end.
+    if (fromIndex < 0 || fromIndex >= ids.length) return;
     const [moved] = ids.splice(fromIndex, 1);
     ids.splice(toIndex, 0, moved);
     onReorderTabs(ids);

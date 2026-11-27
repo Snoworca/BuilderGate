@@ -114,9 +114,11 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
     // The redraw is a way out of a broken screen, and the composer is reached by its key from
     // the first moment, so both work before the settings load.
     const builtIn = matchBuiltInGlobalShortcut(event);
-    return builtIn
-      ? actionResolution(builtIn.id, builtIn.action, 'profile')
-      : { kind: 'skipped', reason: 'not-loaded' };
+    if (!builtIn) return { kind: 'skipped', reason: 'not-loaded' };
+    if (event.repeat && !builtIn.allowRepeat) {
+      return { kind: 'skipped', reason: 'repeat-disabled', action: builtIn.action };
+    }
+    return actionResolution(builtIn.id, builtIn.action, 'profile');
   }
 
   const activeProfile = getActiveTerminalShortcutProfile(state, workspaceId, sessionId);
