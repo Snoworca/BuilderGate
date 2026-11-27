@@ -2,8 +2,9 @@
 // localStorage. public/theme-boot.js applies the stored choice before the first
 // paint (AC-6) and has to stay in step with this module: same key, same
 // resolution (tests/unit/appTheme.test.ts runs both). The settings card of
-// FR-UIDS-020 writes through writeThemePreference and follows the OS with
-// SYSTEM_DARK_QUERY when the choice is 'system'.
+// FR-UIDS-020 chooses through setThemePreference, and startAppTheme takes over
+// from the boot script at app start; both follow the OS with SYSTEM_DARK_QUERY
+// while the choice is 'system'.
 // @req FR-UIDS-018 AC-6
 
 export type ThemePreference = 'dark' | 'light' | 'system';
@@ -15,7 +16,13 @@ export const APP_THEME_STORAGE_KEY = 'buildergate.theme';
 export const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)';
 
 type PreferenceStorage = Pick<Storage, 'getItem' | 'setItem'>;
-type MediaQueryHost = { matchMedia?: (query: string) => { matches: boolean } };
+/** The part of a MediaQueryList the theme reads and, for 'system', listens to. */
+interface SystemDarkQuery {
+  matches: boolean;
+  addEventListener?(type: 'change', listener: (event: { matches: boolean }) => void): void;
+  removeEventListener?(type: 'change', listener: (event: { matches: boolean }) => void): void;
+}
+type MediaQueryHost = { matchMedia?: (query: string) => SystemDarkQuery };
 
 function defaultStorage(): PreferenceStorage | null {
   try {
@@ -119,4 +126,85 @@ export function applyTheme(
       console.warn('[theme] a theme listener failed', error);
     }
   }
+}
+
+// ---- the settings choice (FR-UIDS-020) --------------------------------------------
+
+interface ThemeEnvironment {
+  storage?: PreferenceStorage | null;
+  host?: MediaQueryHost | null;
+  root?: Pick<HTMLElement, 'dataset'> | null;
+}
+
+/** The choice in effect on this page, once startAppTheme or the settings card has made one. */
+let activePreference: ThemePreference | null = null;
+/** Set while the choice in effect is 'system'. */
+let stopFollowingSystem: (() => void) | null = null;
+
+// @req FR-UIDS-020 AC-4
+/** Re-applies the theme on each change of the OS dark preference. Returns the stop. */
+function followSystem(host: MediaQueryHost | null, root: Pick<HTMLElement, 'dataset'>): () => void {
+  let query: SystemDarkQuery | undefined;
+  try {
+    query = host?.matchMedia?.(SYSTEM_DARK_QUERY);
+  } catch {
+    query = undefined;
+  }
+  const watched = query;
+  if (!watched || typeof watched.addEventListener !== 'function') return () => {};
+  const onChange = (event: { matches: boolean }) => applyTheme(resolveTheme('system', event.matches), root);
+  watched.addEventListener('change', onChange);
+  return () => watched.removeEventListener?.('change', onChange);
+}
+
+// @req FR-UIDS-020 AC-3
+// @req FR-UIDS-020 AC-4
+function activate(
+  preference: ThemePreference,
+  host: MediaQueryHost | null,
+  root: Pick<HTMLElement, 'dataset'> | null,
+): void {
+  activePreference = preference;
+  stopFollowingSystem?.();
+  stopFollowingSystem = null;
+  if (root === null) return;
+  applyTheme(resolveTheme(preference, systemPrefersDark(host)), root);
+  if (preference === 'system') stopFollowingSystem = followSystem(host, root);
+}
+
+// @req FR-UIDS-020 AC-2
+// @req FR-UIDS-020 AC-4
+/**
+ * Runs once as the app starts. theme-boot.js has already put the stored choice on the root;
+ * this applies the same answer through applyTheme, so readAppliedTheme and the subscribers
+ * agree with it, and from here on follows the OS while the choice is 'system'.
+ */
+export function startAppTheme({
+  storage = defaultStorage(),
+  host = defaultHost(),
+  root = defaultRoot(),
+}: ThemeEnvironment = {}): void {
+  activate(readThemePreference(storage), host, root);
+}
+
+// @req FR-UIDS-020 AC-2
+// @req FR-UIDS-020 AC-3
+// @req FR-UIDS-020 AC-4
+/**
+ * The settings card's choice: stored for the next visit and applied to this page at once.
+ * Where the storage refuses the write the choice still holds for this page, and the next
+ * visit starts dark.
+ */
+export function setThemePreference(
+  preference: ThemePreference,
+  { storage = defaultStorage(), host = defaultHost(), root = defaultRoot() }: ThemeEnvironment = {},
+): void {
+  writeThemePreference(preference, storage);
+  activate(preference, host, root);
+}
+
+// @req FR-UIDS-020 AC-1
+/** The choice in effect on this page: the one made here, else the stored one (dark by default). */
+export function currentThemePreference(storage: PreferenceStorage | null = defaultStorage()): ThemePreference {
+  return activePreference ?? readThemePreference(storage);
 }

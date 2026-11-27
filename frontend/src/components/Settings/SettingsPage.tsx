@@ -50,6 +50,7 @@ import {
 } from './settingsDraftHelpers';
 import { availableLanguages, readLanguagePreference, t, writeLanguagePreference } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
+import { currentThemePreference, isThemePreference, setThemePreference, type ThemePreference } from '../../theme/appTheme';
 import { APP_VERSION } from '../../utils/appVersion.ts';
 import './SettingsPage.css';
 import { UsageLimitsForm } from '../UsageLimits/UsageLimitsForm';
@@ -143,6 +144,17 @@ export function SettingsPage({ visible, onBack }: Props) {
   const updateMobileScrollSpeed = (speed: number) => {
     setMobileScrollSpeed(speed);
     writeBrowserMobileScrollSpeed(speed);
+  };
+
+  // FR-UIDS-020: the app theme, kept in this browser and applied at once. It is not part of
+  // the draft, so choosing one neither enables Save nor asks to discard on Close.
+  // @req FR-UIDS-020 AC-1
+  // @req FR-UIDS-020 AC-3
+  const [themeChoice, setThemeChoice] = useState<ThemePreference>(currentThemePreference);
+  const chooseTheme = (value: string) => {
+    if (!isThemePreference(value)) return;
+    setThemeChoice(value);
+    setThemePreference(value);
   };
 
   const [saving, setSaving] = useState(false);
@@ -491,6 +503,21 @@ export function SettingsPage({ visible, onBack }: Props) {
                 >
                   <option value="auto">{t('settings.language.auto')}</option>
                   {Object.entries(availableLanguages()).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                </Select>
+              </SettingField>
+            </Card>
+            {/* @req FR-UIDS-020 AC-1 AC-5 */}
+            <Card title={t('settings.theme.title')} icon="settings" description={t('settings.theme.description')}>
+              <SettingField htmlFor="settings-theme" label={t('settings.theme.label')} local help={t('settings.theme.help')}>
+                <Select
+                  id="settings-theme"
+                  data-testid="settings-theme-select"
+                  value={themeChoice}
+                  onChange={(e) => chooseTheme(e.target.value)}
+                >
+                  <option value="dark">{t('settings.theme.dark')}</option>
+                  <option value="light">{t('settings.theme.light')}</option>
+                  <option value="system">{t('settings.theme.system')}</option>
                 </Select>
               </SettingField>
             </Card>
