@@ -132,6 +132,7 @@
     "./tests/unit/headerPhoneFit.test.ts",
     "./tests/unit/sidebarVersion.test.ts",
     "./tests/unit/workspaceSidebarCollapse.test.ts",
+    "./tests/unit/gridStackRows.test.ts",
     "./tests/unit/terminalPasteSanitizer.test.ts",
     "./tests/unit/retainedStatePersistenceBoundary.test.ts",
     "./tests/unit/terminalOsc52Policy.test.ts",

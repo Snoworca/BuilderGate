@@ -321,6 +321,7 @@
   "grid.toolbar.dragToMove": "끌어서 옮기기",
   "grid.toolbar.equal": "균등 분할",
   "grid.toolbar.focus": "포커스 모드",
+  "grid.toolbar.horizontal": "가로 정렬",
   "grid.toolbar.vertical": "세로 정렬",
   "header.editorWindows": "편집기 창",
   "header.editorWindows.openCount.other": "열린 문서 {count}개",

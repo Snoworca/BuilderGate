@@ -7,6 +7,7 @@ import { MosaicTile } from './MosaicTile';
 import { composerMenuOption, useSessionComposerHost } from '../Terminal/sessionComposerHost.ts';
 import { todoPanelMenuOption } from '../Todo/todoPanelStore.ts';
 import { MosaicToolbar } from './MosaicToolbar';
+import { resolveLinearLayoutToggle, resolveToolbarLayoutMode } from './gridLayoutToggle.ts';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';
 import { commandPresetApi } from '../../services/api';
@@ -24,7 +25,9 @@ import {
   buildRecoveredEqualMosaicTree,
   FOCUS_RATIO_KEY,
   FOCUS_RATIO_DEFAULT,
-  buildEqualColumnsMosaicTree,
+  buildLinearPresetMosaicTree,
+  isLinearEqualPreset,
+  type LinearEqualPreset,
   buildEqualMosaicTree,
   clampSplitPercentages,
   extractLeafIds,
@@ -259,8 +262,8 @@ export function MosaicContainer({
       const recoveredTree = sourceTree
         ? restoreLayoutWithSessionRecovery(sourceTree, ids).tree
         : buildEqualMosaicTree(ids, arrangement, metrics);
-      const equalTree = equalPreset === 'columns'
-        ? buildEqualColumnsMosaicTree(extractLeafIds(recoveredTree))
+      const equalTree = isLinearEqualPreset(equalPreset)
+        ? buildLinearPresetMosaicTree(equalPreset, extractLeafIds(recoveredTree))
         : buildRecoveredEqualMosaicTree(recoveredTree, ids, arrangement, metrics);
 
       if (mode === 'none') {
@@ -491,8 +494,8 @@ export function MosaicContainer({
     if (mode === 'none') return tree;
     if (mode === 'equal') {
       const ids = extractLeafIds(tree);
-      return preset === 'columns'
-        ? buildEqualColumnsMosaicTree(ids)
+      return isLinearEqualPreset(preset)
+        ? buildLinearPresetMosaicTree(preset, ids)
         : buildEqualMosaicTree(ids, equalArrangementRef.current, metrics);
     }
     if (mode === 'focus') {
@@ -507,12 +510,13 @@ export function MosaicContainer({
 
   const handleLayoutModeChange = useCallback(
     (mode: typeof layoutMode, focusTabId?: string, source: 'toolbar' | 'focus-sync' = 'toolbar') => {
-      const nextMode =
-        source === 'toolbar' && mode === 'focus'
-          ? (layoutMode === 'focus' && focusTarget === (focusTabId ?? null) ? 'none' : 'focus')
-          : source === 'toolbar' && layoutMode === mode
-          ? 'none'
-          : mode;
+      const nextMode = source === 'toolbar' && mode !== 'none'
+        ? resolveToolbarLayoutMode(
+          { mode: layoutMode, equalPreset, focusTarget },
+          mode,
+          focusTabId ?? null,
+        )
+        : mode;
       const nextEqualPreset = source === 'toolbar' ? 'smart' : equalPreset;
       if (source === 'toolbar' && nextMode === 'equal') {
         equalArrangementRef.current = getEqualArrangementForButtonPress();
@@ -541,18 +545,21 @@ export function MosaicContainer({
     [layoutMode, focusTarget, equalPreset, persistLayoutMode, persistFocusTarget, persistEqualPreset, mosaicTree, setMosaicTree, debouncedSave, onLayoutChange, applyModeToTree, getEqualArrangementForButtonPress],
   );
 
-  const handleColumnsLayout = useCallback(() => {
-    const nextMode = layoutMode === 'equal' && equalPreset === 'columns' ? 'none' : 'equal';
-    const nextPreset = nextMode === 'equal' ? 'columns' : 'smart';
+  // @req FR-UIDS-017 AC-3
+  const handleLinearLayout = useCallback((preset: LinearEqualPreset) => {
+    const { mode: nextMode, equalPreset: nextPreset } = resolveLinearLayoutToggle(
+      { mode: layoutMode, equalPreset, focusTarget },
+      preset,
+    );
 
     persistLayoutMode(nextMode);
     persistFocusTarget(null);
     persistEqualPreset(nextPreset);
 
-    const sourceTree = mosaicTree ?? (currentTabIds.length > 0 ? buildEqualColumnsMosaicTree(currentTabIds) : null);
+    const sourceTree = mosaicTree ?? (currentTabIds.length > 0 ? buildLinearPresetMosaicTree(preset, currentTabIds) : null);
     if (sourceTree) {
       const newTree = nextMode === 'equal'
-        ? buildEqualColumnsMosaicTree(extractLeafIds(sourceTree))
+        ? buildLinearPresetMosaicTree(preset, extractLeafIds(sourceTree))
         : sourceTree;
       setMosaicTree(newTree);
     }
@@ -567,6 +574,7 @@ export function MosaicContainer({
     currentTabIds,
     debouncedSave,
     equalPreset,
+    focusTarget,
     layoutMode,
     mosaicTree,
     onLayoutChange,
@@ -622,8 +630,8 @@ export function MosaicContainer({
   const handleTileDragEnd = useCallback((type: 'drop' | 'reset') => {
     if (type === 'drop' && layoutMode === 'equal' && lastMosaicChangeRef.current) {
       const orderedIds = extractLeafIds(lastMosaicChangeRef.current);
-      const equalized = equalPreset === 'columns'
-        ? buildEqualColumnsMosaicTree(orderedIds)
+      const equalized = isLinearEqualPreset(equalPreset)
+        ? buildLinearPresetMosaicTree(equalPreset, orderedIds)
         : buildEqualMosaicTree(
             orderedIds,
             equalArrangementRef.current,
@@ -872,7 +880,8 @@ export function MosaicContainer({
                     handleLayoutModeChange(mode, undefined, 'toolbar');
                   }
                 }}
-                onColumnsLayout={handleColumnsLayout}
+                onColumnsLayout={() => handleLinearLayout('columns')}
+                onRowsLayout={() => handleLinearLayout('rows')}
               />
             </div>
           )}
@@ -910,7 +919,7 @@ export function MosaicContainer({
       onPathContextMenu,
       onOpenGitWindow,
       handleLayoutModeChange,
-      handleColumnsLayout,
+      handleLinearLayout,
       handleTileDragEnd,
       onRestartTab,
       onAddTab,

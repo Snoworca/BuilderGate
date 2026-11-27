@@ -325,6 +325,7 @@
   "grid.toolbar.dragToMove": "Drag to move",
   "grid.toolbar.equal": "Equal split",
   "grid.toolbar.focus": "Focus mode",
+  "grid.toolbar.horizontal": "Stack horizontally",
   "grid.toolbar.vertical": "Stack vertically",
   "header.editorWindows": "Editor windows",
   "header.editorWindows.openCount.one": "{count} open document",
