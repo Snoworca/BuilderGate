@@ -35,6 +35,47 @@
   --atomic-editor-measure: min(95%, 1200px);
 }
 
+/* FR-UIDS-018 AC-7: the night editor under the light app. The vendored light
+ * palette is selected by any light ancestor, so <html data-theme="light"> would
+ * hand it to a night editor too. Each of its variables is reset to the
+ * guaranteed-invalid value here, which gives the night editor back the vendored
+ * dark defaults (the var() fallbacks), as in the dark app. The list is the
+ * vendored light block's, checked by tests/unit/lightThemeTokens.test.ts. */
+/* @req FR-UIDS-018 AC-7 */
+:root[data-theme='light'] [data-theme='dark'] .atomic-cm-editor {
+  --atomic-editor-fg: initial;
+  --atomic-editor-fg-muted: initial;
+  --atomic-editor-fg-faint: initial;
+  --atomic-editor-bg: initial;
+  --atomic-editor-bg-panel: initial;
+  --atomic-editor-bg-surface: initial;
+  --atomic-editor-border: initial;
+  --atomic-editor-accent: initial;
+  --atomic-editor-accent-bright: initial;
+  --atomic-editor-accent-soft: initial;
+  --atomic-editor-link: initial;
+  --atomic-editor-link-hover: initial;
+  --atomic-editor-code-bg: initial;
+  --atomic-editor-initial-reveal-bg: initial;
+  --atomic-editor-initial-reveal-bg-strong: initial;
+  --atomic-editor-selection-bg: initial;
+  --atomic-editor-search-bg: initial;
+  --atomic-editor-search-bg-active: initial;
+  --atomic-editor-hl-keyword: initial;
+  --atomic-editor-hl-string: initial;
+  --atomic-editor-hl-number: initial;
+  --atomic-editor-hl-comment: initial;
+  --atomic-editor-hl-type: initial;
+  --atomic-editor-hl-function: initial;
+  --atomic-editor-hl-property: initial;
+  --atomic-editor-hl-regexp: initial;
+  --atomic-editor-hl-escape: initial;
+  --atomic-editor-hl-tag: initial;
+  --atomic-editor-hl-variable: initial;
+  --atomic-editor-hl-operator: initial;
+  --atomic-editor-hl-invalid: initial;
+}
+
 /* FR-MDE-032: on a desktop a table fits the reading column and its cells wrap. The vendor's
  * `max-content` is kept for a phone (the media block below), where the wrapper scrolls sideways. */
 .editor-window-surface .cm-atomic-table table {

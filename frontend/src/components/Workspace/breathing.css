@@ -34,10 +34,13 @@
   transition: border-color 0.3s ease;
 }
 
-/* --- Focused: white border --- */
+/* --- Focused: white border ---
+ * --tile-focus: white on the dark terminal, near-black on the light one
+ * (FR-UIDS-019). */
+/* @req FR-UIDS-018 AC-4 */
 
 .grid-cell:has(.terminal-view.terminal-focused)::after {
-  border-color: #ffffff;
+  border-color: var(--tile-focus);
   border-width: 1px;
   transition: border-color 0.15s ease;
 }
@@ -58,7 +61,7 @@
 /* --- User typing suppresses activity, reverts to white --- */
 
 .grid-cell:has(.terminal-view.terminal-focused.user-active)::after {
-  border-color: #ffffff;
+  border-color: var(--tile-focus);
   border-width: 1px;
   transition: border-color 0.3s ease;
 }
@@ -80,7 +83,7 @@
 }
 
 .terminal-running:not(.grid-cell) .terminal-view.terminal-focused {
-  border-color: #ffffff !important;
+  border-color: var(--tile-focus) !important;
   box-shadow: none;
   transition: border-color 0.15s ease !important;
 }

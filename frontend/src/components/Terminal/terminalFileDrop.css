@@ -13,10 +13,12 @@
   pointer-events: none;
 }
 
+/* FR-UIDS-019 AC-3: the backing is a token, darker under the light theme, so the
+   yellow text keeps 4.5:1 over a white terminal. */
 .terminal-file-drop-overlay-label {
   padding: 8px 16px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--file-drop-label-bg);
   color: #ffd600;
   font-size: 15px;
   font-weight: 600;

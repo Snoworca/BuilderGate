@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-27T09:07:01.332Z",
+  "generatedAt": "2026-11-27T14:28:45.644Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "9f970857ea7c2b342d9075881d369ab0d163a28f2e705edda98b1b7743f28283",
+    "value": "99c715d10d2649d3b4eac8c50067afc4b7de8a15d1af5f5dbedbecea4f4ef3d7",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -38,9 +38,9 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "d0b5ed317870ada005a98d41473d2354c004bfb592f3bf70398f9a61eea56117",
-        "size": 336787,
-        "mtimeMs": 1795752010744.554
+        "sha256": "4e626fbc00d7cf9442f5605d646cc7c2cf7eb01994dab8d0afd6403f423f5008",
+        "size": 336944,
+        "mtimeMs": 1795772563042.8818
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
@@ -56,9 +56,9 @@
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "9393c9d7abdc0f03a7115cd7aee7873a36c3d5710d5f99b245073be195ad5fdf",
-        "size": 58733,
-        "mtimeMs": 1795770412473.388
+        "sha256": "2733fa622c513d5123740eefaa25eb2ec7ca993100b92243e33494b3732bd29a",
+        "size": 71034,
+        "mtimeMs": 1795789708377.6138
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
@@ -94,7 +94,7 @@
         "path": "docs/spec/50.messenger.srs.md",
         "sha256": "f73a9027f6ca276a71886ede404f2106af7a1b032823decc5a9a846802151d7a",
         "size": 51508,
-        "mtimeMs": 1795770412329.7869
+        "mtimeMs": 1795770557502.2715
       },
       {
         "path": "docs/spec/51.session-composer.srs.md",
@@ -104,9 +104,9 @@
       },
       {
         "path": "docs/spec/52.todo-panel.srs.md",
-        "sha256": "d21d4afe5eadb6008a152b41ce53a41969487e2c749753e053d8ebfc0cb7795c",
-        "size": 28116,
-        "mtimeMs": 1795764955975.9478
+        "sha256": "747a8f5b9592873620d4caeca30dd4a8ee55b24e418e88a92d7b4f653581053c",
+        "size": 28486,
+        "mtimeMs": 1795789723692.48
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -125,7 +125,7 @@
       "MDE": 34,
       "FEX": 33,
       "FOP": 8,
-      "UIDS": 17,
+      "UIDS": 20,
       "MKB": 15,
       "GIT": 13,
       "LOOP": 8,

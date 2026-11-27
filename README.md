@@ -389,6 +389,8 @@ BuilderGate works in a phone browser too.
 
 Settings holds everything that can change without a restart: session duration, password change, 2FA, skip login on this PC, CORS, terminal, session auto save, resource limits. The header shows the running version. **Language** switches the UI between Automatic (browser language: Korean if the browser is Korean, otherwise English), English and 한국어; the choice is stored per browser.
 
+**Theme** picks Dark (the default), Light or Follow system setting; it is stored per browser and applies at once, terminals included. Terminal programs that paint their own 24-bit backgrounds keep them in the light theme. Claude Code does this with its default (dark) theme: the message line and the diff lines stay dark. For a light screen, choose **Light mode** in Claude Code's `/theme`. That setting applies to Claude Code everywhere on the PC, and Light mode draws its text black, so switch Claude Code back to **Dark mode** when you go back to the dark theme; otherwise the text is hard to read. **Light mode (ANSI colors only)** does not fit: its message line uses ANSI white, which BuilderGate's light palette draws dark. **Auto (match terminal)** decides when Claude Code starts, from the terminal's answer to a colour query; on Windows such answers did not reach console programs in our test, so Auto is not confirmed to pick the light theme there.
+
 ### Two-factor authentication
 
 TOTP (Google Authenticator, 1Password, Authy, …). Enable it in Settings or in `config.json5` (`twoFactor.enabled: true`). In daemon mode, when a secret still has to be registered, the parent launcher prints the QR code and manual key to the console once, **before detach**; in `--foreground` mode the server prints the QR itself. `externalOnly: true` asks for the code only for non-localhost access. To re-register, stop the daemon, delete `runtime/totp.secret` and start again.
@@ -829,6 +831,8 @@ BuilderGate 는 재시작이나 비정상 종료 뒤에 터미널을 되살립�
 ![설정](docs/images/readme/ko-settings.png)
 
 설정 화면에는 재시작 없이 바꿀 수 있는 항목이 모여 있습니다. 세션 유지 시간, 비밀번호 변경, 2단계 인증, 이 PC 에서 로그인 건너뛰기, CORS, 터미널, 세션 자동 저장, 자원 한도가 있습니다. 헤더에는 실행 중인 버전이 나옵니다. **언어**는 자동(브라우저 언어가 한국어면 한국어, 아니면 영어), English, 한국어 중에서 고르며, 선택은 브라우저별로 저장됩니다.
+
+**테마**는 다크(기본), 라이트, 시스템 설정 따름 중에서 고르며, 브라우저별로 저장되고 터미널까지 바로 바뀝니다. 터미널 프로그램이 24비트 색으로 직접 칠한 배경은 라이트에서도 그대로 남습니다. Claude Code 기본(다크) 테마가 그런 경우로, 사용자 메시지 줄과 diff 줄이 어둡게 남습니다. 밝게 보려면 Claude Code 의 `/theme` 에서 **Light mode** 를 고르세요. 이 설정은 BuilderGate 안만이 아니라 그 PC 의 Claude Code 전체에 적용되고, Light mode 는 글자를 검게 칠하므로 다크 테마로 돌아올 때는 Claude Code 도 **Dark mode** 로 되돌려야 글자가 읽힙니다. **Light mode (ANSI colors only)** 는 메시지 줄을 ANSI 흰색으로 칠하는데 BuilderGate 라이트 팔레트는 그 색을 어둡게 그리므로 맞지 않습니다. **Auto (match terminal)** 는 Claude Code 를 시작할 때 터미널에 배경색을 물어 정하는데, Windows 시험에서는 그런 응답이 콘솔 프로그램에 닿지 않았으므로 거기서 라이트를 고른다고 확인되지 않았습니다.
 
 ### 2단계 인증
 

@@ -1,14 +1,16 @@
 /* The font size readout over the terminal while zooming. Terminal/ keeps its
  * look (FR-UIDS-004 AC-6), so each value below is the one it had: the tokens
- * name the same numbers, and the 24px display size and the white-on-scrim pair
- * stay literal because the scales hold no equal of either. */
+ * name the same numbers, and the 24px display size stays literal because the
+ * type scale holds no equal of it. The white-on-scrim pair is --toast-bg and
+ * --toast-fg, the same in either theme (FR-UIDS-018). */
 .font-size-toast {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  /* @req FR-UIDS-018 AC-4 */
+  background-color: var(--toast-bg);
+  color: var(--toast-fg);
   padding: var(--sp-4) var(--sp-6);
   border-radius: var(--r-md);
   font-size: 24px;

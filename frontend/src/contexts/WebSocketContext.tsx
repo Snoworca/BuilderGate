@@ -88,7 +88,11 @@ import { fromJsonOutputMessage } from '../utils/terminalOutputDelivery';
 import type { TerminalOutputDelivery } from '../utils/terminalOutputDelivery';
 import { sendOpenBrowserWebSocketMessage } from '../utils/webSocketBackpressure';
 import { createDeliveryVisibilityLedger, type DeliveryVisibilityLedger } from '../utils/terminalDeliveryVisibilityLedger';
-import { respondToTerminalAuthorityViewAttributeCapability } from '../utils/terminalViewAttributes';
+import {
+  createTerminalViewAttributesPin,
+  respondToTerminalAuthorityViewAttributeCapability,
+} from '../utils/terminalViewAttributes';
+import { readAppliedTheme } from '../theme/appTheme';
 import {
   createRecoveryReconnectGate,
   createSessionResubscribeFence,
@@ -378,6 +382,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   });
   const retainedMutationLeasesRef = useRef<Map<string, RetainedTerminalMutationLease>>(new Map());
   const controlConnectionIdRef = useRef<string | null>(null);
+  // @req FR-UIDS-019 AC-4
+  const [terminalViewAttributesPin] = useState(() => createTerminalViewAttributesPin(readAppliedTheme));
   const controlSocketEnqueueOrdinalRef = useRef(0);
   const terminalDeliveryCapabilityRef = useRef<{
     accepted: boolean;
@@ -442,6 +448,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         expectedControlSocketId: controlSocketId,
         afterEnqueueOrdinal: controlSocketEnqueueOrdinalRef.current,
       }),
+      registration => terminalViewAttributesPin.resolve(controlSocketId, registration),
     );
     for (const failure of response.failures) {
       recordTerminalDebugEvent(failure.sessionId, 'terminal_view_attributes_push_failed', {
@@ -449,7 +456,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         viewGeneration: failure.viewGeneration,
       });
     }
-  }, []);
+  }, [terminalViewAttributesPin]);
 
   // @req REL-BGSTAB-012 AC-1 AC-7
   const flushTerminalDeliveryVisibility = useCallback((): void => {
@@ -753,6 +760,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
               expectedControlSocketId: controlSocketId,
               afterEnqueueOrdinal: controlSocketEnqueueOrdinalRef.current,
             }),
+            registration => terminalViewAttributesPin.resolve(controlSocketId, registration),
           );
           for (const failure of response.failures) {
             recordTerminalDebugEvent(failure.sessionId, 'terminal_view_attributes_push_failed', {
@@ -1126,6 +1134,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     listNegotiatedTerminalCheckpointViews,
     requestCurrentTerminalCheckpointCapability,
     terminalResponderHandoffState,
+    terminalViewAttributesPin,
   ]);
   handleMessageRef.current = handleMessage;
 

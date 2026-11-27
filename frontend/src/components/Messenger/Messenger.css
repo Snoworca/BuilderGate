@@ -1,4 +1,6 @@
 /* FR-MSG-013: the messenger window and its dialogs (docs/design/messenger.html). */
+/* The colours are tokens from tokens.css, which the light theme re-binds (FR-UIDS-018). */
+/* @req FR-UIDS-018 AC-4 */
 .msgr {
   position: relative;
   display: flex;
@@ -92,7 +94,7 @@
   font-weight: var(--fw-bold);
 }
 .msgr-room-u-mention { background: var(--danger-fill); }
-.msgr-room-u-hold { background: var(--warn); color: #1b1b1b; }
+.msgr-room-u-hold { background: var(--warn); color: var(--msgr-on-warn); }
 .msgr-contact { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: var(--fs-xs); min-width: 0; }
 .msgr-contact-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msgr-contact-state { margin-left: auto; font-size: 10px; white-space: nowrap; }
@@ -150,7 +152,7 @@
   height: 30px;
   flex: none;
   border-radius: 50%;
-  color: #1a1a1a;
+  color: var(--msgr-av-fg);
   font-size: 11px;
   font-weight: var(--fw-bold);
 }
@@ -215,10 +217,10 @@
 .msgr-lan-port { display: inline-flex; gap: 4px; align-items: center; font-size: var(--fs-2xs); }
 .msgr-lan-port .ui-input { width: 72px; }
 .msgr-lan-allow-list { width: 100%; font-family: var(--font-mono); resize: vertical; }
-.msgr-banner-warn { border: 1px solid rgba(216, 165, 52, 0.5); background: rgba(216, 165, 52, 0.1); color: #f0d38f; }
-.msgr-banner-warn b { color: #ffe2a0; }
-.msgr-banner-info { border: 1px solid rgba(108, 182, 255, 0.45); background: rgba(108, 182, 255, 0.08); color: #cfe3f7; }
-.msgr-banner-info b { color: #e6f1ff; }
+.msgr-banner-warn { border: 1px solid var(--msgr-warn-line); background: var(--msgr-warn-bg); color: var(--msgr-warn-fg); }
+.msgr-banner-warn b { color: var(--msgr-warn-strong); }
+.msgr-banner-info { border: 1px solid var(--msgr-info-line); background: var(--msgr-info-bg); color: var(--msgr-info-fg); }
+.msgr-banner-info b { color: var(--msgr-info-strong); }
 
 /* ---------- composer ---------- */
 .msgr-composer { position: relative; flex: none; padding: 8px 10px 10px; border-top: 1px solid var(--line); }
@@ -278,7 +280,7 @@
 .msgr-pk mark { background: transparent; color: var(--accent-text); font-weight: var(--fw-bold); }
 .msgr-pk-name.is-person { font-weight: var(--fw-semibold); color: var(--fg-strong); }
 .msgr-pk-sub { margin-left: auto; font-size: var(--fs-2xs); color: var(--fg-faint); white-space: nowrap; }
-.msgr-pk-ic { display: grid; place-items: center; width: 20px; height: 20px; flex: none; border-radius: 50%; color: #1a1a1a; font-size: 10px; font-weight: var(--fw-bold); }
+.msgr-pk-ic { display: grid; place-items: center; width: 20px; height: 20px; flex: none; border-radius: 50%; color: var(--msgr-av-fg); font-size: 10px; font-weight: var(--fw-bold); }
 .msgr-pk-term { border-radius: 4px; border: 1px solid var(--line-strong); background: var(--bg-sunken); color: var(--who-local); }
 .msgr-pk-term.is-remote { color: var(--who-remote); }
 .msgr-crumb { display: flex; gap: 6px; align-items: center; margin-bottom: 2px; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: var(--fs-2xs); color: var(--fg-muted); }
@@ -300,8 +302,8 @@
 .msgr-pick-name { min-width: 0; overflow-wrap: anywhere; }
 .msgr-pick-cwd { display: block; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--fg-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msgr-pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-2xs); white-space: nowrap; }
-.msgr-pill-ok { color: var(--ok-text); border-color: rgba(76, 195, 138, 0.4); }
-.msgr-pill-wait { color: var(--warn-text); border-color: rgba(216, 165, 52, 0.4); }
+.msgr-pill-ok { color: var(--ok-text); border-color: var(--ok-line); }
+.msgr-pill-wait { color: var(--warn-text); border-color: var(--warn-line); }
 .msgr-pill-neutral { color: var(--fg-faint); }
 .msgr-contact-menu { margin-top: 6px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-sunken); max-height: 180px; overflow: auto; }
 .msgr-contact-pick { width: 100%; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: left; font: inherit; }

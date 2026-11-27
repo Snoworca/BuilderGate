@@ -12,8 +12,18 @@
  * These tokens and the vendored editor's --atomic-editor-* stay apart on
  * purpose. That palette belongs to a component we re-import from upstream, and
  * a reference in either direction turns the next re-import into a merge.
+ *
+ * FR-UIDS-018 adds a light theme. public/theme-boot.js puts data-theme on
+ * <html> before the first paint, and the block at the end of this file
+ * re-binds every colour of the first block for data-theme="light", except the
+ * few tests/unit/lightThemeTokens.test.ts lists as the same in either theme.
+ * A night editor keeps its colours under the light theme: the first block is
+ * also selected by [data-editor-theme="dark"] there, so the dark values apply
+ * again inside it (AC-7).
  */
 
+/* @req FR-UIDS-018 AC-1 AC-2 AC-7 */
+:root[data-theme="light"] [data-editor-theme="dark"],
 :root {
   /* Surfaces, from the furthest back to the nearest.
    *
@@ -189,6 +199,124 @@
   --who-local: #6cb6ff;
   --who-remote: #c49cf0;
   --mention-bg: rgba(108, 182, 255, 0.16);
+
+  /* ---- FR-UIDS-018 AC-4: colours the components wrote inline ----
+   * Each dark value is the literal it replaced, unchanged (AC-2), and the light
+   * block at the end re-binds it. */
+  /* @req FR-UIDS-018 AC-2 AC-4 */
+  /* Text on the --warn and --attention fills (they read --bg-app, the same #202020). */
+  --on-signal: #202020;
+  /* @req FR-UIDS-018 AC-4 — running-tab band: white brightens the tab colour on dark, black darkens it on light (FR-UIDS-009) */
+  --tab-activity-mix: #ffffff;
+  /* The panels beside a session: the todo column and the composer under it. */
+  --bg-panel: #1f1f1f;
+  --bg-well: #141414;
+  --error-text: #f87171;
+  --fg-dim: #777777;
+  --grip: #555555;
+  --grip-hover: #888888;
+  /* What a dialog, a drawer or an ended session lies under. */
+  --scrim: rgba(0, 0, 0, 0.5);
+  --scrim-dialog: rgba(0, 0, 0, 0.42);
+  --scrim-strong: rgba(0, 0, 0, 0.6);
+  --bg-veil: rgba(0, 0, 0, 0.7);
+  /* The page's scroll bars. */
+  --scrollbar-track: #1e1e1e;
+  --scrollbar-thumb: #424242;
+  --scrollbar-thumb-hover: #4f4f4f;
+  /* Under the status bar of the iOS home-screen app, which draws white text
+   * there (black-translucent) whatever the theme. */
+  --bg-standalone-inset: #1e1e1e;
+  /* The terminal grid: splitters, the space around the tiles, a drop target and
+   * the buttons floating on a tile. */
+  --split-hover: rgba(255, 255, 255, 0.1);
+  --split-line: rgba(255, 255, 255, 0.04);
+  --grid-bg: rgba(255, 255, 255, 0.03);
+  --drop-preview-bg: rgba(100, 149, 237, 0.15);
+  --drop-preview-line: rgba(100, 149, 237, 0.5);
+  --toolbar-float-bg: rgba(47, 47, 47, 0.9);
+  /* @req FR-UIDS-019 AC-3 */
+  /* The terminal and what is drawn on it: the focus frame, the toasts and the
+   * label of a file drop. --terminal-bg is the background of the xterm palette
+   * of each theme (TERMINAL_XTERM_THEME and TERMINAL_XTERM_LIGHT_THEME in
+   * utils/terminalViewAttributes.ts), so the padding around the canvas and the
+   * grid cell behind it match the terminal. */
+  --terminal-bg: #1e1e1e;
+  --tile-focus: #ffffff;
+  --toast-bg: rgba(0, 0, 0, 0.8);
+  --toast-fg: #ffffff;
+  --file-drop-label-bg: rgba(0, 0, 0, 0.6);
+  /* Messenger pills and banners, and the kind of a loop step. */
+  --ok-line: rgba(76, 195, 138, 0.4);
+  --warn-line: rgba(216, 165, 52, 0.4);
+  --msgr-on-warn: #1b1b1b;
+  --msgr-av-fg: #1a1a1a;
+  --msgr-warn-line: rgba(216, 165, 52, 0.5);
+  --msgr-warn-bg: rgba(216, 165, 52, 0.1);
+  --msgr-warn-fg: #f0d38f;
+  --msgr-warn-strong: #ffe2a0;
+  --msgr-info-line: rgba(108, 182, 255, 0.45);
+  --msgr-info-bg: rgba(108, 182, 255, 0.08);
+  --msgr-info-fg: #cfe3f7;
+  --msgr-info-strong: #e6f1ff;
+  --loop-prompt-text: #c586c0;
+  /* The session row above each terminal, and its composer toggle. */
+  --meta-bg: #2a2a2a;
+  --meta-fg: #e0e0e0;
+  --meta-fg-dim: #d7d7d7;
+  --meta-strong: #ffffff;
+  --meta-line: #555555;
+  --meta-underline: #666666;
+  --meta-copied: #22c55e;
+  --meta-copy-failed: #ef4444;
+  --meta-toggle-fg: #bdbdbd;
+  --meta-toggle-hover: #383838;
+  --meta-toggle-dot: #facc15;
+  /* The composer under a session. */
+  --composer-input-line: #3f3f3f;
+  --composer-input-fg: #e6e6e6;
+  --composer-placeholder: #6b6b6b;
+  --composer-send-off-bg: #3a3a3a;
+  --composer-drag-bg: rgba(74, 158, 255, 0.08);
+  /* The todo column (FR-TODO-002, FR-TODO-003, FR-TODO-007). */
+  --todo-fg: #dddddd;
+  --todo-resize-hover: rgba(120, 160, 255, 0.35);
+  --todo-chip-line: #444444;
+  --todo-chip-fg: #aaaaaa;
+  --todo-done-on: #7fd17f;
+  --todo-done-on-line: #4a7a4a;
+  --todo-icon: #bbbbbb;
+  --todo-empty: #888888;
+  --todo-row-hover: #2a2a2a;
+  --todo-row-selected: #2f3b52;
+  --todo-accent: #6f95e6;
+  --todo-drop-bg: #263452;
+  --todo-heading: #f0f2f5;
+  --todo-heading-done: #8a9a8a;
+  --todo-author-fg: #9aa7c0;
+  --todo-author-bg: #2a3242;
+  --todo-author-session-fg: #c7b07a;
+  --todo-author-session-bg: #3a3326;
+  --todo-tree-line: #5b6578;
+  --todo-status-hover: #2f2f2f;
+  --todo-status-ring: #3d6fa0;
+  --todo-meta: #7a8aa8;
+  --todo-action: #999999;
+  --todo-input-line: #555555;
+  --todo-input-fg: #eeeeee;
+  --todo-detail-line: #3b4a66;
+  --todo-detail-bg: #232731;
+  --todo-detail-fg: #b8c0cf;
+  --todo-detail-hover: #283040;
+  --todo-detail-hide-hover: #c8d4ee;
+  --todo-detail-edit-fg: #e4e9f2;
+  --todo-note-hidden: #8fb4ff;
+  --todo-scroll-thumb: #4a5468;
+  --todo-clear: #f08a8a;
+  /* The checked box (FR-TODO-003 AC-12). */
+  --todo-check-on-bg: #2c4058;
+  --todo-check-on-line: #3a5675;
+  --todo-check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%239fbbe0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 /* For people who would rather see more rows than hit them accurately. */
@@ -250,4 +378,191 @@
   --lane-4: #bc4c00;
   --lane-5: #57606a;
   --lane-6: #1b7c83;
+}
+
+/* FR-UIDS-018: the light theme (AC-1). public/theme-boot.js puts data-theme on
+ * <html> before the first paint (AC-6). Every colour of the first block is
+ * re-bound here, except the few tests/unit/lightThemeTokens.test.ts lists as
+ * the same in either theme. The greys and the meaning colours for text follow
+ * the paper surface above, and so do the git, diff and lane colours; --fg,
+ * --fg-strong and --fg-muted reach 4.5:1 on every background (AC-3, the ratios
+ * are printed by that test). */
+/* @req FR-UIDS-018 AC-1 AC-3 AC-4 */
+:root[data-theme="light"] {
+  /* Surfaces: light greys, the window furthest back, the wells nearest. */
+  --bg-app: #f3f3f3;
+  --bg-chrome: #ebebeb;
+  --bg-surface: #fbfbfb;
+  --bg-raised: #f1f1f1;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 120, 212, 0.14);
+  --bg-sunken: #ffffff;
+
+  --fg: #1f1f1f;
+  --fg-strong: #000000;
+  --fg-muted: #5c5c5c;
+  --fg-faint: #737373;
+
+  --line: #d6d6d6;
+  --line-strong: #bfbfbf;
+  --shadow-overlay: 2px 0 8px rgba(0, 0, 0, 0.18);
+
+  /* Meaning. --ok, --warn and --danger are also drawn as text (loop and usage
+   * dialogs), so each reaches 4.5:1 on the chrome; white on each fill is above
+   * 4.5:1 too. */
+  --danger: #c42b2b;
+  --warn: #8f5f00;
+  --ok: #18742f;
+  --attention: #bc4c00;
+  --on-signal: #ffffff;
+  --tab-activity-mix: #000000;
+
+  --accent-text: #0a5ea8;
+  --accent-tint: rgba(0, 120, 212, 0.12);
+  --ok-text: #18734b;
+  --ok-tint: rgba(26, 127, 55, 0.12);
+  --warn-text: #8a5d00;
+  --warn-tint: rgba(212, 167, 44, 0.16);
+  --danger-text: #b3261e;
+  --danger-tint: rgba(201, 54, 54, 0.1);
+
+  --lock: #c47400;
+  --lock-text: #8a4f00;
+  --lock-tint: rgba(255, 176, 46, 0.22);
+  --lock-edge: rgba(188, 108, 0, 0.6);
+  --lock-glow: rgba(212, 123, 0, 0.5);
+  --lock-hold: rgba(255, 176, 46, 0.36);
+
+  --shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.2);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  --agent-claude: #c15f3c;
+  --agent-codex: #6e6e6e;
+  --agent-hermes: #8f5f8a;
+  --agent-opencode: #2f8a8a;
+
+  --git-sel-muted: #3d3d3d;
+  --git-lineno: #636363;
+  --git-chip-hover: #e8e8e8;
+  --git-chip-active: #dedede;
+  --git-chip-warn-line: #d4a72c;
+  --git-banner-info-bg: #ddf4ff;
+  --git-banner-info-fg: #0a3069;
+  --git-banner-warn-bg: #fff8c5;
+  --git-ref-local-bg: #ddf4ff;
+  --git-ref-local-fg: #0969da;
+  --git-ref-remote-line: #8c959f;
+  --git-ref-session-bg: #fbefff;
+  --git-ref-session-fg: #7d3fc2;
+  --diff-head-bg: #f6f8fa;
+  --diff-gap-bg: #f6f8fa;
+  --diff-add-bg: #e6ffec;
+  --diff-add-word: #abf2bc;
+  --diff-del-bg: #ffebe9;
+  --diff-del-word: #ffc1bc;
+  --diff-hunk-bg: #ddf4ff;
+  --diff-hunk-fg: #0a3069;
+  --diff-empty: #f6f8fa;
+  --lane-1: #0969da;
+  --lane-2: #7d3fc2;
+  --lane-3: #1a7f37;
+  --lane-4: #bc4c00;
+  --lane-5: #57606a;
+  --lane-6: #1b7c83;
+
+  --who-human: #8a5d00;
+  --who-local: #0a5ea8;
+  --who-remote: #7d3fc2;
+  --mention-bg: rgba(9, 105, 218, 0.1);
+
+  /* The colours the components wrote inline (AC-4). */
+  --bg-panel: #f7f7f7;
+  --bg-well: #ffffff;
+  --error-text: #b3261e;
+  --fg-dim: #6e6e6e;
+  --grip: #bdbdbd;
+  --grip-hover: #8a8a8a;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrim-dialog: rgba(0, 0, 0, 0.28);
+  --scrim-strong: rgba(0, 0, 0, 0.4);
+  --bg-veil: rgba(255, 255, 255, 0.82);
+  --scrollbar-track: #f3f3f3;
+  --scrollbar-thumb: #c4c4c4;
+  --scrollbar-thumb-hover: #a6a6a6;
+  --split-hover: rgba(0, 0, 0, 0.1);
+  --split-line: rgba(0, 0, 0, 0.06);
+  --grid-bg: rgba(0, 0, 0, 0.03);
+  --toolbar-float-bg: rgba(241, 241, 241, 0.92);
+  /* @req FR-UIDS-019 AC-3 */
+  /* The white terminal: a dark focus frame, and a darker backing under the
+   * yellow file-drop label so it keeps 4.5:1 over the light canvas. */
+  --terminal-bg: #ffffff;
+  --tile-focus: #1f1f1f;
+  --file-drop-label-bg: rgba(0, 0, 0, 0.75);
+  --ok-line: rgba(26, 127, 55, 0.4);
+  --warn-line: rgba(154, 103, 0, 0.4);
+  --msgr-on-warn: #ffffff;
+  --msgr-av-fg: #ffffff;
+  --msgr-warn-line: rgba(154, 103, 0, 0.45);
+  --msgr-warn-bg: rgba(212, 167, 44, 0.14);
+  --msgr-warn-fg: #6b4800;
+  --msgr-warn-strong: #4d3300;
+  --msgr-info-line: rgba(9, 105, 218, 0.35);
+  --msgr-info-bg: rgba(9, 105, 218, 0.06);
+  --msgr-info-fg: #0a3069;
+  --msgr-info-strong: #05214d;
+  --loop-prompt-text: #7d3fc2;
+  --meta-bg: #efefef;
+  --meta-fg: #333333;
+  --meta-fg-dim: #444444;
+  --meta-strong: #111111;
+  --meta-line: #b5b5b5;
+  --meta-underline: #9a9a9a;
+  --meta-copied: #18734b;
+  --meta-copy-failed: #c42b1c;
+  --meta-toggle-fg: #555555;
+  --meta-toggle-hover: #dedede;
+  --meta-toggle-dot: #a87400;
+  --composer-input-line: #c8c8c8;
+  --composer-input-fg: #1f1f1f;
+  --composer-placeholder: #767676;
+  --composer-send-off-bg: #e0e0e0;
+  --composer-drag-bg: rgba(0, 120, 212, 0.08);
+  --todo-fg: #1f1f1f;
+  --todo-resize-hover: rgba(0, 120, 212, 0.3);
+  --todo-chip-line: #cfcfcf;
+  --todo-chip-fg: #5c5c5c;
+  --todo-done-on: #1a7f37;
+  --todo-done-on-line: #8cc79c;
+  --todo-icon: #5c5c5c;
+  --todo-empty: #6b6b6b;
+  --todo-row-hover: #ededed;
+  --todo-row-selected: #dbe8f7;
+  --todo-accent: #2f6fd0;
+  --todo-drop-bg: #e3edfb;
+  --todo-heading: #111111;
+  --todo-heading-done: #627062;
+  --todo-author-fg: #44506a;
+  --todo-author-bg: #e4e9f2;
+  --todo-author-session-fg: #6b5410;
+  --todo-author-session-bg: #f3ead3;
+  --todo-tree-line: #9ea6b5;
+  --todo-status-hover: #e0e0e0;
+  --todo-status-ring: #5a8bc2;
+  --todo-meta: #56657f;
+  --todo-action: #6b6b6b;
+  --todo-input-line: #c2c2c2;
+  --todo-input-fg: #111111;
+  --todo-detail-line: #a8b8d8;
+  --todo-detail-bg: #eef2f8;
+  --todo-detail-fg: #3a4354;
+  --todo-detail-hover: #e5ebf5;
+  --todo-detail-hide-hover: #1f3a6e;
+  --todo-detail-edit-fg: #1a2233;
+  --todo-note-hidden: #2f6fd0;
+  --todo-scroll-thumb: #b4bccb;
+  --todo-clear: #b3261e;
+  --todo-check-on-bg: #2f6fd0;
+  --todo-check-on-line: #2f6fd0;
+  --todo-check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }

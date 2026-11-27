@@ -1,4 +1,6 @@
 /* Minimal mosaic tile gaps */
+/* The colours below are tokens, which the light theme re-binds (FR-UIDS-018). */
+/* @req FR-UIDS-018 AC-4 */
 .mosaic-tile {
   margin: 0 !important;
 }
@@ -50,16 +52,16 @@
 }
 
 .mosaic-split:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--split-hover);
 }
 
 .mosaic-split .mosaic-split-line {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--split-line);
 }
 
 /* Override blueprint theme background visible around the grid. */
 .mosaic.mosaic-blueprint-theme {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--grid-bg);
 }
 
 .mosaic-window {
@@ -97,8 +99,8 @@
 }
 
 .drop-target-hover .mosaic-preview {
-  background: rgba(100, 149, 237, 0.15) !important;
-  border: 2px solid rgba(100, 149, 237, 0.5) !important;
+  background: var(--drop-preview-bg) !important;
+  border: 2px solid var(--drop-preview-line) !important;
 }
 
 /* FR-MSG-013 AC-3: this tile's session is in a messenger room. */

@@ -50,7 +50,8 @@ html.standalone-app {
    * bar (innerHeight 812 on an 874 screen) while still drawing it from the top,
    * which left the bottom strip empty. 100lvh stays the whole screen. */
   height: 100lvh;
-  background-color: #1e1e1e;
+  /* @req FR-UIDS-018 AC-4 */
+  background-color: var(--bg-standalone-inset);
   padding:
     env(safe-area-inset-top, 0px)
     env(safe-area-inset-right, 0px)
@@ -177,7 +178,7 @@ html.standalone-app .msgr-toast-host {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
   z-index: 999;
   animation: overlay-fade-in 300ms ease-out;
 }
@@ -200,21 +201,22 @@ html.standalone-app .msgr-toast-host {
   }
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling. The colours are tokens, which the light theme re-binds. */
+/* @req FR-UIDS-018 AC-4 */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #424242;
+  background: var(--scrollbar-thumb);
   border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4f4f4f;
+  background: var(--scrollbar-thumb-hover);
 }
