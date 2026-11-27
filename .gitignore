@@ -116,3 +116,5 @@ docs/srs/*/
 
 # Research notes stay local from 2026-11-04 (user instruction)
 docs/research/
+# SpecKiwi: derived status cache, rewritten on every change; never commit it (speckiwi remove takes this entry back)
+kiwi/.status.json

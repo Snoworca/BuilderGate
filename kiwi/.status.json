@@ -1,118 +1,118 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-27T00:16:46.567Z",
+  "generatedAt": "2026-11-27T01:09:13.359Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "5db92639b04a38146c4a51917c7ba495442aaf584680f1b6ef1d97cb7ee91603",
+    "value": "2c912a1fbeb43444c99aad88648afb41414386234dd0165e450940ac7bd74ce7",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "f0794afa405626086318d4e1999ec1521768c5e1b96dcd5b5f092494ad0f3917",
+        "sha256": "93b46352fb2b0d1d08ead24c0c4a337d439a36d73fad08ee2bd32de519c73dc6",
         "size": 17802,
-        "mtimeMs": 1795657213990.954
+        "mtimeMs": 1795741749564.261
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
         "sha256": "0d9b2ad50e423faf97e112c432a682aa92a114c871c522d1cca205413c32410c",
         "size": 101988,
-        "mtimeMs": 1795738606507.0857
+        "mtimeMs": 1795741720067.984
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "3cb58126b860de1eb63c7bd37540b3c8bb9595c632109e060da18ff3c33710d8",
         "size": 143124,
-        "mtimeMs": 1795657063589.978
+        "mtimeMs": 1795531552795.327
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "6df6e904e79dbdc19c0d9db5c8e879fe0add3f9d65019742e2a927a0b566f31e",
         "size": 1583404,
-        "mtimeMs": 1795657063596.5227
+        "mtimeMs": 1795741720116.731
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "804adadd45baec21b62b24c2103271fd40ea949573f28601bbfada692baf4593",
         "size": 234096,
-        "mtimeMs": 1795657063598.5273
+        "mtimeMs": 1795531552813.8618
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "60b94310049c937101521d5ea7a844184626fed721b2b3dea13b04b8019519df",
         "size": 333415,
-        "mtimeMs": 1795657063600.5278
+        "mtimeMs": 1795137661952.8093
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "c1063dfeef1c8418597d2521002aa9e0040d78bf1a14ebd0308cae396d2991ff",
         "size": 160990,
-        "mtimeMs": 1795657063601.032
+        "mtimeMs": 1795137630178.7385
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
         "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
         "size": 72202,
-        "mtimeMs": 1795657063602.7395
+        "mtimeMs": 1793201241017.768
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "5ee46f279c8c8fa45d5949db028c21e955bf2011f9710607cfb935ae6094ce1e",
         "size": 50695,
-        "mtimeMs": 1795657063603.7437
+        "mtimeMs": 1793152057513.0254
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
-        "mtimeMs": 1795657063604.7441
+        "mtimeMs": 1790475599389.271
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "455b912fbf1e37cf1dbc4ce5e0ec9f28c1a538e1d2f2595f36323424e2abecf2",
         "size": 91478,
-        "mtimeMs": 1795657063605.7466
+        "mtimeMs": 1795137602225.7744
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "d8638d2992a44f146cf0d27b5535174632232a38b806bb7020c14fec1ba1ddb4",
         "size": 43252,
-        "mtimeMs": 1795657063605.7466
+        "mtimeMs": 1793519970956.7395
       },
       {
         "path": "docs/spec/48.loop-scheduler.srs.md",
         "sha256": "3ef5110ce579a60a90778015b89ee3ecd14e2cbfecdc29aab8161133d0cdac04",
         "size": 29900,
-        "mtimeMs": 1795657063606.7444
+        "mtimeMs": 1794187859339.0327
       },
       {
         "path": "docs/spec/49.usage-limits.srs.md",
         "sha256": "2311c7bbe32b2976fd6131df77d4ce9383f56cd73d89d19c7e46406b1c9c9129",
         "size": 22975,
-        "mtimeMs": 1795657063606.7444
+        "mtimeMs": 1794838655236.8823
       },
       {
         "path": "docs/spec/50.messenger.srs.md",
         "sha256": "de36b72269282d93bca3e7cb12ca81860b54a08fd7adf101bed843373fb02f69",
         "size": 43655,
-        "mtimeMs": 1795657063607.7437
+        "mtimeMs": 1795303578687.8618
       },
       {
         "path": "docs/spec/51.session-composer.srs.md",
         "sha256": "957e1d8f97609a0ffbfb608c9acac204e9129b27c4249616c68bab80cee9f893",
         "size": 8333,
-        "mtimeMs": 1795657063607.7437
+        "mtimeMs": 1795531557102.1565
       },
       {
         "path": "docs/spec/52.todo-panel.srs.md",
         "sha256": "f4fd14cb80e27fb251003a2698dd461d40e3ec591369b3a1ac0edbdf29cf54f9",
         "size": 24694,
-        "mtimeMs": 1795657063624.9412
+        "mtimeMs": 1795413012812.475
       },
       {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
-        "mtimeMs": 1795657063626.4456
+        "mtimeMs": 1778345537159.6023
       }
     ]
   },

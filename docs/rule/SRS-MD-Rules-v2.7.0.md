@@ -1,4 +1,4 @@
-# SRS-MD Authoring Rules v2.5.0
+# SRS-MD Authoring Rules v2.7.0
 
 Subtitle: **Git-native Markdown SRS authoring rules based on an extended ISO/IEC/IEEE 29148**
 
@@ -15,7 +15,7 @@ Subtitle: **Git-native Markdown SRS authoring rules based on an extended ISO/IEC
 | Audience | developers, reviewers, maintainers, AI coding agents |
 | Primary Use | SRS authoring, review, search, status updates, implementation verification |
 | Source Format | GitHub Flavored Markdown |
-| Canonical Location | `docs/rule/SRS-MD-Rules-v2.5.0.md` |
+| Canonical Location | `docs/rule/SRS-MD-Rules-v2.7.0.md` |
 | Last Updated | 2026-05-10 |
 
 ---
@@ -104,7 +104,7 @@ To mark a requirement as `verified`, the acceptance criteria must be satisfied a
 ```text
 docs/
 ├─ rule/
-│  └─ SRS-MD-Rules-v2.5.0.md
+│  └─ SRS-MD-Rules-v2.7.0.md
 │
 ├─ spec/
 │  ├─ 00.index.md
@@ -141,7 +141,7 @@ The responsibility of each path is as follows.
 
 | Path | Responsibility |
 |---|---|
-| `docs/rule/SRS-MD-Rules-v2.5.0.md` | SRS-MD authoring, parsing, validation, agent workflow rules |
+| `docs/rule/SRS-MD-Rules-v2.7.0.md` | SRS-MD authoring, parsing, validation, agent workflow rules |
 | `docs/spec/00.index.md` | Entry point for the whole SRS document set, target list, scope document links, summary |
 | `docs/spec/*.srs.md` | Source of truth for requirements per functional scope |
 | `docs/spec/90.appendix.md` | Common terms, enums, status definitions, cross-scope map, supplementary rules |
@@ -250,7 +250,7 @@ SRS documents are authored on the basis of GitHub Flavored Markdown, hereafter G
 | Document Type | srs_index |
 | Version | 1.0.0 |
 | Active Target |  |
-| Rules | [SRS-MD Authoring Rules v2.5.0](../rule/SRS-MD-Rules-v2.5.0.md) |
+| Rules | [SRS-MD Authoring Rules v2.7.0](../rule/SRS-MD-Rules-v2.7.0.md) |
 | Last Updated | YYYY-MM-DD |
 
 ## 1. Purpose
@@ -612,6 +612,7 @@ OBS-AGENT-001
 5. When merging multiple requirements, keep one representative ID and handle the rest with `discarded` or `Superseded By`.
 6. The prefix of the ID and the `Type` in the metadata table must match.
 7. The scope segment of the ID must match a prefix registered in the Scope Map of the SRS Index.
+8. A new requirement may take a number chosen by its author, such as one parallel worktrees agreed on, provided no SRS document of the checkout has used that number in the same prefix and scope, however it is padded (`FR-AUTH-0001` is the number `FR-AUTH-001` holds); unused numbers between IDs are valid and are not reported.
 
 ---
 
@@ -760,6 +761,7 @@ To change to `verified`, all of the following conditions must be satisfied.
 5. The Verification Evidence table has at least one evidence row.
 6. The `Reference` value of the evidence row is not empty.
 7. Where possible, each AC is covered in the `Covers` column of the evidence either directly or by `all`.
+8. Every live criterion marked `[NON-TEST]` is named by an evidence row whose `Type` is not `Test` and whose `Covers` lists that criterion; `all` does not name it. The tool refuses `verified` otherwise and names the criterion.
 
 ---
 
@@ -872,6 +874,18 @@ Sections inside a Requirement Block use the following headings.
 | `#### Trace Links` | recommended | Relationships to issues, PRs, code, documents, and other requirements |
 | `#### Research / Analysis` | optional | Investigation, comparison, analysis, and experiment rationale |
 | `#### Implementation Notes` | optional | Details for the implementer to refer to |
+
+`SRS-W073` compares what a requirement says against the values the tool ships, and it reads the
+sections that state what is true now: the Requirement statement, the Acceptance Criteria, a Trace
+or evidence Reference, a Related Docs row, and anything in a spec document that no requirement block
+covers. It leaves `Rationale`, `Research / Analysis`, `Implementation Notes`, `Change Notes` and the
+Notes columns alone, because those describe what was true then — a Rationale regularly has to name
+the broken value the requirement exists to repair.
+
+That exemption is by section, not by tense. **Do not assert a current value in one of those
+sections**: write "the bundled rules document" rather than its filename, or name the constant. A
+present-tense claim written there goes unchecked, and if it carries no Markdown link the link
+checker does not see it either.
 | `#### Change Notes` | optional | A summary of the requirement change history |
 
 ### 18.2 Section Heading Rules
@@ -989,7 +1003,7 @@ Acceptance Criteria must be written as a task list.
 
 1. The `AC-{N}:` format is recommended for each item.
 2. Numbers increase from 1 within a Requirement Block.
-3. When an item in the middle is deleted, renumbering is allowed.
+3. AC numbers are never renumbered or reused. A test line or a `Covers` cell that names `AC-{N}` would otherwise bind to whatever criterion takes the number next. A criterion that stops describing intended behaviour is expired (§21.7), not deleted, and `replace_acceptance_criteria` skips every number an expired criterion holds. Validation reports two criteria with the same number in one block, live or expired, as `SRS-E078`.
 4. AC IDs may be referenced from the `Covers` column of Verification Evidence.
 
 ### 21.3 Authoring Rules
@@ -999,7 +1013,10 @@ Acceptance Criteria must be written as a task list.
 3. Where possible, include the condition, the input, and the expected result.
 4. A non-functional requirement includes a measurable criterion.
 5. In the `verified` status, every AC must be `- [x]`.
-6. Deleting an AC in order to meet the `verified` conditions is forbidden. When the criterion has changed, record the reason in `Change Notes`.
+6. Deleting an AC in order to meet the `verified` conditions is forbidden. When the criterion has changed, record the reason in `Change Notes`. Expiring an AC for that purpose is forbidden as well: expire a criterion only when it no longer describes intended behaviour.
+7. A live AC longer than 4,000 characters is reported as `SRS-W083`: it usually carries design prose or several conditions. Split it into atomic conditions with `edit_acceptance_criterion` and `append_acceptance_criterion`, and move design prose to Implementation Notes. The warning never blocks a write, and no write route refuses an AC for its length.
+8. An AC judges a result this repository produces. Another system's behaviour belongs to that system's requirement: move it there and expire the original criterion naming that requirement as successor (§21.7).
+9. A declared limitation or a scope statement is not an AC: write it in `Rationale` or `Implementation Notes`, or in the scope document's `Out of Scope`.
 
 ### 21.4 Functional Requirement AC Example
 
@@ -1023,6 +1040,37 @@ Acceptance Criteria must be written as a task list.
 - [ ] AC-2: Only hashed or encrypted values are stored in the refresh token store.
 - [ ] AC-3: When token rotation fails, the existing token becomes unusable for reuse.
 ```
+
+### 21.7 Expired Acceptance Criteria
+
+A criterion whose behaviour moved to another requirement, or was dropped, keeps its number and its text and is marked expired with the date it stopped applying:
+
+```md
+- [x] AC-1: The status can be updated.
+- [x] AC-2: ~~Evidence can be added.~~ [EXPIRED 2026-11-04 → FR-ARCH-002]
+- [ ] AC-3: ~~The legacy flag is honoured.~~ [EXPIRED 2026-11-04]
+```
+
+1. The expired marker is written and removed only by the tool: the `expire_acceptance_criterion` mutation (MCP tool `expire_acceptance_criterion`, CLI `speckiwi expire-ac <id> <acId> --reason <text> [--successor <REQ-ID>]`) writes it with the writer's local date and appends a Change Notes row `Expired AC-{N}` carrying the required reason in the same patch. No tool removes a marker, so there is no command to look for: an expired criterion stays expired. A marker typed by hand has the same grammar and is read the same way, so a hand edit bypasses the reason record; do not type one. To revive the behaviour, add a criterion with a new number and say so in `Change Notes`.
+2. The grammar is `AC-{N}: ~~<text>~~ [EXPIRED <YYYY-MM-DD>]`, or `[EXPIRED <YYYY-MM-DD> → <REQ-ID>]` naming the requirement that carries the behaviour now. The id stays in front of the strikethrough. The parser allows any spacing after `AC-{N}:`, one or more spaces between the closing `~~` and `[`, and trailing spaces; inside the brackets it requires `EXPIRED`, one space and the date, and for a successor one space, `→`, one space and the id. The date must be a real calendar day. A line that does not meet these rules is a live criterion.
+3. An expired criterion counts nowhere: not in the status conditions of §21.3, release readiness coverage or test sufficiency. A requirement always keeps at least one live criterion, so the last live criterion cannot be expired; discard or supersede the requirement instead. Expiring a criterion never requires a status change first.
+4. Its checkbox stays as it was: checking it, unchecking it or editing its text is refused.
+5. A test line that still cites an expired criterion is listed by test sufficiency as an expired citation, and is not coverage. A `Covers` cell that names one is history, not stale evidence.
+6. A successor named in the marker must be another requirement that exists and has not been withdrawn under §30. The tool refuses to write any other successor, and validation reports one found in a document as `SRS-E012`, like a dangling trace link.
+
+### 21.8 Non-test Acceptance Criteria
+
+A criterion that this repository's automated tests cannot reproduce, such as a check against a real external service or one that needs a person to look, is marked non-test:
+
+```md
+- [x] AC-3: Sign-in completes against the production authorization server. [NON-TEST]
+```
+
+1. The marker is written and removed only by the tool: `mark_acceptance_criterion_non_test` (CLI `speckiwi mark-ac-non-test <id> <acId> --reason <text>`) appends it and a Change Notes row `Marked AC-{N} non-test` carrying the required reason in the same patch, and `unmark_acceptance_criterion_non_test` (CLI `speckiwi unmark-ac-non-test`) removes it with an `Unmarked AC-{N} non-test` row. Both refuse a `verified` requirement. A marker typed by hand has the same grammar and is read the same way, so a hand edit bypasses the reason record; do not type one.
+2. The grammar is `AC-{N}: <text> [NON-TEST]`: one or more spaces and `[NON-TEST]` closing a line with text before it. Any other spelling is part of an ordinary criterion's text. A line that is also expired (§21.7) is expired only.
+3. Mark only a check this repository's automated tests cannot reproduce. A check a test could make is not a non-test criterion, whatever the test would cost to write.
+4. Test sufficiency leaves a marked criterion out of its gaps and lists it under `nonTest` with the evidence rows that name it. A row names it when its `Type` is not `Test` and its `Covers` lists the criterion; `all` does not name it (§22.3). The kind of check, such as manual, inspection or demo, is the row's `Type`, not a second marker.
+5. Rewording a marked criterion keeps the marker. Replacing all criteria of a block that holds one is refused until it is unmarked, because the replacement would drop the marker and its recorded reason.
 
 ---
 
@@ -1059,10 +1107,11 @@ Acceptance Criteria must be written as a task list.
 2. Numbers increase from 1 within a Requirement Block.
 3. Use `AC-1`, `AC-2`, `all`, or `-` in `Covers`.
 4. In the `verified` status, `Covers = all`, or having every AC covered by evidence, is recommended.
+5. `all` does not cover a criterion marked `[NON-TEST]` (§21.8): name it in `Covers` of a non-test row.
 
 ### 22.4 Evidence Reference Rules
 
-1. Write a local file as an inline code path. Example: `` `src/auth/session.ts` ``.
+1. Write a local file as an inline code path, relative to the project root. Example: `` `src/auth/session.ts` ``. A file name alone names a file at the project root and is not looked for anywhere else.
 2. Write a GitHub Issue or PR as a URL.
 3. Write a document as a Markdown link.
 4. Do not write a file path that does not exist.
@@ -1658,6 +1707,8 @@ Validation items:
 | `SRS-E074` | error | Workflow dependency blocked |
 | `SRS-E075` | error | MCP workspace root override rejected |
 | `SRS-E076` | error | Ambiguous Requirement ID reference |
+| `SRS-E077` | error | MCP server unbound |
+| `SRS-E078` | error | Duplicate acceptance criterion number |
 | `SRS-W001` | warning | Rationale section missing |
 | `SRS-W002` | warning | Target is not registered |
 | `SRS-W003` | warning | Related Docs local link missing |
@@ -1706,15 +1757,27 @@ Validation items:
 | `SRS-W070` | warning | Scope documents share a leading number |
 | `SRS-W071` | warning | Requirement heading outside a Requirements section |
 | `SRS-W072` | warning | Numbered document shares a leading number with a scope document |
+| `SRS-W073` | warning | Requirement text quotes a stale value of a shipped constant |
+| `SRS-W074` | warning | Trace link path missing |
+| `SRS-W075` | warning | Malformed Change Notes table row |
+| `SRS-W076` | warning | SRS mutation lock left after its mutation |
+| `SRS-W077` | warning | Verification Evidence covers a range of criteria |
+| `SRS-W078` | warning | Dependency stated only in prose |
+| `SRS-W079` | warning | PRD reference names a missing file or item |
+| `SRS-W080` | warning | depends_on Trace Link row names no requirement |
+| `SRS-W081` | warning | Trace Link row points at a discarded requirement |
+| `SRS-W082` | warning | Verification Evidence reference does not resolve yet |
+| `SRS-W083` | warning | Acceptance criterion is longer than the threshold |
 
 This table lists every code `validate-spec` can emit, and only those. A code the runtime cannot produce is not listed, because a listed code reads as an enforced check.
 
-Two surfaces report findings that this table does not cover, and neither is a gap in it:
+Three surfaces report findings that this table does not cover, and none is a gap in it:
 
 - Release readiness returns its findings as typed result fields rather than as codes. An empty release target arrives as a blocking reason, and coverage gaps, missing evidence references, command evidence policy violations and broken trace links arrive as `acCoverageGaps`, `missingEvidenceReferences`, `commandEvidencePolicyViolations` and `brokenTraceLinks`, which is also what its `ready` flag is computed from.
-- Step validation reports step-scoped advisories, which `validate-spec` never produces. Two of them are `SRS-` codes and so are registered and listed in the table above — `SRS-W044` for a step requirement that shadows a body requirement id, and `SRS-W045` for a step carrying too many requirements — even though the row belongs to step validation rather than to `validate-spec`. The rest live in namespaces this table does not cover: `STEP_DIRECT_CONFLICT` for two active steps on one requirement, `SDS-W050` through `SDS-W053` for step design advisories, and `STEP_PROMOTE_NO_EVIDENCE` when a step is promoted without evidence outside `tdd` mode.
+- Step validation reports step-scoped diagnostics, which `validate-spec` never produces. Most of them are advisories and one is not: `STEP_ACCEPTANCE_MISSING` is raised at `error` severity when a `tdd` step has no authored `design.md` and its `intent.md` carries no `## Acceptance` section with an `AC-<n>: WHEN … SHALL …` line, and it fails the `speckiwi step validate` exit code. Two of the advisories are `SRS-` codes and so are registered and listed in the table above — `SRS-W044` for a step requirement that shadows a body requirement id, and `SRS-W045` for a step carrying too many requirements — even though the row belongs to step validation rather than to `validate-spec`. The rest live in namespaces this table does not cover: `STEP_DIRECT_CONFLICT` for two active steps on one requirement, `SDS-W051` through `SDS-W053` for step design advisories, `STEP_ACCEPTANCE_MISSING` for a step without a written acceptance contract, and `STEP_PROMOTE_NO_EVIDENCE` when a step is promoted without evidence outside `tdd` mode.
+- The roadmap check reads `docs/roadmap.md`, which `validate-spec` never reads, and reports `ROADMAP-` codes. They are registered, so `explain` resolves them, and they are listed in Appendix A rather than here.
 
-In the v1.2.0 hardening target, the diagnostic code table above is aligned with the code-level diagnostic registry through a contract-tested or generated relationship. A registry entry must include the code, severity, title, message template, source rule, and since values, and every code in the `SRS-` namespace that any surface emits must be registered, which is why step validation's two `SRS-` advisories appear above. The `SDS-` and `STEP_` namespaces are outside this contract and are not required to be registered.
+In the v1.2.0 hardening target, the diagnostic code table above is aligned with the code-level diagnostic registry through a contract-tested or generated relationship. A registry entry must include the code, severity, title, message template, source rule, and since values, and every code in the `SRS-` namespace that any surface emits must be registered, which is why step validation's two `SRS-` advisories appear above. The `SDS-` and `STEP_` namespaces are outside this contract and are not required to be registered. The `ROADMAP-` namespace is registered as well, and its codes are aligned with Appendix A instead of this table.
 
 In the v1.2.0 hardening target, index consistency diagnostics are extended as well. A duplicate Target Map target, a duplicate Scope Map prefix, multiple active target rows, a missing scope document file, an unregistered `.srs.md` file, Status Summary drift, and Requirement Type Summary drift must be reported as diagnostics.
 
@@ -2058,88 +2121,96 @@ This document takes the following public documents as its reference basis.
 
 ## 40. AGENTS.md / CLAUDE.md Additional Statements
 
-Add the managed block below to `AGENTS.md`, `CLAUDE.md`, or both at the repository root. When the existing block has a different version or a legacy unversioned heading, replace everything from the heading through the suffix marker with the current block.
+`speckiwi init` writes a managed SpecKiwi workflow block into `AGENTS.md`, `CLAUDE.md`, or both at the repository root, and `speckiwi upgrade` and `speckiwi doctor --fix` refresh it. The block runs from its versioned SpecKiwi SRS workflow heading through its end marker. When the existing block differs from the one the installed tool renders, or carries a legacy unversioned heading, the tool replaces everything from the heading through the end marker.
 
-This block is managed by `speckiwi init`. The copy reproduced below is a reference snapshot, so when it differs from the tool output, the tool output is authoritative.
-
-```md
-# SpecKiwi SRS workflow v1.9
-
-This repository uses `docs/spec/` as the required source of truth for requirements.
-
-Before making any code, test, CLI, MCP, or documentation change, agents MUST:
-1. Read `docs/spec/00.index.md`.
-2. Find the relevant Requirement ID in the scope SRS files.
-3. Mention the Requirement ID in the work summary.
-4. If no matching requirement exists, stop and ask whether to create/update an SRS requirement first.
-
-Requirement metadata has two separate lifecycle fields:
-- `Status` tracks implementation and verification progress.
-- `Stability` tracks requirement maturity and change-control maturity.
-
-Agents MUST stop before implementing a non-discarded requirement with `Stability=draft` or `Stability=deprecated` unless the user explicitly overrides that workflow.
-
-TDD principle:
-- Agents MUST follow TDD for behavior changes: write or update a failing automated test for the relevant Requirement ID before implementation, make the smallest change to pass, then refactor while keeping tests green.
-- If no meaningful automated test can be written, agents MUST stop before implementation and explain the exception and alternative verification evidence.
-
-Work-mode and the TDD First (tdd) workflow:
-1. Before starting work, read the persisted work-mode with the MCP `get_work_mode` tool, or CLI `speckiwi mode` when MCP is unavailable (stored in `docs/spec/steps/state.md`). When no mode is set the mode is wait and the sdd (SRS-first) rules in this document apply.
-2. Switch modes with the MCP `set_work_mode` tool (mode plus an optional activeTask for vibe/tdd) or CLI `speckiwi mode <value>`. Any mode may switch to any other of sdd, vibe, wait, and tdd; switching to sdd or wait drops a stale Active Task line, and an out-of-enum value is rejected with INVALID_MODE.
-3. When the mode is `tdd`, step-scoped work follows the TDD First cycle: author the step SDS at `docs/spec/steps/<task>/design.md` per the installed SDS-MD Authoring Rules (`docs/rule/SDS-MD-Rules-v2.5.0.md`) with EARS acceptance contracts (SDS-AC), translate the SDS-ACs into failing tests and confirm they fail, implement the smallest change to green, run regression, then synthesize the step SRS and promote the step requirement with verification evidence.
-4. tdd gates (all mandatory): do not write tests before the step's SDS exists; commit tests first and never weaken a test to reach green; never promote a step requirement without verification evidence.
-5. In tdd mode the rule "do not implement behavior not covered by an SRS requirement" is satisfied for step-scoped work by the agreed SDS plus the mandatory post-hoc promotion; body-scope work keeps the sdd rules in this document.
-6. Edits to existing body requirements and large architecture changes stay in sdd mode — never route them through a tdd step.
-
-Scope SRS document naming:
-1. A scope SRS document is named `docs/spec/{NN}.{scope-slug}.srs.md`, where `{NN}` is a two-digit ordering number. The full rules are in `docs/rule/SRS-MD-Rules-v2.5.0.md` §5.2.
-2. Allocate `{NN}` as one above the highest number already present among the project's scope documents. The first scope document of a project is `01`, the next `02`. Do not number by tens.
-3. Never reuse a number another scope document holds, and never renumber an existing document.
-4. Prefer `speckiwi scaffold-scope <Name>:<PREFIX> --apply`, which allocates the number and registers the document in both index sections in one operation, over writing the file and the index rows by hand.
-
-Agents MUST NOT:
-- Implement behavior that is not covered by an SRS requirement.
-- Create an alternate requirements source outside `docs/spec/`.
-- Change requirement IDs manually.
-- Mark requirements as verified without evidence.
-- Introduce or invoke bulk-archive / bulk-finalize tooling that flips multiple requirements to `verified` or empties Active Target without per-requirement evidence and stability gate checks.
-
-When SpecKiwi MCP tools are available, agents MUST use them for requirement lookup and safe SRS updates. If MCP is unavailable, use the `speckiwi` CLI.
-
-Current work status workflow:
-1. Read the active target with MCP `get_active_target`, or CLI `speckiwi active-target --json` if MCP is unavailable.
-2. If `activeTarget` is empty, report that no active target is set and ask which target to use before making target-scoped changes.
-3. Read `summary.countsByStatus`, `summary.countsByStability`, `summary.stabilityBlockers`, `summary.stabilityWarnings`, and `summary.newWorkCandidates` before selecting work.
-4. Read open work with MCP `list_requirements` for `status=in_progress`, `status=blocked`, and `status=implemented`; CLI fallback is `speckiwi list --status <status> --json`.
-5. Check missing verification evidence through `summary` or MCP `summarize_target` before saying work is complete.
-6. Read recent completed work with MCP `list_completed_work`; CLI fallback is `speckiwi completed-work --json`.
-
-Next target authoring workflow:
-1. If the user asks to set the next target, first read the current Active Target and Target Map.
-2. If the target is not registered, use a supported target-registration mutation such as MCP `set_active_target` with creation support, or CLI `speckiwi set-active-target <target> --create` when that option is available.
-3. If the configured MCP/CLI cannot register the target, stop before target-scoped SRS changes and report the tool gap, unless the user explicitly authorizes a minimal SRS-MD patch.
-4. After target assignment, confirm the resolved Active Target with MCP `get_active_target`, or CLI `speckiwi active-target --json` if MCP is unavailable.
-5. When the user provides a target goal, record it with MCP `set_target_goal`, or CLI `speckiwi set-target-goal <target> --goal <text>` if MCP is unavailable.
-6. For later SRS creation, omit the target only when the tool supports Active Target defaulting; otherwise pass the confirmed Active Target explicitly.
-7. If the user provides an explicit different target for a requirement, the explicit target wins over Active Target.
-
-Merge-time duplicate Requirement ID repair workflow:
-1. Run `speckiwi validate --json` or MCP `validate_spec` first. Use repair only when `SRS-E002` duplicate Requirement ID diagnostics exist, or when a named duplicate ID is confirmed in parsed diagnostics.
-2. Resolve normal Git conflict markers before repair. Then run MCP `diagnose_requirement_id_collisions` or CLI `speckiwi repair requirement-id-collisions diagnose --json`.
-3. Select explicit keep and rename occurrences by `filePath`, `headingLine`, and `blockHash`. A duplicate ID alone is never enough to write.
-4. Create a dry-run plan with MCP `plan_requirement_id_collision_repair` or CLI `speckiwi repair requirement-id-collisions plan --duplicate-id <id> --keep <file:line:blockHash> --rename <file:line:blockHash> [--replacement-id <id>|--allocate-next] --write-plan <path> --json`.
-5. Apply only from the explicit plan or equivalent explicit mapping with MCP `apply_requirement_id_collision_repair` or CLI `speckiwi repair requirement-id-collisions apply --plan <path> --json`. `--ignore-lock` is allowed only on apply and bypasses only the SRS mutation lock.
-6. Do not use collision repair for general renumbering, gap filling, ID beautification, bulk archive, bulk finalize, or Status/Stability changes. When two duplicate logical requirements should be merged or discarded, first repair IDs to uniqueness, then use separate guarded SRS mutations for discard, supersedes, Status, Stability, AC, or evidence changes.
-7. When implemented runtime CLI or MCP repair tooling is available, do not hand-edit Requirement IDs. If tooling is unavailable and the user explicitly authorizes a degraded SRS-MD patch, limit it to the selected occurrence and explicitly mapped references.
-8. Finish with `speckiwi validate --fail-on-warning --json`, `speckiwi summary --target <target> --json`, and `speckiwi links check --json` or MCP equivalents. Evidence must show duplicate IDs are zero and ambiguous references were reported or explicitly mapped.
-
-The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split history file `docs/spec/91.completed-work-log.md` — is a read-only summary for agents. Requirement Block status, Acceptance Criteria, Verification Evidence, and Change Notes remain the source of truth for completion.
-
-<!-- /SpecKiwi SRS workflow -->
-```
+This document carries no copy of the block, because a copy drifts from the tool. Read the block in the repository's `AGENTS.md` or `CLAUDE.md`; `speckiwi doctor` warns when it differs from the installed tool's output.
 
 ---
 
 ## 41. Document End
 
-This document is the reference document for SRS-MD Authoring Rules v2.5.0. Detailed enums, scope prefixes, and target naming that suit each repository's situation may be extended in `docs/spec/00.index.md` and `docs/spec/90.appendix.md`. However, the Requirement Block heading format, the metadata table, the status meanings, and the Acceptance Criteria, Verification Evidence, and Trace Links rules must be kept for compatibility.
+This document is the reference document for SRS-MD Authoring Rules v2.7.0. Detailed enums, scope prefixes, and target naming that suit each repository's situation may be extended in `docs/spec/00.index.md` and `docs/spec/90.appendix.md`. However, the Requirement Block heading format, the metadata table, the status meanings, and the Acceptance Criteria, Verification Evidence, and Trace Links rules must be kept for compatibility.
+
+---
+
+## Appendix A. Roadmap Document
+
+A project may keep one roadmap document, `docs/roadmap.md`, outside `docs/spec`. It is a plan record, not a requirement source: it groups targets and requirements into milestones and features and records when that work is planned and when it actually started and ended. No requirement query or mutation reads it, `speckiwi init` does not create it, and the roadmap tools create it with its banner on their first `add`.
+
+The roadmap holds no requirement status, no target status, no target goal, no acceptance criterion and no requirement statement. What to build is decided by the SRS, and each item's status, acceptance-criterion progress and schedule health are computed from the SRS and the Target Map, never written. Only `paused` and `cancelled` are written by hand, through `Lifecycle`. An item that names exactly one target and whose Purpose is `-` is shown with that target's goal.
+
+### A.1 Item Heading
+
+Each item starts with a heading outside a code fence:
+
+```markdown
+### RM-<n> — <title>
+```
+
+It must match `^### (RM-([1-9]\d*)) — (\S.*)$`, with an em dash between the ID and the title. Item numbers are 1..N in document order, without a gap or a duplicate. The roadmap tools allocate the next number and never delete, reuse or renumber an item; an item is closed by setting `Lifecycle` to `cancelled` and stays in the document.
+
+### A.2 Metadata Table
+
+The heading is followed by a `| Field | Value |` table holding every row below. `-` is the empty value, and a list holds entries separated by `, `.
+
+| Field | Value forms |
+|---|---|
+| `Kind` | `milestone` or `feature`; a feature may belong to a milestone, and a milestone belongs to nothing |
+| `Milestone` | `-`, or the ID of a `milestone` item; a milestone item has `-` |
+| `Targets` | `-`, or a list of Target Map target names |
+| `Requirements` | `-`, or a list of Requirement IDs |
+| `PRD` | `-`, or a list of PRD file paths `docs/prd/<file>.prd.md` |
+| `Depends On` | `-`, or a list of item IDs |
+| `Owner` | `-`, or free text |
+| `GitHub Issue` | `-`, or a list such as `#12, #15` |
+| `Planned Start` | `-`, `YYYY-MM-DD`, `YYYY-MM` or `YYYY-Qn` |
+| `Planned End` | `-`, `YYYY-MM-DD`, `YYYY-MM` or `YYYY-Qn` |
+| `Actual Start` | `-` or `YYYY-MM-DD` |
+| `Actual End` | `-` or `YYYY-MM-DD` |
+| `Lifecycle` | `open`, `paused` or `cancelled` |
+
+A month or a quarter stands for the day range it covers. Two dates are compared on those ranges, and one is earlier than another only when its whole range ends before the other's begins.
+
+### A.3 Sections
+
+After the table an item may carry these sections, each once and in any order:
+
+- `#### Purpose` — why the item exists, or `-`.
+- `#### Description` — free prose.
+- `#### Features` — a list of what the item delivers, without acceptance criteria.
+- `#### Change History` — the record of every change the roadmap tools made.
+
+### A.4 Change History
+
+```markdown
+| Date | Field | From | To | Reason |
+|---|---|---|---|---|
+| 2026-11-04 | Created | - | - | Planned for the 5.3 release |
+| 2026-11-10 | Planned End | 2026-11-20 | 2026-11-27 | Review took a week longer |
+```
+
+Each row has the five cells `Date` (`YYYY-MM-DD`), `Field` (a metadata field, `Title` or `Created`), `From`, `To` and `Reason`. The tools add one row per changed field, and a change of `Planned Start`, `Planned End`, `Actual Start`, `Actual End`, `Lifecycle`, `Milestone` or `Targets` needs a reason. The baseline of a date field is the `From` of its first row, and the number of `Planned End` rows is how often the plan's end moved. When a date or `Lifecycle` field has rows, its value must equal the `To` of its last row; a value that does not was changed by hand.
+
+### A.5 Roadmap Diagnostics
+
+The roadmap check reads no clock: lateness is a computed schedule health, never a diagnostic, so a check does not turn red because a date passed. These codes are registered, so `speckiwi explain` resolves them; `validate-spec` does not read the roadmap and does not emit them.
+
+| Code | Severity | Title |
+|---|---|---|
+| `ROADMAP-E001` | error | Malformed roadmap item heading |
+| `ROADMAP-E002` | error | Roadmap item numbers are not 1..N |
+| `ROADMAP-E003` | error | Roadmap metadata row or section missing or unknown |
+| `ROADMAP-E004` | error | Invalid roadmap Kind or Lifecycle |
+| `ROADMAP-E005` | error | Malformed roadmap date |
+| `ROADMAP-E006` | error | Roadmap end date earlier than its start |
+| `ROADMAP-E007` | error | Roadmap item reference is invalid |
+| `ROADMAP-E008` | error | Roadmap dependency cycle |
+| `ROADMAP-W009` | warning | Roadmap target is not in the Target Map |
+| `ROADMAP-W010` | warning | Roadmap requirement is missing or discarded |
+| `ROADMAP-W011` | warning | Roadmap PRD path names no PRD file |
+| `ROADMAP-W012` | warning | Roadmap item starts before an item it depends on ends |
+| `ROADMAP-W013` | warning | Roadmap feature planned outside its milestone |
+| `ROADMAP-W015` | warning | Roadmap Actual End set on an unfinished item |
+| `ROADMAP-E016` | error | Malformed roadmap Change History row |
+| `ROADMAP-W016` | warning | Roadmap value differs from its last history row |
+| `ROADMAP-E017` | error | Status or acceptance criterion in the roadmap |
