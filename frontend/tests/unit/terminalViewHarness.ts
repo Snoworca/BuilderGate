@@ -29,6 +29,11 @@ export interface FakeTerminalState {
   bracketedPasteMode?: boolean;
   /** parser.registerOscHandler 로 등록된 핸들러. OSC52 정책을 실제로 호출해 본다. */
   oscHandlers?: Map<number, FakeOscHandler>;
+  /**
+   * While set, term.write keeps its callback here instead of calling it, so a test can hold
+   * a replay write (and the replay lease it carries) open. Call the callbacks to finish.
+   */
+  heldWriteCallbacks?: Array<() => void>;
 }
 
 export function createFakeTerminalClass(state: FakeTerminalState) {
@@ -94,7 +99,11 @@ export function createFakeTerminalClass(state: FakeTerminalState) {
     loadAddon(): void {}
     focus(): void {}
     blur(): void {}
-    write(data: string, cb?: () => void): void { state.writes.push(data); cb?.(); }
+    write(data: string, cb?: () => void): void {
+      state.writes.push(data);
+      if (cb && state.heldWriteCallbacks) state.heldWriteCallbacks.push(cb);
+      else cb?.();
+    }
     writeln(data: string): void { state.writes.push(`${data}\n`); }
     paste(data: string): void { state.pasted.push(data); }
     clear(): void {}
@@ -183,6 +192,8 @@ export interface RenderedTerminalView {
 export async function renderTerminalView(options: {
   state: FakeTerminalState;
   onClipboardWrite?: (text: string) => void | Promise<void>;
+  /** Receives TerminalView's imperative handle. */
+  ref?: { current: unknown };
 } ): Promise<RenderedTerminalView> {
   const { state } = options;
   state.oscHandlers ??= new Map();
@@ -211,6 +222,7 @@ export async function renderTerminalView(options: {
 
   await act(async () => {
     root.render(React.createElement(TerminalView, {
+      ref: options.ref,
       sessionId: 'session-1',
       workspaceId: 'workspace-1',
       terminalShortcutState: null,

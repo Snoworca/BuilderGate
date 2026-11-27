@@ -132,6 +132,7 @@ import {
   writeTerminalReplayWithFifoProbe,
   type TerminalReplayWriteLease,
 } from '../../utils/terminalReplayGuard';
+import { createXtermInputProvenance } from '../../utils/xtermInputProvenance';
 import {
   shouldDropStaleRepeatedTerminalKey,
 } from '../../utils/terminalStaleKeyRepeat';
@@ -4242,18 +4243,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         },
       });
 
-      let pendingUserXtermDataPermits = 0;
-      const markUserXtermDataProvenance = (): void => {
-        pendingUserXtermDataPermits += 1;
-        queueMicrotask(() => {
-          pendingUserXtermDataPermits = Math.max(0, pendingUserXtermDataPermits - 1);
-        });
-      };
-      const consumeUserXtermDataProvenance = (): boolean => {
-        if (pendingUserXtermDataPermits <= 0) return false;
-        pendingUserXtermDataPermits -= 1;
-        return true;
-      };
+      // @req REL-BGSTAB-019
+      const xtermInputProvenance = createXtermInputProvenance();
+      const markUserXtermDataProvenance = (): void => xtermInputProvenance.markUserGesture();
       // @req FR-MKB-015
       // The iOS Korean keyboard joins jamo by editing the helper textarea; those edits
       // are what reaches the PTY, through term.input so that onData handles them as typing.
@@ -4528,7 +4520,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const programmaticPaste = programmaticPasteRef.current;
         const hasUserInputProvenance = (
           programmaticPaste !== null
-          || consumeUserXtermDataProvenance()
+          || xtermInputProvenance.takeUserProvenance(data)
         );
         if (replayInputGuard.shouldSuppressXtermData(
           hasUserInputProvenance ? 'user-input' : 'parser-generated',
@@ -4733,6 +4725,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Helper textarea IME event tape는 원문 없이 sequence/length metadata만 기록한다.
       const onHelperKeyDown = (event: KeyboardEvent) => {
+        // @req REL-BGSTAB-019
+        // keyCode 229 outside a composition: xterm sends what the IME inserts from a later timer.
+        if (event.keyCode === 229) xtermInputProvenance.markDeferredInput();
         recordHelperTape('helper_keydown', event, { captureSeq: nextCaptureSeq() });
       };
       const onHelperBeforeInput = (event: Event) => {
@@ -4778,6 +4773,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           Array.from(event.data ?? '').length,
         );
         recordHelperTape('helper_compositionend', event, { compositionSeq });
+        // xterm sends the committed text from a later timer, after this permit exists.
+        xtermInputProvenance.markDeferredInput();
         // @req FR-BGSTAB-038
         iosHangulInput.handleComposition(false);
       };
@@ -4968,6 +4965,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           helperTextarea.removeEventListener('compositionupdate', onCompositionUpdate);
           helperTextarea.removeEventListener('compositionend', onCompositionEnd);
         }
+        xtermInputProvenance.dispose();
         if (rafId !== null) cancelAnimationFrame(rafId);
         if (resizeTimer !== null) clearTimeout(resizeTimer);
         if (idleSnapshotTimerRef.current) {
