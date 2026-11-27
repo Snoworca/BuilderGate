@@ -3,15 +3,15 @@
 // @req FR-MSG-008 FR-MSG-014
 import { useEffect, useState } from 'react';
 import { WindowDialog } from '../dialog';
-import { Button, TextInput } from '../ui';
+import { Button, Select, TextInput } from '../ui';
 import { t } from '../../i18n/i18n.ts';
 import { messengerApi, MessengerError } from '../../services/api.ts';
 import { copyTextToClipboard } from '../../utils/clipboardCopy.ts';
 import { classifyContactInput, connectFailureKey, validatePersonName } from './messengerModel.ts';
-import { parseLanPort, visibleConnectionCode } from './messengerWindowModel.ts';
+import { lanAllowListText, lanPatchBody, lanSettingsChanges, lanWarnings, parseLanPort, visibleConnectionCode, type LanProtocol } from './messengerWindowModel.ts';
 import { errorText } from './messengerFormat.ts';
 import { contactDot, contactStateText } from './RoomList.tsx';
-import type { Invite, MessengerState } from './messengerTypes.ts';
+import type { Invite, LanStatus, MessengerState } from './messengerTypes.ts';
 
 interface ContactsDialogProps {
   state: MessengerState;
@@ -39,6 +39,9 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
   const [copied, setCopied] = useState(false);
   const [lan, setLan] = useState(state.lan);
   const [portText, setPortText] = useState(state.lan.port === undefined ? '' : String(state.lan.port));
+  // FR-MSG-014 AC-3/AC-4: http and the internal network are the server's defaults.
+  const [protocol, setProtocol] = useState<LanProtocol>(state.lan.protocol ?? 'http');
+  const [allowListText, setAllowListText] = useState(lanAllowListText(state.lan.allowList ?? []));
   const [webhookUrl, setWebhookUrl] = useState('');
   const [hasWebhook, setHasWebhook] = useState(state.hasWebhook);
   const [name, setName] = useState(initialName ?? '');
@@ -103,8 +106,7 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
     let alive = true;
     messengerApi.lan().then((next) => {
       if (!alive) return;
-      setLan(next);
-      if (next.port !== undefined) setPortText(String(next.port));
+      showLan(next);
     }).catch(() => undefined);
     return () => { alive = false; };
   }, []);
@@ -115,14 +117,35 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
     if (lan.receiving && code === null) void makeCode();
   }, [lan.receiving]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const showLan = (next: LanStatus) => {
+    setLan(next);
+    if (next.port !== undefined) setPortText(String(next.port));
+    if (next.protocol !== undefined) setProtocol(next.protocol);
+    if (next.allowList !== undefined) setAllowListText(lanAllowListText(next.allowList));
+  };
+
   const port = parseLanPort(portText);
   const portChanged = port.ok && port.port !== undefined && port.port !== lan.port;
-  const applyLan = (receiving: boolean) => guard(async () => {
-    const next = await messengerApi.setLan(receiving, port.ok && portChanged ? port.port : undefined);
-    setLan({ receiving: next.receiving, port: next.port ?? lan.port });
-    // D3: a code made while receiving stops working when it is off; turning on again makes a new one.
+  const settingsChanges = lanSettingsChanges({ protocol: lan.protocol ?? 'http', allowList: lan.allowList ?? [] }, protocol, allowListText);
+  const warnings = lanWarnings({ protocol, allowListText });
+  const applyLan = (receiving: boolean, withSettings = false) => guard(async () => {
+    const protocolChanged = withSettings && settingsChanges?.protocol !== undefined;
+    const next = await messengerApi.setLan(lanPatchBody({
+      receiving,
+      port: port.ok && portChanged ? port.port : undefined,
+      changes: settingsChanges,
+      withSettings,
+    }));
+    showLan(next);
+    // D3: a code made while receiving stops working when it is off; one made over the other protocol
+    // carries the wrong addresses, so a fresh one is made at once.
     if (!next.receiving) setCode(null);
-    if (next.port !== undefined) setPortText(String(next.port));
+    else if (protocolChanged) {
+      setCode(null);
+      const fresh = await messengerApi.connectionCode();
+      setCode(fresh.code);
+      setCopied(false);
+    }
   });
 
   const saveWebhook = (url: string) => guard(async () => {
@@ -214,6 +237,39 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
             </span>
           </div>
           {!port.ok && <div className="msgr-err">{t('messenger.lan.portInvalid')}</div>}
+
+          <div className="msgr-field">
+            <label className="msgr-field-label" htmlFor="msgr-lan-protocol">{t('messenger.lan.protocol')}</label>
+            <div>
+              <Select id="msgr-lan-protocol" value={protocol} onChange={(event) => setProtocol(event.target.value as LanProtocol)}>
+                <option value="http">{t('messenger.lan.protocolHttp')}</option>
+                <option value="https">{t('messenger.lan.protocolHttps')}</option>
+              </Select>
+              {warnings.includes('plainHttp') && <div className="msgr-hint" role="note">{t('messenger.lan.warning.plainHttp')}</div>}
+            </div>
+          </div>
+          <div className="msgr-field">
+            <label className="msgr-field-label" htmlFor="msgr-lan-allow-list">{t('messenger.lan.allowList')}</label>
+            <div>
+              <textarea
+                id="msgr-lan-allow-list"
+                className="ui-input msgr-lan-allow-list"
+                rows={4}
+                spellCheck={false}
+                value={allowListText}
+                onChange={(event) => setAllowListText(event.target.value)}
+              />
+              <div className="msgr-hint">{t('messenger.lan.allowListHelp')}</div>
+              {warnings.includes('anyAddress') && (
+                <div className="msgr-banner msgr-banner-warn" role="note"><span aria-hidden="true">⚠</span><span>{t('messenger.lan.warning.anyAddress')}</span></div>
+              )}
+              {settingsChanges !== null && (
+                <div className="msgr-row">
+                  <Button size="sm" variant="primary" disabled={busy || !port.ok} onClick={() => void applyLan(lan.receiving, true)}>{t('messenger.lan.applySettings')}</Button>
+                </div>
+              )}
+            </div>
+          </div>
 
           <table className="msgr-tbl">
             <thead><tr><th>{t('messenger.contacts.col.name')}</th><th>{t('messenger.contacts.col.state')}</th><th /></tr></thead>

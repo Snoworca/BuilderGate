@@ -15,6 +15,7 @@ import {
 } from './contacts.js';
 import { DEFAULT_PEER_LINK_SETTINGS, validatePeerLinkSettings, type PeerLinkSettings } from '../peer/peerLinkSettings.js';
 import type { PeerStatus } from '../peer/peerLinkManager.js';
+import type { LanProtocol } from './lanListener.js';
 
 type Rec = Record<string, unknown>;
 const FP_A = 'aa'.repeat(32);
@@ -30,7 +31,7 @@ interface Side {
   peers: PeerStatus[];
   dropped: string[];
   notes: string[];
-  lanState: { receiving: boolean; port: number; busy: boolean };
+  lanState: { receiving: boolean; port: number; busy: boolean; protocol: LanProtocol; allowList: string[] };
   keys: ReturnType<typeof createMessengerKeys>;
   clock: { t: number };
 }
@@ -41,6 +42,7 @@ async function makeSide(name: string, opts: {
   redeemInvite?: (payload: Rec) => Promise<Rec>;
   clock?: { t: number };
   receiving?: boolean;
+  protocol?: LanProtocol;
   dir?: string;
 } = {}): Promise<Side> {
   const dir = opts.dir ?? await tempDir();
@@ -49,7 +51,8 @@ async function makeSide(name: string, opts: {
   const peers: PeerStatus[] = [];
   const dropped: string[] = [];
   const notes: string[] = [];
-  const lanState = { receiving: opts.receiving ?? true, port: 3334, busy: false };
+  // The HTTPS path is the default here so the certificate tests keep their subject; http has its own tests.
+  const lanState = { receiving: opts.receiving ?? true, port: 3334, busy: false, protocol: opts.protocol ?? 'https' as LanProtocol, allowList: ['10.0.0.0/8'] };
   let n = 0;
   const keys = createMessengerKeys({ path: path.join(dir, 'keys.json'), now: () => clock.t, random: () => `${name}-key-${++n}` });
   const net = createMessengerNet({
@@ -69,13 +72,15 @@ async function makeSide(name: string, opts: {
       },
     },
     lan: {
-      status: () => ({ receiving: lanState.receiving, port: lanState.port }),
+      status: () => ({ receiving: lanState.receiving, port: lanState.port, protocol: lanState.protocol, allowList: lanState.allowList }),
       set: async (input) => {
         const port = input.port ?? lanState.port;
         if (input.receiving && lanState.busy) return { ok: false, code: 'LAN_PORT_IN_USE', port };
         lanState.receiving = input.receiving;
         lanState.port = port;
-        return { ok: true, receiving: lanState.receiving, port };
+        lanState.protocol = input.protocol ?? lanState.protocol;
+        lanState.allowList = input.allowList ?? lanState.allowList;
+        return { ok: true, receiving: lanState.receiving, port, protocol: lanState.protocol, allowList: lanState.allowList };
       },
     },
     certificateFingerprint: () => opts.fp ?? FP_A,
@@ -90,10 +95,15 @@ async function makeSide(name: string, opts: {
   return { net, settings: () => current, peers, dropped, notes, lanState, keys, clock };
 }
 
-/** Routes the requester's HTTP calls into the other side's contact-request handler, seen with `fp`. */
-function wireTo(target: () => Side, fp: { value: string }): ContactHttp {
+/**
+ * Routes the requester's HTTP calls into the other side's contact-request handler, seen with `fp`
+ * over https and with no certificate over http. `serves` limits the protocols the other side answers.
+ */
+function wireTo(target: () => Side, fp: { value: string }, serves: LanProtocol[] = ['http', 'https']): ContactHttp {
   return async (request) => {
     const url = new URL(request.url);
+    const protocol = url.protocol === 'https:' ? 'https' : 'http';
+    if (!serves.includes(protocol)) return { status: 0, body: {}, fingerprint: '' };
     const answer = await target().net.handleContactRequest({
       method: request.method,
       path: url.pathname,
@@ -101,7 +111,7 @@ function wireTo(target: () => Side, fp: { value: string }): ContactHttp {
       body: request.body,
       remoteAddress: '192.168.0.9',
     });
-    return { ...answer, fingerprint: fp.value };
+    return { ...answer, fingerprint: protocol === 'https' ? fp.value : '' };
   };
 }
 
@@ -177,7 +187,7 @@ test('FR-MSG-008 AC-3/AC-5: adding by address asks the other side, waits for acc
   let bob: Side;
   const alice = await makeSide('alice', { http: wireTo(() => bob, seen) });
   bob = await makeSide('bob', { fp: FP_B });
-  const added = await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9:3333' });
+  const added = await alice.net.addContactByAddress({ name: 'bob', address: 'https://192.168.0.9:3333' });
   assert.equal(added.ok, true, JSON.stringify(added));
   assert.deepEqual(alice.net.contactsView(), [{ name: 'bob', state: 'requested', address: '192.168.0.9:3333' }]);
   const requests = bob.net.requestsView();
@@ -218,7 +228,7 @@ test('FR-MSG-008 AC-5: a certificate that changes while waiting stops the reques
   let bob: Side;
   const alice = await makeSide('alice', { http: wireTo(() => bob, seen) });
   bob = await makeSide('bob');
-  await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9:3333' });
+  await alice.net.addContactByAddress({ name: 'bob', address: 'https://192.168.0.9:3333' });
   await bob.net.acceptRequest(bob.net.requestsView()[0]!.id);
   seen.value = FP_A;
   await alice.net.tick();
@@ -345,11 +355,12 @@ test('FR-MSG-008 AC-4 (contract §7): a link that does not come up moves to the 
 
 test('FR-MSG-014: the LAN toggle goes to the dedicated listener and reports its port; the MCP config is not touched', async () => {
   const side = await makeSide('alice', { receiving: false });
-  assert.deepEqual(await side.net.lan(), { ok: true, receiving: false, port: 3334 });
-  assert.deepEqual(await side.net.setLan({ receiving: true, port: 4000 }), { ok: true, receiving: true, port: 4000 });
-  assert.deepEqual(await side.net.lan(), { ok: true, receiving: true, port: 4000 });
+  const rest = { protocol: 'https', allowList: ['10.0.0.0/8'] };
+  assert.deepEqual(await side.net.lan(), { ok: true, receiving: false, port: 3334, ...rest });
+  assert.deepEqual(await side.net.setLan({ receiving: true, port: 4000 }), { ok: true, receiving: true, port: 4000, ...rest });
+  assert.deepEqual(await side.net.lan(), { ok: true, receiving: true, port: 4000, ...rest });
   assert.ok(side.notes.includes('lan-changed'));
-  assert.deepEqual(await side.net.setLan({ receiving: false }), { ok: true, receiving: false, port: 4000 });
+  assert.deepEqual(await side.net.setLan({ receiving: false }), { ok: true, receiving: false, port: 4000, ...rest });
 });
 
 test('FR-MSG-014: a busy port answers LAN_PORT_IN_USE with the port', async () => {
@@ -362,6 +373,77 @@ test('FR-MSG-014: without a server certificate LAN receiving answers LAN_TLS_UNA
   const side = await makeSide('alice', { fp: '', receiving: false });
   assert.deepEqual(await side.net.setLan({ receiving: true }), { ok: false, code: 'LAN_TLS_UNAVAILABLE', reason: 'NO_SERVER_CERTIFICATE' });
   assert.equal(side.lanState.receiving, false);
+});
+
+test('FR-MSG-014 AC-3: over http receiving turns on without a certificate; choosing https still needs one', async () => {
+  const side = await makeSide('alice', { fp: '', receiving: false, protocol: 'http' });
+  const on = await side.net.setLan({ receiving: true });
+  assert.equal(on.ok, true, JSON.stringify(on));
+  assert.equal(side.lanState.receiving, true);
+  assert.deepEqual(await side.net.setLan({ receiving: true, protocol: 'https' }), { ok: false, code: 'LAN_TLS_UNAVAILABLE', reason: 'NO_SERVER_CERTIFICATE' });
+  assert.equal(side.lanState.protocol, 'http');
+});
+
+test('FR-MSG-014 AC-4: the allow list goes to the listener with the rest of the LAN settings', async () => {
+  const side = await makeSide('alice', { protocol: 'http' });
+  const saved = await side.net.setLan({ receiving: true, allowList: ['*'] });
+  assert.equal(saved.ok, true);
+  assert.deepEqual(side.lanState.allowList, ['*']);
+  assert.deepEqual((await side.net.lan()).allowList, ['*']);
+});
+
+test('FR-MSG-008 AC-4, FR-MSG-009 AC-1: over http the addresses handed out are ws:// and carry no certificate hash', async () => {
+  const alice = await makeSide('alice', { protocol: 'http' });
+  assert.deepEqual(alice.net.connectInfo(), { urls: ['ws://192.168.0.5:3334/mcp/peer', 'ws://10.1.2.3:3334/mcp/peer'], fp: '' });
+  const payload = decodeMessengerCode(alice.net.connectionCode().code)!.payload;
+  assert.deepEqual(payload.urls, ['ws://192.168.0.5:3334/mcp/peer', 'ws://10.1.2.3:3334/mcp/peer']);
+  assert.equal(payload.fp, '');
+  const bob = await makeSide('bob', { protocol: 'http' });
+  assert.equal((await bob.net.redeemCode(alice.net.connectionCode().code)).ok, true);
+  const link = bob.settings().links[0]!;
+  assert.equal(link.url, 'ws://192.168.0.5:3334/mcp/peer');
+  assert.equal(link.tlsFingerprintSha256, undefined);
+});
+
+test('FR-MSG-008 AC-7: an address without a scheme tries http first and links over ws:// with no certificate pinned', async () => {
+  const seen = { value: FP_B };
+  const urls: string[] = [];
+  let bob: Side;
+  const wired = wireTo(() => bob, seen);
+  const alice = await makeSide('alice', { http: async (request) => { urls.push(request.url); return wired(request); } });
+  bob = await makeSide('bob', { protocol: 'http' });
+  assert.equal((await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9:3334' })).ok, true);
+  await bob.net.acceptRequest(bob.net.requestsView()[0]!.id);
+  await alice.net.tick();
+  assert.match(urls[0]!, /^http:\/\/192\.168\.0\.9:3334\/mcp\/contact-request$/u);
+  assert.ok(urls.every((url) => url.startsWith('http://')), urls.join(','));
+  const link = alice.settings().links[0]!;
+  assert.equal(link.url, 'ws://192.168.0.9:3334/mcp/peer');
+  assert.equal(link.tlsFingerprintSha256, undefined);
+});
+
+test('FR-MSG-008 AC-7: an address without a scheme falls back to https when http does not answer, and pins the certificate', async () => {
+  const seen = { value: FP_B };
+  const urls: string[] = [];
+  let bob: Side;
+  const wired = wireTo(() => bob, seen, ['https']);
+  const alice = await makeSide('alice', { http: async (request) => { urls.push(request.url); return wired(request); } });
+  bob = await makeSide('bob', { fp: FP_B });
+  assert.equal((await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9:3334' })).ok, true);
+  assert.deepEqual(urls, ['http://192.168.0.9:3334/mcp/contact-request', 'https://192.168.0.9:3334/mcp/contact-request']);
+  await bob.net.acceptRequest(bob.net.requestsView()[0]!.id);
+  await alice.net.tick();
+  const link = alice.settings().links[0]!;
+  assert.equal(link.url, 'wss://192.168.0.9:3334/mcp/peer');
+  assert.equal(link.tlsFingerprintSha256, FP_B);
+});
+
+test('FR-MSG-008 AC-7: a scheme written in the address is the only one tried', async () => {
+  const urls: string[] = [];
+  const alice = await makeSide('alice', { http: async (request) => { urls.push(request.url); return { status: 0, body: {}, fingerprint: '' }; } });
+  await alice.net.addContactByAddress({ name: 'bob', address: 'http://192.168.0.9:3334' });
+  await alice.net.addContactByAddress({ name: 'bob', address: 'https://192.168.0.9:3334' });
+  assert.deepEqual(urls, ['http://192.168.0.9:3334/mcp/contact-request', 'https://192.168.0.9:3334/mcp/contact-request']);
 });
 
 test('FR-MSG-014: with receiving off there are no addresses to hand out, and a connection code answers LAN_OFF', async () => {
@@ -432,7 +514,7 @@ test('review L2: a request that failed is still dropped after 24 hours', async (
   let bob: Side;
   const alice = await makeSide('alice', { http: wireTo(() => bob, seen) });
   bob = await makeSide('bob');
-  await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9:3333' });
+  await alice.net.addContactByAddress({ name: 'bob', address: 'https://192.168.0.9:3333' });
   seen.value = FP_A;
   await alice.net.tick();
   assert.equal(alice.net.contactsView()[0]!.error, 'TLS_FINGERPRINT_CHANGED');
@@ -467,7 +549,7 @@ test('FR-MSG-014: an address without a port goes to the default LAN port (MCP po
   const urls: string[] = [];
   const alice = await makeSide('alice', { http: async (request) => { urls.push(request.url); return { status: 0, body: {}, fingerprint: '' }; } });
   await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9' });
-  assert.deepEqual(urls, ['https://192.168.0.9:3334/mcp/contact-request']);
+  assert.deepEqual(urls, ['http://192.168.0.9:3334/mcp/contact-request', 'https://192.168.0.9:3334/mcp/contact-request']);
 });
 
 test('FR-MSG-008: a contact shows when its link was last up, and that survives a restart', async () => {
@@ -505,4 +587,12 @@ test('FR-MSG-008: lastSeen follows a link renamed to the remote\'s name, and goe
   await bob.net.removeContact('alice_kim');
   await bob.net.redeemCode(alice.net.connectionCode().code);
   assert.equal(bob.net.contactsView()[0]!.lastSeen, undefined);
+});
+
+test('FR-MSG-008 AC-7: the https retry sends a fresh secret, not the one that went out in the clear over http', async () => {
+  const secrets: unknown[] = [];
+  const alice = await makeSide('alice', { http: async (request) => { secrets.push((request.body as { secret?: unknown } | undefined)?.secret); return { status: 0, body: {}, fingerprint: '' }; } });
+  await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9:3334' });
+  assert.equal(secrets.length, 2);
+  assert.notEqual(secrets[0], secrets[1]);
 });

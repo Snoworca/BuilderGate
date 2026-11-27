@@ -214,6 +214,7 @@
 .msgr-lan-actions .ui-button { margin-left: 0; }
 .msgr-lan-port { display: inline-flex; gap: 4px; align-items: center; font-size: var(--fs-2xs); }
 .msgr-lan-port .ui-input { width: 72px; }
+.msgr-lan-allow-list { width: 100%; font-family: var(--font-mono); resize: vertical; }
 .msgr-banner-warn { border: 1px solid rgba(216, 165, 52, 0.5); background: rgba(216, 165, 52, 0.1); color: #f0d38f; }
 .msgr-banner-warn b { color: #ffe2a0; }
 .msgr-banner-info { border: 1px solid rgba(108, 182, 255, 0.45); background: rgba(108, 182, 255, 0.08); color: #cfe3f7; }

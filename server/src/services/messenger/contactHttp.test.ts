@@ -7,7 +7,7 @@ import https from 'node:https';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import selfsigned from 'selfsigned';
-import { createContactRequestRawHandler, httpsContactClient } from './contactHttp.js';
+import { createContactRequestRawHandler, contactHttpClient } from './contactHttp.js';
 import type { ContactRequestCall } from './contacts.js';
 
 function listen(server: http.Server | https.Server): Promise<number> {
@@ -70,14 +70,14 @@ test('FR-MSG-008 AC-5: the HTTPS client accepts a self-signed certificate and re
   });
   const port = await listen(server);
   try {
-    const answer = await httpsContactClient({ method: 'POST', url: `https://127.0.0.1:${port}/mcp/contact-request`, body: { a: 1 } });
+    const answer = await contactHttpClient({ method: 'POST', url: `https://127.0.0.1:${port}/mcp/contact-request`, body: { a: 1 } });
     assert.equal(answer.status, 200);
     assert.deepEqual(answer.body, { ok: true, method: 'POST', echo: { a: 1 } });
     assert.equal(answer.fingerprint, fingerprint);
   } finally {
     server.close();
   }
-  const unreachable = await httpsContactClient({ method: 'GET', url: `https://127.0.0.1:${port}/mcp/contact-request/x` });
+  const unreachable = await contactHttpClient({ method: 'GET', url: `https://127.0.0.1:${port}/mcp/contact-request/x` });
   assert.equal(unreachable.status, 0);
 });
 
@@ -90,13 +90,43 @@ test('review M3: an answer larger than the limit settles as unreachable instead 
   const port = await listen(server);
   try {
     const answer = await Promise.race([
-      httpsContactClient({ method: 'GET', url: `https://127.0.0.1:${port}/x` }),
+      contactHttpClient({ method: 'GET', url: `https://127.0.0.1:${port}/x` }),
       new Promise((resolve) => setTimeout(() => resolve('hung'), 5_000)),
     ]);
     assert.notEqual(answer, 'hung');
     assert.equal((answer as { status: number }).status, 0);
   } finally {
     server.closeAllConnections();
+    server.close();
+  }
+});
+
+test('FR-MSG-008 AC-7: the client speaks plain http to an http address and reports no certificate', async () => {
+  const server = http.createServer((req, res) => {
+    let text = '';
+    req.on('data', (chunk) => { text += chunk; });
+    req.on('end', () => {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true, method: req.method, echo: JSON.parse(text || '{}') }));
+    });
+  });
+  const port = await listen(server);
+  try {
+    const answer = await contactHttpClient({ method: 'POST', url: `http://127.0.0.1:${port}/mcp/contact-request`, body: { a: 1 } });
+    assert.equal(answer.status, 200);
+    assert.deepEqual(answer.body, { ok: true, method: 'POST', echo: { a: 1 } });
+    assert.equal(answer.fingerprint, '');
+    // The http-first try against an https listener must settle as unreachable, so the caller falls back.
+    const tls = await selfsigned.generate([{ name: 'commonName', value: 'contact-tls' }], { keySize: 2048, algorithm: 'sha256' });
+    const secure = https.createServer({ cert: tls.cert, key: tls.private }, (_req, res) => res.end('{}'));
+    const securePort = await listen(secure);
+    try {
+      assert.equal((await contactHttpClient({ method: 'POST', url: `http://127.0.0.1:${securePort}/mcp/contact-request`, body: {} })).status, 0);
+    } finally {
+      secure.closeAllConnections();
+      secure.close();
+    }
+  } finally {
     server.close();
   }
 });

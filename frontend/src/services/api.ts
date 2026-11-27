@@ -4,7 +4,7 @@
  */
 import type { LoopInput, LoopRun, LoopSessionOption, LoopView } from '../components/Loop/loopTypes.ts';
 import type { TodoItem } from '../components/Todo/todoModel.ts';
-import type { Contact, Invite, InvitePolicy, MessengerState, Room, RoomDetail, SearchResult, SendResult } from '../components/Messenger/messengerTypes.ts';
+import type { Contact, Invite, InvitePolicy, LanStatus, MessengerState, Room, RoomDetail, SearchResult, SendResult } from '../components/Messenger/messengerTypes.ts';
 import { messengerErrorKey, messengerErrorParams } from '../components/Messenger/messengerErrors.ts';
 import type { PeerLinksRejection, PeerLinksResponse } from '../components/McpControlManager/peerLinksModel.ts';
 import type { UsageSendResult, UsageSettingsUpdate, UsageState } from '../components/UsageLimits/usageLimitsTypes.ts';
@@ -1229,9 +1229,10 @@ export const messengerApi = {
   removeContact: (name: string) => messengerCall<{ ok: true }>('DELETE', `/contacts/${encodeURIComponent(name)}`),
   answerRequest: (id: string, accept: boolean) =>
     messengerCall<{ ok: true }>('POST', `/requests/${encodeURIComponent(id)}/${accept ? 'accept' : 'decline'}`),
-  lan: () => messengerCall<{ ok: true; receiving: boolean; port: number }>('GET', '/lan'),
-  setLan: (receiving: boolean, port?: number) =>
-    messengerCall<{ ok: true; receiving: boolean; port: number }>('PATCH', '/lan', port === undefined ? { receiving } : { receiving, port }),
+  lan: () => messengerCall<{ ok: true } & LanStatus>('GET', '/lan'),
+  // FR-MSG-014 AC-3/AC-4: protocol and allowList are sent only when they change.
+  setLan: (body: { receiving: boolean; port?: number; protocol?: 'http' | 'https'; allowList?: string[] }) =>
+    messengerCall<{ ok: true } & LanStatus>('PATCH', '/lan', body),
   setWebhook: (webhookUrl: string) => messengerCall<{ ok: true; hasWebhook: boolean }>('PATCH', '/settings', { webhookUrl }),
   search: (query: string) => messengerCall<SearchResult & { ok: true }>('GET', `/search?q=${encodeURIComponent(query)}`),
 };

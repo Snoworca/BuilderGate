@@ -1,9 +1,10 @@
 // FR-MSG-008 AC-3/AC-5 (contract §7): the transport of the add-by-address flow.
 // - createContactRequestRawHandler: /mcp/contact-request on the MCP listener (no key; the
 //   listener's address guard still applies).
-// - httpsContactClient: the requester's HTTPS call. The remote is not known yet, so its
-//   certificate is not verified; its SHA-256 is reported instead and pinned on first use (TOFU).
+// - contactHttpClient: the requester's HTTP or HTTPS call. Over HTTPS the remote is not known yet, so
+//   its certificate is not verified; its SHA-256 is reported instead and pinned on first use (TOFU).
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import http from 'node:http';
 import https from 'node:https';
 import type { TLSSocket } from 'node:tls';
 import { normalizeFingerprint } from '../peer/peerLinkSettings.js';
@@ -49,7 +50,8 @@ export function createContactRequestRawHandler(options: {
   };
 }
 
-export const httpsContactClient: ContactHttp = (input) => new Promise((settle) => {
+/** FR-MSG-008 AC-7: http or https by the URL; over https the certificate seen is reported (TOFU). */
+export const contactHttpClient: ContactHttp = (input) => new Promise((settle) => {
   // Review M3: whatever happens (end, error, a destroyed oversized answer), the promise settles once.
   let settled = false;
   const resolve = (answer: Awaited<ReturnType<ContactHttp>>) => {
@@ -59,9 +61,10 @@ export const httpsContactClient: ContactHttp = (input) => new Promise((settle) =
   };
   const unreachable = () => resolve({ status: 0, body: {}, fingerprint: '' });
   const payload = input.body === undefined ? undefined : JSON.stringify(input.body);
-  const request = https.request(input.url, {
+  const transport = new URL(input.url).protocol === 'http:' ? http : https;
+  const request = transport.request(input.url, {
     method: input.method,
-    rejectUnauthorized: false,
+    ...(transport === https ? { rejectUnauthorized: false } : {}),
     timeout: REQUEST_TIMEOUT_MS,
     headers: payload === undefined ? {} : { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
   }, (response) => {

@@ -3,6 +3,10 @@ import { test } from 'node:test';
 import {
   autoOpenRoomId,
   isImeEnter,
+  lanAllowListText,
+  lanPatchBody,
+  lanSettingsChanges,
+  lanWarnings,
   mergeChangedRoom,
   openRoomGone,
   parseLanPort,
@@ -100,4 +104,28 @@ test('FR-MSG-013 AC-2: moving a window that the viewport shrank keeps the size t
   assert.deepEqual(nextPlacedRect(placed, rendered, { x: 0, y: 120, width: 398, height: 540 }), { x: 0, y: 120, width: 720, height: 540 });
   assert.deepEqual(nextPlacedRect(placed, rendered, { x: 0, y: 70, width: 380, height: 500 }), { x: 0, y: 70, width: 380, height: 500 });
   assert.deepEqual(nextPlacedRect(placed, placed, { x: 200, y: 80, width: 720, height: 540 }), { x: 200, y: 80, width: 720, height: 540 });
+});
+
+test('FR-MSG-014 AC-5: http warns that the key travels unencrypted, and a * in the allow list that every address may come in', () => {
+  assert.deepEqual(lanWarnings({ protocol: 'https', allowListText: '10.0.0.0/8' }), []);
+  assert.deepEqual(lanWarnings({ protocol: 'http', allowListText: '10.0.0.0/8' }), ['plainHttp']);
+  assert.deepEqual(lanWarnings({ protocol: 'https', allowListText: '10.0.0.0/8, *' }), ['anyAddress']);
+  assert.deepEqual(lanWarnings({ protocol: 'http', allowListText: '*' }), ['plainHttp', 'anyAddress']);
+});
+
+test('FR-MSG-014 AC-3/AC-4: the allow list shows one per line, and only what changed is sent', () => {
+  const saved = { protocol: 'http' as const, allowList: ['10.0.0.0/8', '192.168.0.0/16'] };
+  assert.equal(lanAllowListText(saved.allowList), '10.0.0.0/8\n192.168.0.0/16');
+  assert.equal(lanSettingsChanges(saved, 'http', '10.0.0.0/8\n192.168.0.0/16'), null);
+  assert.deepEqual(lanSettingsChanges(saved, 'https', '10.0.0.0/8, 192.168.0.0/16'), { protocol: 'https' });
+  assert.deepEqual(lanSettingsChanges(saved, 'http', ' 10.0.0.0/8 , * '), { allowList: ['10.0.0.0/8', '*'] });
+  assert.deepEqual(lanSettingsChanges(saved, 'http', ''), { allowList: [] });
+});
+
+test('FR-MSG-014 AC-3/AC-4: turning receiving on or off sends no unapplied protocol or allow list; only Apply settings does', () => {
+  const changes = { protocol: 'https' as const, allowList: ['bad'] };
+  assert.deepEqual(lanPatchBody({ receiving: false, port: undefined, changes, withSettings: false }), { receiving: false });
+  assert.deepEqual(lanPatchBody({ receiving: true, port: 4000, changes, withSettings: false }), { receiving: true, port: 4000 });
+  assert.deepEqual(lanPatchBody({ receiving: true, port: undefined, changes, withSettings: true }), { receiving: true, protocol: 'https', allowList: ['bad'] });
+  assert.deepEqual(lanPatchBody({ receiving: true, port: undefined, changes: null, withSettings: true }), { receiving: true });
 });

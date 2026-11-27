@@ -141,9 +141,17 @@ export interface Approval {
   at: string;
 }
 
+/** FR-MSG-014: the company-network listener. protocol and allowList are absent from an older server. */
+export interface LanStatus {
+  receiving: boolean;
+  port?: number;
+  protocol?: 'http' | 'https';
+  allowList?: string[];
+}
+
 export interface MessengerState {
   me: { name: string };
-  lan: { receiving: boolean; port?: number };
+  lan: LanStatus;
   hasWebhook: boolean;
   rooms: RoomSummary[];
   contacts: Contact[];

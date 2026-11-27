@@ -19,6 +19,8 @@ const MESSENGER_ERROR_KEYS = {
   LAN_TLS_UNAVAILABLE: 'messenger.lan.tlsUnavailable',
   LAN_PORT_IN_USE: 'messenger.lan.portInUse',
   LAN_PORT_INVALID: 'messenger.lan.portInvalid',
+  LAN_PROTOCOL_INVALID: 'messenger.lan.protocolInvalid',
+  LAN_ALLOW_LIST_INVALID: 'messenger.lan.allowListInvalid',
   LAN_ADDRESS_DENIED: 'messenger.error.LAN_ADDRESS_DENIED',
   CODE_INVALID: 'messenger.connect.error.codeExpired',
   ADDRESS_INVALID: 'messenger.contacts.addressInvalid',

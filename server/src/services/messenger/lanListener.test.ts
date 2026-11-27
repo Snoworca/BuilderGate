@@ -2,6 +2,7 @@
 // dedicated TLS listener for peer links and contact requests only. The MCP listener is left alone.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import os from 'node:os';
@@ -9,7 +10,9 @@ import path from 'node:path';
 import { test } from 'node:test';
 import selfsigned from 'selfsigned';
 import WebSocket from 'ws';
-import { carriesForwardingHeader, createLanReceiver, lanAddressAllowed, openLanPeerListener, type LanListenerHandle } from './lanListener.js';
+import { carriesForwardingHeader, createLanReceiver, LAN_WHITELIST, lanAddressAllowed, openLanPeerListener, type LanListenerHandle, type LanProtocol } from './lanListener.js';
+
+const INTERNAL = [...LAN_WHITELIST];
 
 async function tempDir() {
   return fs.mkdtemp(path.join(os.tmpdir(), 'messenger-lan-'));
@@ -17,15 +20,18 @@ async function tempDir() {
 
 function fakeOpener() {
   const opened: number[] = [];
+  const protocols: LanProtocol[] = [];
   const closed: number[] = [];
   const busy = new Set<number>();
   return {
     opened,
+    protocols,
     closed,
     busy,
-    open: async (port: number) => {
+    open: async ({ port, protocol }: { port: number; protocol: LanProtocol }) => {
       if (busy.has(port)) return { ok: false as const, code: 'LAN_PORT_IN_USE' as const };
       opened.push(port);
+      protocols.push(protocol);
       return { ok: true as const, handle: { close: async () => { closed.push(port); } } satisfies LanListenerHandle };
     },
   };
@@ -35,7 +41,7 @@ test('FR-MSG-014: off by default on the MCP port + 1', async () => {
   const dir = await tempDir();
   const opener = fakeOpener();
   const receiver = createLanReceiver({ path: path.join(dir, 'lan.json'), defaultPort: 3334, open: opener.open });
-  assert.deepEqual(receiver.status(), { receiving: false, port: 3334 });
+  assert.deepEqual(receiver.status(), { receiving: false, port: 3334, protocol: 'http', allowList: INTERNAL });
 });
 
 test('FR-MSG-014 AC-2: turning it on opens the listener, saves the choice, and a restart opens it again', async () => {
@@ -43,13 +49,13 @@ test('FR-MSG-014 AC-2: turning it on opens the listener, saves the choice, and a
   const lanPath = path.join(dir, 'lan.json');
   const opener = fakeOpener();
   const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open });
-  assert.deepEqual(await receiver.set({ receiving: true }), { ok: true, receiving: true, port: 3334 });
+  assert.deepEqual(await receiver.set({ receiving: true }), { ok: true, receiving: true, port: 3334, protocol: 'http', allowList: INTERNAL });
   assert.deepEqual(opener.opened, [3334]);
-  assert.deepEqual(receiver.status(), { receiving: true, port: 3334 });
+  assert.deepEqual(receiver.status(), { receiving: true, port: 3334, protocol: 'http', allowList: INTERNAL });
 
   const again = fakeOpener();
   const restarted = createLanReceiver({ path: lanPath, defaultPort: 3334, open: again.open });
-  assert.deepEqual(restarted.status(), { receiving: true, port: 3334 });
+  assert.deepEqual(restarted.status(), { receiving: true, port: 3334, protocol: 'http', allowList: INTERNAL });
   await restarted.startFromSaved();
   assert.deepEqual(again.opened, [3334]);
 });
@@ -60,8 +66,8 @@ test('FR-MSG-014: a busy port answers LAN_PORT_IN_USE with the port and stays of
   opener.busy.add(3334);
   const receiver = createLanReceiver({ path: path.join(dir, 'lan.json'), defaultPort: 3334, open: opener.open });
   assert.deepEqual(await receiver.set({ receiving: true }), { ok: false, code: 'LAN_PORT_IN_USE', port: 3334 });
-  assert.deepEqual(receiver.status(), { receiving: false, port: 3334 });
-  assert.deepEqual(await receiver.set({ receiving: true, port: 4000 }), { ok: true, receiving: true, port: 4000 });
+  assert.deepEqual(receiver.status(), { receiving: false, port: 3334, protocol: 'http', allowList: INTERNAL });
+  assert.deepEqual(await receiver.set({ receiving: true, port: 4000 }), { ok: true, receiving: true, port: 4000, protocol: 'http', allowList: INTERNAL });
 });
 
 test('FR-MSG-014: turning it off closes the listener; a new port while on moves the listener', async () => {
@@ -69,12 +75,64 @@ test('FR-MSG-014: turning it off closes the listener; a new port while on moves 
   const opener = fakeOpener();
   const receiver = createLanReceiver({ path: path.join(dir, 'lan.json'), defaultPort: 3334, open: opener.open });
   await receiver.set({ receiving: true });
-  assert.deepEqual(await receiver.set({ receiving: true, port: 4000 }), { ok: true, receiving: true, port: 4000 });
+  assert.deepEqual(await receiver.set({ receiving: true, port: 4000 }), { ok: true, receiving: true, port: 4000, protocol: 'http', allowList: INTERNAL });
   assert.deepEqual(opener.closed, [3334]);
   assert.deepEqual(opener.opened, [3334, 4000]);
-  assert.deepEqual(await receiver.set({ receiving: false }), { ok: true, receiving: false, port: 4000 });
+  assert.deepEqual(await receiver.set({ receiving: false }), { ok: true, receiving: false, port: 4000, protocol: 'http', allowList: INTERNAL });
   assert.deepEqual(opener.closed, [3334, 4000]);
   assert.deepEqual(await receiver.set({ receiving: true, port: 70_000 }), { ok: false, code: 'LAN_PORT_INVALID' });
+});
+
+test('FR-MSG-014 AC-3: the protocol is http by default, https on request; a change while on reopens the listener and is saved', async () => {
+  const dir = await tempDir();
+  const lanPath = path.join(dir, 'lan.json');
+  const opener = fakeOpener();
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open });
+  await receiver.set({ receiving: true });
+  assert.deepEqual(opener.protocols, ['http']);
+  const switched = await receiver.set({ receiving: true, protocol: 'https' });
+  assert.equal(switched.ok && switched.protocol, 'https');
+  assert.deepEqual(opener.closed, [3334]);
+  assert.deepEqual(opener.protocols, ['http', 'https']);
+  assert.deepEqual(await receiver.set({ receiving: true, protocol: 'ftp' as LanProtocol }), { ok: false, code: 'LAN_PROTOCOL_INVALID' });
+
+  const again = fakeOpener();
+  const restarted = createLanReceiver({ path: lanPath, defaultPort: 3334, open: again.open });
+  assert.equal(restarted.status().protocol, 'https');
+  await restarted.startFromSaved();
+  assert.deepEqual(again.protocols, ['https']);
+});
+
+test('FR-MSG-014 AC-4: the allow list is the internal network by default, editable without a reopen, and loopback always comes in', async () => {
+  const dir = await tempDir();
+  const lanPath = path.join(dir, 'lan.json');
+  const opener = fakeOpener();
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open });
+  await receiver.set({ receiving: true });
+  assert.equal(receiver.isAllowed('192.168.0.9'), true);
+  assert.equal(receiver.isAllowed('8.8.8.8'), false);
+
+  const narrowed = await receiver.set({ receiving: true, allowList: ['203.0.113.0/24'] });
+  assert.equal(narrowed.ok, true);
+  assert.deepEqual(opener.opened, [3334], 'the list applies without reopening the listener');
+  assert.equal(receiver.isAllowed('203.0.113.7'), true);
+  assert.equal(receiver.isAllowed('192.168.0.9'), false);
+  assert.equal(receiver.isAllowed('127.0.0.1'), true);
+  assert.equal(receiver.isAllowed('::1'), true);
+
+  await receiver.set({ receiving: true, allowList: [] });
+  assert.equal(receiver.isAllowed('127.0.0.1'), true);
+  assert.equal(receiver.isAllowed('10.0.0.1'), false);
+
+  await receiver.set({ receiving: true, allowList: ['*'] });
+  assert.equal(receiver.isAllowed('8.8.8.8'), true);
+  assert.equal(receiver.isAllowed('2001:db8::1'), true);
+
+  for (const bad of [['0.0.0.0/0'], ['10.0.0.0/33'], ['example.com'], ['10.0.0.1', 7]]) {
+    assert.deepEqual(await receiver.set({ receiving: true, allowList: bad as string[] }), { ok: false, code: 'LAN_ALLOW_LIST_INVALID' }, JSON.stringify(bad));
+  }
+  const restarted = createLanReceiver({ path: lanPath, defaultPort: 3334, open: fakeOpener().open });
+  assert.deepEqual(restarted.status().allowList, ['*']);
 });
 
 test('FR-MSG-014: only loopback and the private IPv4 ranges may come in', () => {
@@ -126,6 +184,7 @@ test('FR-MSG-014: the dedicated listener serves TLS, takes /mcp/peer and /mcp/co
   const port = await freePort();
   const opened = await openLanPeerListener({
     port,
+    protocol: 'https',
     sslConfig,
     isAllowed: () => allowed,
     accept: (socket, req) => {
@@ -157,7 +216,7 @@ test('FR-MSG-014: the dedicated listener serves TLS, takes /mcp/peer and /mcp/co
     assert.equal((await request(port, 'POST', '/mcp/contact-request', '{}')).status, 403);
     assert.deepEqual(contactCalls, ['/mcp/contact-request']);
 
-    const busy = await openLanPeerListener({ port, sslConfig, isAllowed: () => true, accept: () => ({ onText: () => {}, onClose: () => {} }), contactRequest: () => false });
+    const busy = await openLanPeerListener({ port, protocol: 'https', sslConfig, isAllowed: () => true, accept: () => ({ onText: () => {}, onClose: () => {} }), contactRequest: () => false });
     assert.deepEqual(busy, { ok: false, code: 'LAN_PORT_IN_USE' });
   } finally {
     await opened.handle.close();
@@ -178,6 +237,7 @@ test('FR-MSG-014: the LAN listener answers 403 to HTTP and refuses the upgrade w
   const port = await freePort();
   const opened = await openLanPeerListener({
     port,
+    protocol: 'https',
     sslConfig,
     isAllowed: () => true,
     accept: (_socket, req) => { accepted.push(req); return { onText: () => {}, onClose: () => {} }; },
@@ -206,4 +266,69 @@ test('FR-MSG-014: the LAN listener answers 403 to HTTP and refuses the upgrade w
   } finally {
     await opened.handle.close();
   }
+});
+
+test('FR-MSG-014 AC-3: an http listener opens without a certificate and serves /mcp/contact-request and ws:// /mcp/peer', async () => {
+  const accepted: Array<Record<string, unknown>> = [];
+  const port = await freePort();
+  const opened = await openLanPeerListener({
+    port,
+    protocol: 'http',
+    sslConfig: { certPath: '/nonexistent/cert.pem', keyPath: '/nonexistent/key.pem', caPath: '' },
+    isAllowed: () => true,
+    accept: (_socket, req) => { accepted.push(req as Record<string, unknown>); return { onText: () => {}, onClose: () => {} }; },
+    contactRequest: (req, res) => {
+      if (!(req.url ?? '').startsWith('/mcp/contact-request')) return false;
+      res.end('{"ok":true}');
+      return true;
+    },
+  });
+  assert.equal(opened.ok, true, JSON.stringify(opened));
+  if (!opened.ok) return;
+  try {
+    const answer = await new Promise<string>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, method: 'POST', path: '/mcp/contact-request' }, (res) => {
+        let text = '';
+        res.on('data', (chunk) => { text += chunk; });
+        res.on('end', () => resolve(text));
+      });
+      req.on('error', reject);
+      req.end('{}');
+    });
+    assert.equal(answer, '{"ok":true}');
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/mcp/peer`);
+    await new Promise<void>((resolve, reject) => { ws.once('open', () => resolve()); ws.once('error', reject); });
+    ws.close();
+    assert.equal(accepted.length, 1);
+    assert.equal(accepted[0]!.via, 'lan');
+  } finally {
+    await opened.handle.close();
+  }
+});
+
+test('FR-MSG-014 AC-3: an https listener without a readable certificate does not open (LAN_TLS_UNAVAILABLE)', async () => {
+  const port = await freePort();
+  const opened = await openLanPeerListener({
+    port,
+    protocol: 'https',
+    sslConfig: { certPath: '/nonexistent/cert.pem', keyPath: '/nonexistent/key.pem', caPath: '' },
+    isAllowed: () => true,
+    accept: () => ({ onText: () => {}, onClose: () => {} }),
+    contactRequest: () => false,
+  });
+  if (opened.ok) await opened.handle.close();
+  assert.deepEqual(opened, { ok: false, code: 'LAN_TLS_UNAVAILABLE' });
+});
+
+test('FR-MSG-014 AC-3: a settings file saved before the protocol choice keeps https, so contacts saved as wss:// still connect', async () => {
+  const dir = await tempDir();
+  const lanPath = path.join(dir, 'lan.json');
+  await fs.writeFile(lanPath, JSON.stringify({ version: 1, receiving: true, port: 3334 }));
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: fakeOpener().open });
+  assert.equal(receiver.status().protocol, 'https');
+  assert.deepEqual(receiver.status().allowList, INTERNAL);
+});
+
+test('FR-MSG-014 AC-4: the default allow list is exactly the three private ranges; loopback is allowed outside the list', () => {
+  assert.deepEqual(INTERNAL, ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
 });

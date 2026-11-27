@@ -12,12 +12,12 @@
 //
 //   contactsView(): Contact[]                           for GET /api/messenger/state
 //   requestsView(): ContactRequestView[]                incoming address requests waiting for me
-//   connectInfo(): { urls, fp }                         wss://<LAN IPv4>:<LAN port>/mcp/peer + cert hash ([] when LAN is off)
+//   connectInfo(): { urls, fp }                         ws(s)://<LAN IPv4>:<LAN port>/mcp/peer + cert hash over https ([] when LAN is off)
 //   ensureRoomLink({ hostNode, urls, fp, token })       link to a room host with a ticket (no-op for a contact)
 //   dropRoomLink(hostNode)                              remove that room link (a contact link stays)
 //   isContact(node): boolean
 //   renameMe(name) · connectionCode() · redeemCode(code) · addContactByAddress({ name, address })
-//   removeContact(name) · acceptRequest(id) · declineRequest(id) · lan() · setLan({ receiving, port? })
+//   removeContact(name) · acceptRequest(id) · declineRequest(id) · lan() · setLan({ receiving, port?, protocol?, allowList? })
 //   handleContactRequest(call)                          POST/GET /mcp/contact-request on the LAN listener
 //   onPeerConnected(info)                               renames a link to the name the remote calls itself
 //   tick()                                              one poll step (address requests, address rotation)
@@ -32,7 +32,7 @@ import { publishStoreAtomically } from '../../utils/atomicStoreWrite.js';
 import { isAllowedPeerUrl, normalizeFingerprint, PEER_NAME_PATTERN, type PeerLinkEntry, type PeerLinkSettings } from '../peer/peerLinkSettings.js';
 import type { PeerStatus } from '../peer/peerLinkManager.js';
 import type { MessengerKeys } from './keys.js';
-import type { LanSetResult, LanStatus } from './lanListener.js';
+import type { LanProtocol, LanSetInput, LanSetResult, LanStatus } from './lanListener.js';
 
 export interface Contact {
   name: string;
@@ -81,7 +81,7 @@ export interface MessengerNetDeps {
   /** FR-MSG-014: the dedicated LAN listener (lanListener.ts createLanReceiver). */
   lan: {
     status(): LanStatus;
-    set(input: { receiving: boolean; port?: number }): Promise<LanSetResult>;
+    set(input: LanSetInput): Promise<LanSetResult>;
   };
   /** SHA-256 hex of the server certificate the LAN listener uses; '' when there is none. */
   certificateFingerprint(): string;
@@ -111,7 +111,7 @@ export interface MessengerNet {
   acceptRequest(id: string): Promise<NetResult>;
   declineRequest(id: string): Promise<NetResult>;
   lan(): Promise<{ ok: true } & LanStatus>;
-  setLan(input: { receiving: boolean; port?: number }): Promise<NetResult>;
+  setLan(input: LanSetInput): Promise<NetResult>;
   handleContactRequest(call: ContactRequestCall): Promise<{ status: number; body: Record<string, unknown> }>;
   onPeerConnected(info: { name: string; direction: 'outbound' | 'inbound'; remoteNode: string }): void;
   tick(): Promise<void>;
@@ -180,6 +180,8 @@ interface OutgoingRequest {
   address: string;
   secret: string;
   fp: string;
+  /** FR-MSG-008 AC-7: the protocol the other side answered on; a request saved before it is https. */
+  scheme?: LanProtocol;
   startedAt: number;
   error?: string;
 }
@@ -329,9 +331,11 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
   }));
 
   const connectInfo = () => {
-    const { receiving, port } = deps.lan.status();
-    const urls = receiving ? lanAddresses().map((address) => `wss://${address}:${port}/mcp/peer`) : [];
-    return { urls, fp: deps.certificateFingerprint() };
+    const { receiving, port, protocol } = deps.lan.status();
+    // FR-MSG-008 AC-4, FR-MSG-009 AC-1: the certificate hash only means something over https.
+    const scheme = protocol === 'https' ? 'wss' : 'ws';
+    const urls = receiving ? lanAddresses().map((address) => `${scheme}://${address}:${port}/mcp/peer`) : [];
+    return { urls, fp: protocol === 'https' ? deps.certificateFingerprint() : '' };
   };
 
   const isContact = (node: string) =>
@@ -391,16 +395,25 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
   const addContactByAddress = async (input: { name: string; address: string }): Promise<NetResult> => {
     const code = checkContactName(input.name, { myName: myName(), taken: takenNames() });
     if (code) return { ok: false, code };
-    const address = parseAddress(input.address);
-    if (!address) return { ok: false, code: 'ADDRESS_INVALID' };
-    const secret = random();
-    const answer = await deps.http({ method: 'POST', url: `https://${address}${CONTACT_REQUEST_PATH}`, body: { fromNode: myName(), secret } });
+    const parsed = parseAddress(input.address);
+    if (!parsed) return { ok: false, code: 'ADDRESS_INVALID' };
+    const { address } = parsed;
+    let secret = random();
+    // FR-MSG-008 AC-7: a written scheme is the only one tried; otherwise http first, then https.
+    let scheme: LanProtocol = parsed.scheme ?? 'http';
+    let answer = await deps.http({ method: 'POST', url: `${scheme}://${address}${CONTACT_REQUEST_PATH}`, body: { fromNode: myName(), secret } });
+    if (answer.status === 0 && parsed.scheme === undefined) {
+      // The http try sent its secret in the clear; the https one gets its own.
+      scheme = 'https';
+      secret = random();
+      answer = await deps.http({ method: 'POST', url: `${scheme}://${address}${CONTACT_REQUEST_PATH}`, body: { fromNode: myName(), secret } });
+    }
     if (answer.status === 0) return { ok: false, code: 'ADDRESS_UNREACHABLE' };
     const body = asRecord(answer.body);
     if (answer.status !== 200 || body.ok !== true || typeof body.id !== 'string') {
       return { ok: false, code: typeof body.code === 'string' ? body.code : 'REQUEST_REFUSED' };
     }
-    state.outgoing.push({ id: body.id, name: input.name, address, secret, fp: answer.fingerprint, startedAt: now() });
+    state.outgoing.push({ id: body.id, name: input.name, address, secret, fp: answer.fingerprint, scheme, startedAt: now() });
     save();
     notify('request-sent');
     return { ok: true, contact: { name: input.name, state: 'requested', address } };
@@ -418,12 +431,13 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
       return;
     }
     if (request.error) return;
+    const scheme = request.scheme ?? 'https';
     const answer = await deps.http({
       method: 'GET',
-      url: `https://${request.address}${CONTACT_REQUEST_PATH}/${encodeURIComponent(request.id)}?secret=${encodeURIComponent(request.secret)}`,
+      url: `${scheme}://${request.address}${CONTACT_REQUEST_PATH}/${encodeURIComponent(request.id)}?secret=${encodeURIComponent(request.secret)}`,
     });
     if (answer.status === 0) return;
-    if (answer.fingerprint !== request.fp) {
+    if (scheme === 'https' && answer.fingerprint !== request.fp) {
       request.error = 'TLS_FINGERPRINT_CHANGED';
       save();
       notify('request-failed');
@@ -441,10 +455,10 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
     if (body.state !== 'accepted' || typeof body.key !== 'string') return;
     const key = body.key;
     const saved = await serially(async () => {
-      const fingerprint = normalizeFingerprint(request.fp);
+      const fingerprint = scheme === 'https' ? normalizeFingerprint(request.fp) : undefined;
       const link: PeerLinkEntry = {
         name: request.name,
-        url: `wss://${request.address}/mcp/peer`,
+        url: `${scheme === 'https' ? 'wss' : 'ws'}://${request.address}/mcp/peer`,
         accessKey: key,
         enabled: true,
         ...(fingerprint ? { tlsFingerprintSha256: fingerprint } : {}),
@@ -652,7 +666,9 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
   const lan = async () => ({ ok: true as const, ...deps.lan.status() });
 
   const setLan: MessengerNet['setLan'] = async (input) => {
-    if (input.receiving && deps.certificateFingerprint() === '') {
+    // FR-MSG-014 AC-3: only https needs the server certificate.
+    const protocol = input.protocol ?? deps.lan.status().protocol;
+    if (input.receiving && protocol === 'https' && deps.certificateFingerprint() === '') {
       return { ok: false, code: 'LAN_TLS_UNAVAILABLE', reason: 'NO_SERVER_CERTIFICATE' };
     }
     const result = await deps.lan.set(input);
@@ -696,14 +712,20 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
   };
 }
 
-/** 'host', 'host:port' or 'https://host:port' to 'host:port' (port 3333 when left out). */
-function parseAddress(text: string): string | null {
+/**
+ * 'host', 'host:port', 'http://host:port' or 'https://host:port' to 'host:port' (the LAN port when
+ * left out) and the scheme that was written, if any (FR-MSG-008 AC-7).
+ */
+function parseAddress(text: string): { address: string; scheme?: LanProtocol } | null {
   const trimmed = text.trim();
-  const candidate = trimmed.includes('://') ? trimmed : `https://${trimmed}`;
+  const written = /^(https?):\/\//iu.exec(trimmed)?.[1]?.toLowerCase() as LanProtocol | undefined;
+  if (trimmed.includes('://') && written === undefined) return null;
+  const candidate = written ? trimmed : `http://${trimmed}`;
   if (!URL.canParse(candidate)) return null;
   const url = new URL(candidate);
   if (url.hostname === '' || (url.pathname !== '/' && url.pathname !== '') || url.search !== '' || url.username !== '') return null;
-  return `${url.hostname}:${url.port || DEFAULT_LAN_PORT}`;
+  // An explicit default port (80/443) is dropped by URL; the LAN port is what a bare address means.
+  return { address: `${url.hostname}:${url.port || DEFAULT_LAN_PORT}`, ...(written ? { scheme: written } : {}) };
 }
 
 /** A path segment decoded, or undefined when its escapes are malformed. */

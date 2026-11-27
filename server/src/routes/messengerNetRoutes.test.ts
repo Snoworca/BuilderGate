@@ -17,7 +17,7 @@ function fakeNet(calls: Call[]): Partial<MessengerNet> {
     removeContact: async (name) => { calls.push(['remove', name]); return name === 'nobody' ? { ok: false, code: 'CONTACT_NOT_FOUND' } : { ok: true }; },
     acceptRequest: async (id) => { calls.push(['accept', id]); return { ok: true }; },
     declineRequest: async (id) => { calls.push(['decline', id]); return { ok: true }; },
-    lan: async () => ({ ok: true, receiving: false, port: 3334 }),
+    lan: async () => ({ ok: true, receiving: false, port: 3334, protocol: 'http', allowList: ['10.0.0.0/8'] }),
     setLan: async (input) => { calls.push(['setLan', input]); return input.port === 3334 ? { ok: false, code: 'LAN_PORT_IN_USE', port: 3334 } : { ok: true, receiving: input.receiving, port: input.port ?? 3334 }; },
   };
 }
@@ -67,7 +67,7 @@ test('FR-MSG-008 AC-3/AC-4/AC-6: code, redeem, add by address, delete, and reque
 
 test('FR-MSG-014: GET /lan reads receiving and port, PATCH /lan takes receiving and an optional port', async () => {
   await withRoutes(async (req, calls) => {
-    assert.deepEqual((await req('GET', '/api/messenger/lan')).json, { ok: true, receiving: false, port: 3334 });
+    assert.deepEqual((await req('GET', '/api/messenger/lan')).json, { ok: true, receiving: false, port: 3334, protocol: 'http', allowList: ['10.0.0.0/8'] });
     assert.deepEqual((await req('PATCH', '/api/messenger/lan', { receiving: true })).json, { ok: true, receiving: true, port: 3334 });
     const busy = await req('PATCH', '/api/messenger/lan', { receiving: true, port: 3334 });
     assert.equal(busy.status, 400);
@@ -96,5 +96,16 @@ test('contract §9: missing fields answer 400 INVALID_INPUT without calling the 
     assert.equal((await req('POST', '/api/messenger/codes/redeem', {})).json.code, 'INVALID_INPUT');
     assert.equal((await req('POST', '/api/messenger/contacts', { name: 'bob' })).json.code, 'INVALID_INPUT');
     assert.deepEqual(calls, []);
+  });
+});
+
+test('FR-MSG-014 AC-3/AC-4: PATCH /lan passes the protocol and the allow list through, and refuses malformed ones', async () => {
+  await withRoutes(async (req, calls) => {
+    await req('PATCH', '/api/messenger/lan', { receiving: true, protocol: 'https', allowList: ['10.0.0.0/8', '*'] });
+    assert.deepEqual(calls, [['setLan', { receiving: true, protocol: 'https', allowList: ['10.0.0.0/8', '*'] }]]);
+    assert.equal((await req('PATCH', '/api/messenger/lan', { receiving: true, protocol: 1 })).status, 400);
+    assert.equal((await req('PATCH', '/api/messenger/lan', { receiving: true, allowList: '10.0.0.0/8' })).status, 400);
+    assert.equal((await req('PATCH', '/api/messenger/lan', { receiving: true, allowList: [10] })).status, 400);
+    assert.equal(calls.length, 1);
   });
 });

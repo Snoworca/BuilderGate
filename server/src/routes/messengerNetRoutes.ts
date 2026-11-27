@@ -2,6 +2,7 @@
 // Mounted at /api/messenger behind the JWT middleware; the room routes share the prefix.
 import { Router, type Request, type Response } from 'express';
 import type { MessengerNet, NetResult } from '../services/messenger/contacts.js';
+import type { LanProtocol } from '../services/messenger/lanListener.js';
 
 type Handler = (req: Request) => Promise<NetResult> | NetResult;
 
@@ -41,9 +42,17 @@ export function createMessengerNetRoutes(net: MessengerNet): Router {
   router.get('/lan', route(() => net.lan()));
   router.patch('/lan', route((req) => {
     const body = (req.body as Record<string, unknown> | undefined) ?? {};
-    const { receiving, port } = body;
+    const { receiving, port, protocol, allowList } = body;
     if (typeof receiving !== 'boolean' || (port !== undefined && typeof port !== 'number')) return invalidInput();
-    return net.setLan(port === undefined ? { receiving } : { receiving, port });
+    // FR-MSG-014 AC-3/AC-4: the values themselves are checked by the receiver (LAN_PROTOCOL_INVALID, LAN_ALLOW_LIST_INVALID).
+    if (protocol !== undefined && typeof protocol !== 'string') return invalidInput();
+    if (allowList !== undefined && !(Array.isArray(allowList) && allowList.every((entry) => typeof entry === 'string'))) return invalidInput();
+    return net.setLan({
+      receiving,
+      ...(port === undefined ? {} : { port }),
+      ...(protocol === undefined ? {} : { protocol: protocol as LanProtocol }),
+      ...(allowList === undefined ? {} : { allowList: allowList as string[] }),
+    });
   }));
 
   return router;

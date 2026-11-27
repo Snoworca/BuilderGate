@@ -672,6 +672,11 @@ export function matchesWhitelist(address: string, whitelist: readonly string[]):
   return whitelist.includes(MCP_ANY_ADDRESS) || matchesAnyCidr(address, whitelist);
 }
 
+/** FR-MSG-014 AC-4: an allow list in the external-whitelist form ('*', IPv4, IPv4/CIDR), never 0.0.0.0/0. */
+export function isValidAddressAllowList(cidrs: unknown): cidrs is string[] {
+  return Array.isArray(cidrs) && isValidOptionalWhitelist(cidrs) && !hasWideOpenIpv4Cidr(cidrs);
+}
+
 /** Trusted proxies never take '*': any host could then forge the forwarded client address. */
 function isValidOptionalWhitelist(cidrs: unknown): boolean {
   return cidrs === undefined || (Array.isArray(cidrs) && cidrs.every((cidr) => cidr === MCP_ANY_ADDRESS || isValidIpv4Cidr(cidr)));

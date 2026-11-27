@@ -141,7 +141,7 @@ import { createPeerLinkControl, createPeerLinkFileStore, type PeerLinkControl } 
 import { normalizeFingerprint } from './services/peer/peerLinkSettings.js';
 import { createMessengerKeys, guardMessengerPeerCall } from './services/messenger/keys.js';
 import { createMessengerNet, type MessengerNet } from './services/messenger/contacts.js';
-import { createContactRequestRawHandler, httpsContactClient } from './services/messenger/contactHttp.js';
+import { createContactRequestRawHandler, contactHttpClient } from './services/messenger/contactHttp.js';
 import { createPeerHelloAuthenticator } from './services/messenger/peerAuth.js';
 import { createLanReceiver, lanAddressAllowed, openLanPeerListener, type LanReceiver } from './services/messenger/lanListener.js';
 import { createMessengerNetRoutes } from './routes/messengerNetRoutes.js';
@@ -1789,7 +1789,8 @@ async function startServer(): Promise<void> {
       authenticate: createPeerHelloAuthenticator({
         keys: messengerKeys,
         checkAddress: (request) => mcpAddressDenial(asRecord(request)),
-        lanAddressAllowed,
+        // FR-MSG-014 AC-4: the allow list saved in the messenger settings, read per request.
+        lanAddressAllowed: (address) => messengerLanRef?.isAllowed(address) ?? lanAddressAllowed(address),
         fixedKey: async (key, request) => {
           const record = asRecord(request);
           const evaluateRequest = mcpListenerController.evaluateRequest as (input: unknown) => unknown;
@@ -1841,14 +1842,15 @@ async function startServer(): Promise<void> {
       status: () => peerLinkManager.list(),
     });
     peerLinkControl = peerLinks;
-    // FR-MSG-014 (decision A): a second TLS listener on its own port; the MCP listener is untouched.
+    // FR-MSG-014 (decision A): a second listener on its own port, http or https (AC-3); the MCP listener is untouched.
     // Closing it destroys its upgraded sockets, so exactly the peers that came over it drop.
     const messengerLan = createLanReceiver({
       defaultPort: mcpPort + 1,
-      open: (port) => openLanPeerListener({
+      open: ({ port, protocol }) => openLanPeerListener({
         port,
+        protocol,
         sslConfig: config.ssl || { certPath: '', keyPath: '', caPath: '' },
-        isAllowed: lanAddressAllowed,
+        isAllowed: (address) => messengerLan.isAllowed(address),
         accept: (socket, request) => peerLinkManager.accept(socket, request),
         contactRequest: (req, res) => contactRequests(req, res),
       }),
@@ -1864,7 +1866,7 @@ async function startServer(): Promise<void> {
       peerSettings: { get: () => peerLinks.settings(), update: (patch) => peerLinks.update(patch) },
       lan: messengerLan,
       certificateFingerprint: () => serverCertificateFingerprint,
-      http: httpsContactClient,
+      http: contactHttpClient,
       notify: (reason) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll('messenger:changed', { reason }),
     });
     messengerNetRef = messengerNet;
@@ -1899,7 +1901,7 @@ async function startServer(): Promise<void> {
     app.set('messengerNet', messengerNet);
     const contactRequests = createContactRequestRawHandler({
       handle: (call) => messengerNet.handleContactRequest(call),
-      checkAccess: (req) => (lanAddressAllowed(req.socket.remoteAddress ?? '') ? null : 'LAN_ADDRESS_DENIED'),
+      checkAccess: (req) => (messengerLan.isAllowed(req.socket.remoteAddress ?? '') ? null : 'LAN_ADDRESS_DENIED'),
     });
     // FR-MCP-021: one-use upload URLs, served by the MCP listener at /mcp/fu.
     const mcpFileUploads = createMcpFileUploads({

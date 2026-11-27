@@ -2,6 +2,7 @@
 // on its own, how a burst of broadcasts merges, which Enter is an IME one, the tab dot, the LAN port.
 // @req FR-MSG-013 FR-MSG-014
 import { messengerLayout, sortRooms } from './messengerModel.ts';
+import { formatMcpControlListInput, MCP_ANY_ADDRESS, parseMcpControlListInput } from '../McpControlManager/mcpControlDialogModel.ts';
 import { clampDialogRect } from '../dialog/dialogGeometry.ts';
 import type { DialogRect, DialogSize } from '../dialog/types.ts';
 
@@ -67,6 +68,54 @@ export function parseLanPort(text: string): { ok: true; port: number | undefined
   if (!/^\d{1,5}$/.test(value)) return { ok: false };
   const port = Number(value);
   return port >= 1 && port <= 65535 ? { ok: true, port } : { ok: false };
+}
+
+export type LanProtocol = 'http' | 'https';
+export type LanWarning = 'plainHttp' | 'anyAddress';
+
+/** FR-MSG-014 AC-5: what the company-network settings warn about, in the order they show. */
+export function lanWarnings(draft: { protocol: LanProtocol; allowListText: string }): LanWarning[] {
+  const warnings: LanWarning[] = [];
+  if (draft.protocol === 'http') warnings.push('plainHttp');
+  if (parseMcpControlListInput(draft.allowListText).includes(MCP_ANY_ADDRESS)) warnings.push('anyAddress');
+  return warnings;
+}
+
+/** FR-MSG-014 AC-4: the allow list as the textarea shows it, one entry per line. */
+export function lanAllowListText(allowList: readonly string[]): string {
+  return formatMcpControlListInput([...allowList]);
+}
+
+/** FR-MSG-014 AC-3/AC-4: the protocol and list that differ from the saved ones, or null when nothing does. */
+export function lanSettingsChanges(
+  saved: { protocol: LanProtocol; allowList: readonly string[] },
+  protocol: LanProtocol,
+  allowListText: string,
+): { protocol?: LanProtocol; allowList?: string[] } | null {
+  const allowList = parseMcpControlListInput(allowListText);
+  const listChanged = allowList.length !== saved.allowList.length || allowList.some((entry, index) => entry !== saved.allowList[index]);
+  const changes = {
+    ...(protocol === saved.protocol ? {} : { protocol }),
+    ...(listChanged ? { allowList } : {}),
+  };
+  return Object.keys(changes).length === 0 ? null : changes;
+}
+
+/**
+ * FR-MSG-014 AC-3/AC-4: the PATCH /lan body. The on/off switch and the port send only themselves, so
+ * an unapplied (or invalid) protocol or list never blocks turning receiving off; Apply settings sends both.
+ */
+export function lanPatchBody(input: {
+  receiving: boolean;
+  port: number | undefined;
+  changes: { protocol?: LanProtocol; allowList?: string[] } | null;
+  withSettings: boolean;
+}): { receiving: boolean; port?: number; protocol?: LanProtocol; allowList?: string[] } {
+  return {
+    receiving: input.receiving,
+    ...(input.port === undefined ? {} : { port: input.port }),
+    ...(input.withSettings && input.changes !== null ? input.changes : {}),
+  };
 }
 
 /** D3: my connection code is shown only while company-network connections are accepted. */
