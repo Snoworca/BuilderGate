@@ -55,7 +55,14 @@ test('FR-UIDS-009 AC-2 the band sits on the color bar, about 10% wide and bright
   assert.match(band, /top:\s*-2px/);
   assert.match(band, /height:\s*2px/);
   assert.match(band, /background:[^;]*var\(--tab-color/);
-  assert.match(band, /background:[^;]*white/, 'the band is the tab colour mixed toward white');
+  // FR-UIDS-018 AC-4: the mix colour is a token — white on dark (brighter), black on light,
+  // where white would vanish against the pale bar.
+  assert.match(band, /background:[^;]*var\(--tab-activity-mix\)/, 'the band is the tab colour mixed toward --tab-activity-mix');
+  const tokens = readFileSync(new URL('../../src/styles/tokens.css', import.meta.url), 'utf8');
+  const lightAt = tokens.indexOf(':root[data-theme="light"] {');
+  assert.notEqual(lightAt, -1, 'missing the light token block');
+  assert.match(tokens.slice(0, lightAt), /--tab-activity-mix:\s*#ffffff;/, 'dark mixes toward white');
+  assert.match(tokens.slice(lightAt), /--tab-activity-mix:\s*#000000;/, 'light mixes toward black');
   assert.match(band, /animation:\s*workspace-tab-activity\b[^;]*infinite[^;]*alternate/);
 });
 
