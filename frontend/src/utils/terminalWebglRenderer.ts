@@ -113,7 +113,9 @@ export type TerminalWebglFallbackReason =
   | 'activation-failed'
   | 'context-loss'
   | 'context-loss-budget-exhausted'
-  | 'canvas-scale-mismatch';
+  | 'canvas-scale-mismatch'
+  // PERF-BGSTAB-026: WebGL would be composited in software, which costs more than the DOM renderer.
+  | 'software-rendering';
 
 /** REL-BGSTAB-046: the WebGL canvas backing store and the size it should have. */
 export interface CanvasScaleMeasurement {
@@ -151,6 +153,11 @@ export interface TerminalWebglRendererOptions {
   maxContextLossRetries?: number;
   /** PERF-BGSTAB-020: the page-wide pool that decides when a hidden context is released. */
   pool?: WebglContextPool;
+  /**
+   * PERF-BGSTAB-026: whether WebGL is hardware accelerated on this page. When it is not, the
+   * terminal never attaches the addon. Asked once, on the first visible sync.
+   */
+  hardwareAccelerated?: () => boolean;
   /**
    * REL-BGSTAB-046: reads the WebGL canvas backing store against CSS size × devicePixelRatio.
    * Null when there is no canvas to measure.
@@ -211,6 +218,11 @@ export function createTerminalWebglRenderer(
   };
 
   const attach = (): void => {
+    if (options.hardwareAccelerated && !options.hardwareAccelerated()) {
+      state = 'unavailable';
+      fallback('software-rendering');
+      return;
+    }
     let created: WebglAddonLike;
     try {
       created = options.createAddon();

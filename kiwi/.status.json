@@ -1,118 +1,118 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-27T04:23:39.752Z",
+  "generatedAt": "2026-11-27T04:36:45.786Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "4c817ae5216c68c806782b95ce856f9c04df10b3372fa7ef4ffc663da5a81573",
+    "value": "99de7d00e56d55217a88e9ec3f9e5008f3de77ddad21ffa092e9e43b01db6885",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "a9f466d0f2220c214ef1e0e6566c2f6942cd1ce6992ddea03c8ce125a0f320b3",
-        "size": 18082,
-        "mtimeMs": 1795752968959.3032
+        "sha256": "2d54852f5d9616165fcf62d26e7359bc1879f9bdbb58799b62b60507a482231f",
+        "size": 18383,
+        "mtimeMs": 1795754190081.6404
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
         "sha256": "0d9b2ad50e423faf97e112c432a682aa92a114c871c522d1cca205413c32410c",
         "size": 101988,
-        "mtimeMs": 1795752968959.3032
+        "mtimeMs": 1795741720067.984
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "3cb58126b860de1eb63c7bd37540b3c8bb9595c632109e060da18ff3c33710d8",
         "size": 143124,
-        "mtimeMs": 1795752968959.3032
+        "mtimeMs": 1795531552795.327
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "ec884339a8baa24ecb6ce5308170152fae8bdfcf51bcce9249f1f1c7be443bfe",
-        "size": 1592317,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "973d0a7e8dfe3c5b2eb8c809ce65c24da0d53ef9b2a19d7cd7431cfd13ad758a",
+        "size": 1600865,
+        "mtimeMs": 1795754190116.499
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "cdb00639fd60a88558010add696434f7ae4b39ddc3754d4ebe2890a37c71ee55",
         "size": 234771,
-        "mtimeMs": 1795753419569.429
+        "mtimeMs": 1795754185106.354
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "60b94310049c937101521d5ea7a844184626fed721b2b3dea13b04b8019519df",
         "size": 333415,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1795137661952.8093
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "c1063dfeef1c8418597d2521002aa9e0040d78bf1a14ebd0308cae396d2991ff",
         "size": 160990,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1795137630178.7385
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
         "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
         "size": 72202,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1793201241017.768
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "5ee46f279c8c8fa45d5949db028c21e955bf2011f9710607cfb935ae6094ce1e",
         "size": 50695,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1793152057513.0254
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1790475599389.271
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "455b912fbf1e37cf1dbc4ce5e0ec9f28c1a538e1d2f2595f36323424e2abecf2",
         "size": 91478,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1795137602225.7744
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "d8638d2992a44f146cf0d27b5535174632232a38b806bb7020c14fec1ba1ddb4",
         "size": 43252,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1793519970956.7395
       },
       {
         "path": "docs/spec/48.loop-scheduler.srs.md",
         "sha256": "3ef5110ce579a60a90778015b89ee3ecd14e2cbfecdc29aab8161133d0cdac04",
         "size": 29900,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1794187859339.0327
       },
       {
         "path": "docs/spec/49.usage-limits.srs.md",
         "sha256": "2311c7bbe32b2976fd6131df77d4ce9383f56cd73d89d19c7e46406b1c9c9129",
         "size": 22975,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1794838655236.8823
       },
       {
         "path": "docs/spec/50.messenger.srs.md",
         "sha256": "de36b72269282d93bca3e7cb12ca81860b54a08fd7adf101bed843373fb02f69",
         "size": 43655,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1795303578687.8618
       },
       {
         "path": "docs/spec/51.session-composer.srs.md",
         "sha256": "957e1d8f97609a0ffbfb608c9acac204e9129b27c4249616c68bab80cee9f893",
         "size": 8333,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1795531557102.1565
       },
       {
         "path": "docs/spec/52.todo-panel.srs.md",
         "sha256": "f4fd14cb80e27fb251003a2698dd461d40e3ec591369b3a1ac0edbdf29cf54f9",
         "size": 24694,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1795413012812.475
       },
       {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
-        "mtimeMs": 1795752968968.3032
+        "mtimeMs": 1778345537159.6023
       }
     ]
   },
@@ -165,7 +165,7 @@
       "MCP": 1
     },
     "performance": {
-      "BGSTAB": 25,
+      "BGSTAB": 28,
       "GIT": 1
     },
     "migration": {

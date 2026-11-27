@@ -133,6 +133,9 @@ import {
   type TerminalReplayWriteLease,
 } from '../../utils/terminalReplayGuard';
 import { createXtermInputProvenance } from '../../utils/xtermInputProvenance';
+import { isWebglHardwareAccelerated } from '../../utils/webglHardwareProbe';
+import { terminalRenderThrottle, type TerminalRenderLane } from '../../utils/terminalRenderThrottle';
+import { createTrailingTimer } from '../../utils/trailingTimer';
 import {
   shouldDropStaleRepeatedTerminalKey,
 } from '../../utils/terminalStaleKeyRepeat';
@@ -506,8 +509,16 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const legacyAuthorityReadySyncPendingRef = useRef(false);
     const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const userActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const outputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const idleSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // PERF-BGSTAB-028: one armed timer per idle action, not one per output write.
+    const outputActiveTimer = useMemo(() => createTrailingTimer({
+      delayMs: 2000,
+      onIdle: () => { containerRef.current?.classList.remove('output-active'); },
+    }), []);
+    const saveSnapshotRef = useRef<() => void>(() => {});
+    const snapshotIdleTimer = useMemo(() => createTrailingTimer({
+      delayMs: SNAPSHOT_SAVE_DEBOUNCE_MS,
+      onIdle: () => { saveSnapshotRef.current(); },
+    }), []);
     const lastSnapshotRef = useRef<string | null>(null);
     const restorePendingRef = useRef(true);
     const restoreAttemptEpochRef = useRef(1);
@@ -548,6 +559,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const tapFocusSuppressedRef = useRef(false);
     const tapFocusReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const webglRendererRef = useRef<TerminalWebglRenderer | null>(null);
+    // PERF-BGSTAB-027: this terminal's place in the page-wide render throttle.
+    const renderLaneRef = useRef<TerminalRenderLane | null>(null);
     const scheduleWebglScaleCheckRef = useRef<(() => void) | null>(null);
     const isVisibleRef = useRef(isVisible);
     const workspaceIdRef = useRef(workspaceId);
@@ -667,6 +680,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         },
         onStateChange: (snapshot) => {
           isComposingRef.current = snapshot.state !== 'idle';
+          // @req PERF-BGSTAB-027 AC-5
+          terminalRenderThrottle.setComposing(sessionId, isComposingRef.current);
         },
       });
     }, [imeTransaction, sessionId]);
@@ -1741,13 +1756,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }
     }, [sessionId]);
 
-    const scheduleSnapshotSave = useCallback(() => {
-      if (idleSnapshotTimerRef.current) clearTimeout(idleSnapshotTimerRef.current);
-      idleSnapshotTimerRef.current = setTimeout(() => {
-        saveSnapshot();
-        idleSnapshotTimerRef.current = null;
-      }, SNAPSHOT_SAVE_DEBOUNCE_MS);
+    useLayoutEffect(() => {
+      saveSnapshotRef.current = saveSnapshot;
     }, [saveSnapshot]);
+    const scheduleSnapshotSave = useCallback(() => {
+      snapshotIdleTimer.touch();
+    }, [snapshotIdleTimer]);
 
     const writeOutputDirect = useCallback((
       term: Terminal,
@@ -1790,11 +1804,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (el && !el.classList.contains('output-active')) {
         el.classList.add('output-active');
       }
-      if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
-      outputTimerRef.current = setTimeout(() => {
-        containerRef.current?.classList.remove('output-active');
-      }, 2000);
-    }, [getTerminalWriteCoordinator, scheduleSnapshotSave, requestViewportSync]);
+      outputActiveTimer.touch();
+    }, [getTerminalWriteCoordinator, scheduleSnapshotSave, requestViewportSync, outputActiveTimer]);
 
     const getOutputScheduler = useCallback((term: Terminal): TerminalOutputScheduler => {
       const limits = getCachedTerminalOutputResourceLimits();
@@ -1847,6 +1858,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           visibleFlushFrameBudgetMs: limits.visibleFlushFrameBudgetMs,
           write: (chunk, onWritten, onRejected) => writeOutputDirect(term, chunk, onWritten, onRejected),
           shouldYield: hasPendingBrowserInput,
+          // @req PERF-BGSTAB-027
+          schedule: (drain) => {
+            const lane = renderLaneRef.current;
+            if (lane) lane.schedule(drain);
+            else requestAnimationFrame(drain);
+          },
           canaryTarget: outputPolicyRuntime.target,
           validateCanaryPolicyLease: outputPolicyRuntime.validate,
         });
@@ -3634,8 +3651,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           }
         },
         measureCanvasScale: () => measureXtermWebglCanvas(term.element, window.devicePixelRatio || 1),
+        // @req PERF-BGSTAB-026
+        hardwareAccelerated: isWebglHardwareAccelerated,
       });
       webglRendererRef.current.sync(isVisibleRef.current);
+      renderLaneRef.current = terminalRenderThrottle.register(sessionId);
+      renderLaneRef.current.setVisible(isVisibleRef.current);
       // REL-BGSTAB-046: judge the canvas scale once the addon's ResizeObserver has
       // applied its size (two frames), after attach and after every resize or DPR change.
       let webglScaleCheckFrame = 0;
@@ -4757,6 +4778,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           iosHangulInput.handleInput(event.isComposing || event.inputType.includes('Composition'), event.inputType);
         }
       };
+      // @req PERF-BGSTAB-027 AC-4: the terminal the user types in renders at full rate.
+      const onHelperFocus = () => terminalRenderThrottle.noteFocus(sessionId);
       const onCompositionStart = (event: CompositionEvent) => {
         const compositionSeq = imeTransactionRef.current?.beginComposition();
         isComposingRef.current = true;
@@ -4785,6 +4808,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         helperTextarea.addEventListener('compositionstart', onCompositionStart);
         helperTextarea.addEventListener('compositionupdate', onCompositionUpdate);
         helperTextarea.addEventListener('compositionend', onCompositionEnd);
+        helperTextarea.addEventListener('focus', onHelperFocus);
       }
       const unregisterInputTransportOverride = registerInputTransportOverrideHandler(sessionId, (override) => {
         inputTransportOverrideRef.current = override;
@@ -4964,16 +4988,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           helperTextarea.removeEventListener('compositionstart', onCompositionStart);
           helperTextarea.removeEventListener('compositionupdate', onCompositionUpdate);
           helperTextarea.removeEventListener('compositionend', onCompositionEnd);
+          helperTextarea.removeEventListener('focus', onHelperFocus);
         }
         xtermInputProvenance.dispose();
         if (rafId !== null) cancelAnimationFrame(rafId);
         if (resizeTimer !== null) clearTimeout(resizeTimer);
-        if (idleSnapshotTimerRef.current) {
-          clearTimeout(idleSnapshotTimerRef.current);
-          idleSnapshotTimerRef.current = null;
-        }
+        snapshotIdleTimer.cancel();
         if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);
-        if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
+        outputActiveTimer.cancel();
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         imeTransactionRef.current?.dispose();
         if (iosHangulInputRef.current === iosHangulInput) iosHangulInputRef.current = null;
@@ -5056,6 +5078,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         scheduleWebglScaleCheckRef.current = null;
         webglRendererRef.current?.dispose();
         webglRendererRef.current = null;
+        renderLaneRef.current?.dispose();
+        renderLaneRef.current = null;
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
         term.dispose();
       };
@@ -5188,6 +5212,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Issue #15: release the GPU context while hidden, retake it on reveal.
       webglRendererRef.current?.sync(isVisible);
+      renderLaneRef.current?.setVisible(isVisible);
       if (isVisible) scheduleWebglScaleCheckRef.current?.();
 
       revealSettleCancelRef.current?.();
@@ -5252,10 +5277,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
     useEffect(() => {
       const persistSnapshot = () => {
-        if (idleSnapshotTimerRef.current) {
-          clearTimeout(idleSnapshotTimerRef.current);
-          idleSnapshotTimerRef.current = null;
-        }
+        snapshotIdleTimer.cancel();
         if (restorePendingRef.current) {
           persistBufferedOutput();
         } else {

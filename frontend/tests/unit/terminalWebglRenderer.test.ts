@@ -31,6 +31,7 @@ function harness(options: {
   failOnActivate?: boolean;
   maxContextLossRetries?: number;
   pool?: WebglContextPool;
+  hardwareAccelerated?: () => boolean;
 } = {}): Harness {
   const state = { created: 0, disposed: 0, fallbacks: [] as string[] };
   let contextLossHandler: (() => void) | null = null;
@@ -53,6 +54,7 @@ function harness(options: {
     },
     onFallback: (reason) => { state.fallbacks.push(reason); },
     pool: options.pool ?? releaseOnHide(),
+    ...(options.hardwareAccelerated ? { hardwareAccelerated: options.hardwareAccelerated } : {}),
     ...(options.maxContextLossRetries === undefined
       ? {}
       : { maxContextLossRetries: options.maxContextLossRetries }),
@@ -341,4 +343,24 @@ test('REL-BGSTAB-046 AC-2 AC-4 AC-5: TerminalView checks the scale two frames af
   assert.match(source, /matchMedia\(`\(resolution: \$\{window\.devicePixelRatio \|\| 1\}dppx\)`\)/);
   assert.match(source, /if \(isVisible\) scheduleWebglScaleCheckRef\.current\?\.\(\);/);
   assert.match(source, /recordTerminalDebugEvent\(sessionId, 'terminal_webgl_fallback', \{ reason \}\);\s*try \{\s*term\.refresh\(0, term\.rows - 1\);/);
+});
+
+test('PERF-BGSTAB-026 AC-1: without hardware acceleration the terminal stays on the DOM renderer', () => {
+  let probes = 0;
+  const h = harness({ hardwareAccelerated: () => { probes += 1; return false; } });
+  h.renderer.sync(true);
+  h.renderer.sync(false);
+  h.renderer.sync(true);
+  assert.equal(h.created, 0, 'no WebGL addon is created');
+  assert.deepEqual(h.fallbacks, ['software-rendering'], 'the reason is recorded once');
+  assert.equal(h.renderer.getState(), 'unavailable');
+  assert.equal(probes, 1, 'the answer is asked for once per terminal');
+});
+
+test('PERF-BGSTAB-026 AC-2: with hardware acceleration the WebGL addon attaches as before', () => {
+  const h = harness({ hardwareAccelerated: () => true });
+  h.renderer.sync(true);
+  assert.equal(h.created, 1);
+  assert.equal(h.renderer.getState(), 'attached');
+  assert.deepEqual(h.fallbacks, []);
 });
