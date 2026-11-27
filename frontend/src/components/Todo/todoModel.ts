@@ -1,6 +1,6 @@
 // The to-do panel's rows: the server's flat list as a tree, with completed entries shown or hidden
-// for the whole list and per category.
-// @req FR-TODO-001 FR-TODO-003 FR-TODO-006
+// for the whole list and per category, and what is under a folded entry left out.
+// @req FR-TODO-001 FR-TODO-003 FR-TODO-006 FR-TODO-008
 import { t } from '../../i18n/i18n.ts';
 
 /** FR-TODO-001 AC-7: who added an entry. */
@@ -40,6 +40,8 @@ export interface TodoView {
   hideDone: boolean;
   /** A category's own choice, which wins over the top toggle. */
   categoryShowDone: Readonly<Record<number, boolean>>;
+  /** FR-TODO-008: entries whose rows below are hidden. */
+  collapsed?: Readonly<Record<number, true>>;
 }
 
 export function canAddTodoChild(depth: number): boolean {
@@ -135,6 +137,7 @@ export function categoryShowsDone(categoryId: number, view: TodoView): boolean {
 /**
  * FR-TODO-003 AC-1/AC-3/AC-4: rows in tree order (each level by id). A hidden entry hides what is
  * under it. A completed category follows the top toggle; the entries under it follow its icon.
+ * FR-TODO-008 AC-1: a folded entry keeps its row and hides what is under it.
  */
 export function todoRows(items: readonly TodoItem[], view: TodoView): TodoRow[] {
   const children = new Map<number | null, TodoItem[]>();
@@ -145,17 +148,19 @@ export function todoRows(items: readonly TodoItem[], view: TodoView): TodoRow[] 
     children.set(entry.parentId, list);
   }
   const rows: TodoRow[] = [];
+  // @req FR-TODO-008 AC-1
+  const open = (id: number) => view.collapsed?.[id] !== true;
   const walk = (parentId: number, depth: TodoDepth, categoryId: number, showDone: boolean) => {
     for (const entry of children.get(parentId) ?? []) {
       if (entry.done && !showDone) continue;
       rows.push({ item: entry, depth, categoryId });
-      if (depth < TODO_MAX_DEPTH) walk(entry.id, (depth + 1) as TodoDepth, categoryId, showDone);
+      if (depth < TODO_MAX_DEPTH && open(entry.id)) walk(entry.id, (depth + 1) as TodoDepth, categoryId, showDone);
     }
   };
   for (const category of children.get(null) ?? []) {
     if (category.done && view.hideDone) continue;
     rows.push({ item: category, depth: 1, categoryId: category.id });
-    walk(category.id, 2, category.id, categoryShowsDone(category.id, view));
+    if (open(category.id)) walk(category.id, 2, category.id, categoryShowsDone(category.id, view));
   }
   return rows;
 }

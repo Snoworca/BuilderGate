@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-27T07:17:39.439Z",
+  "generatedAt": "2026-11-27T07:18:09.759Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "445862b9b018062e24bad4042b5994cd5a8281b3969fd24bdb13e28f27c0c201",
+    "value": "7b910fea98f610c00e1e78d28681a7cb35bbb84573ac72a45d6ae2f17ed1f12d",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -104,9 +104,9 @@
       },
       {
         "path": "docs/spec/52.todo-panel.srs.md",
-        "sha256": "8a3a98cbbdd4a087004245a8d1aa4b40087ce243d0a62fed9a6350a382b015ab",
-        "size": 25165,
-        "mtimeMs": 1795763843683.0188
+        "sha256": "d21d4afe5eadb6008a152b41ce53a41969487e2c749753e053d8ebfc0cb7795c",
+        "size": 28116,
+        "mtimeMs": 1795763880068.645
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -132,7 +132,7 @@
       "USAGE": 8,
       "MSG": 16,
       "CMP": 3,
-      "TODO": 7
+      "TODO": 8
     },
     "constraint": {
       "ARCH": 1,

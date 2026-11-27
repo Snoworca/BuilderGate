@@ -2057,5 +2057,8 @@
   "todo.editTitle": "제목 고치기",
   "todo.close": "닫기",
   "todo.resize": "할 일 패널 너비 조절",
-  "todo.error.load": "할 일 목록을 불러오지 못했습니다."
+  "todo.error.load": "할 일 목록을 불러오지 못했습니다.",
+  "todo.fold": "접기",
+  "todo.unfold": "펼치기",
+  "todo.hiddenCount.other": "숨은 항목 {count}개"
 }
