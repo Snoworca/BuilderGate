@@ -281,9 +281,12 @@ test('MIG-BGSTAB-002 capability view-attributes response is owned by WebSocketCo
     /type:\s*['"]terminal-authority:view-attributes['"]/u,
     'renderer lifetime must not own query-responder capability admission',
   );
+  // FR-UIDS-019: one immutable appearance source per theme. The palette TerminalView
+  // gives xterm and the view attributes sent here are derived from the same object
+  // (tests/unit/terminalLightTheme.test.ts checks the derivation for both themes).
   assert.match(
     terminalViewSource,
-    /theme:\s*TERMINAL_XTERM_THEME/u,
+    /\.\.\.resolveTerminalXtermThemeOptions\(readAppliedTheme\(\)\)/u,
     'TerminalView and the control-plane composer must share one immutable appearance source',
   );
   assert.match(

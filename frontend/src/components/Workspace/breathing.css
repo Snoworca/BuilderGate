@@ -35,8 +35,8 @@
 }
 
 /* --- Focused: white border ---
- * --tile-focus: white in either theme, as the terminal it frames stays dark
- * until FR-UIDS-019. */
+ * --tile-focus: white on the dark terminal, near-black on the light one
+ * (FR-UIDS-019). */
 /* @req FR-UIDS-018 AC-4 */
 
 .grid-cell:has(.terminal-view.terminal-focused)::after {

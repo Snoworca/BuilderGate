@@ -166,10 +166,10 @@ const LIGHT_TEXT_PAIRS: ReadonlyArray<readonly [string, string, string?]> = [
   ['--todo-meta', '--todo-detail-hover'],
   ['--todo-detail-hide-hover', '--todo-detail-hover'],
   ['--todo-input-fg', '--bg-well'],
-  // Over a session, whose terminal stays #1e1e1e until FR-UIDS-019.
-  ['--fg', '--bg-veil', '#1e1e1e'],
-  ['--danger-text', '--bg-veil', '#1e1e1e'],
-  ['--fg-muted', '--toolbar-float-bg', '#1e1e1e'],
+  // Over a session, whose terminal background follows the theme (FR-UIDS-019).
+  ['--fg', '--bg-veil', '--terminal-bg'],
+  ['--danger-text', '--bg-veil', '--terminal-bg'],
+  ['--fg-muted', '--toolbar-float-bg', '--terminal-bg'],
 ];
 
 test('FR-UIDS-018 AC-3 AC-4: the other light text tokens reach 4.5:1 on the surfaces they are drawn on', () => {
@@ -197,7 +197,6 @@ const THEME_NEUTRAL: ReadonlyMap<string, string> = new Map([
   ['--danger-fill', 'the filled destructive button; white text on it is 4.6:1 in either theme'],
   ['--danger-fill-hover', 'the filled destructive button under the pointer'],
   ['--bg-standalone-inset', 'the strip under the status bar of the iOS home-screen app; black-translucent draws white text there in either theme'],
-  ['--tile-focus', 'the focus frame drawn on the terminal edge; the terminal stays dark until FR-UIDS-019 re-binds both'],
   ['--toast-bg', 'a toast over the terminal is a self-contained white-on-scrim pair'],
   ['--toast-fg', 'a toast over the terminal is a self-contained white-on-scrim pair'],
   ['--drop-preview-bg', 'the translucent blue drop target over the grid reads on either theme'],
@@ -257,6 +256,10 @@ const REPLACED: ReadonlyArray<readonly [token: string, literal: string, files: r
   ['--tile-focus', '#ffffff', ['components/Workspace/breathing.css']],
   ['--toast-bg', 'rgba(0, 0, 0, 0.8)', ['components/Terminal/InputDiscardedToast.css', 'components/Terminal/FontSizeToast.css']],
   ['--toast-fg', 'white', ['components/Terminal/InputDiscardedToast.css', 'components/Terminal/FontSizeToast.css']],
+  // FR-UIDS-019: the terminal background (the var() fallbacks, and the inline value
+  // TerminalView set from the xterm palette) and the file-drop label behind its text.
+  ['--terminal-bg', '#1e1e1e', ['components/Terminal/TerminalView.css', 'components/Grid/MosaicTile.tsx']],
+  ['--file-drop-label-bg', 'rgba(0, 0, 0, 0.6)', ['components/Terminal/terminalFileDrop.css']],
   ['--ok-line', 'rgba(76, 195, 138, 0.4)', ['components/Messenger/Messenger.css']],
   ['--warn-line', 'rgba(216, 165, 52, 0.4)', ['components/Messenger/Messenger.css']],
   ['--loop-prompt-text', '#c586c0', ['components/Loop/LoopDialog.css']],
@@ -359,7 +362,7 @@ const NOT_SCANNED: ReadonlyMap<string, string> = new Map([
 ]);
 
 const VENDORED_RE_BIND = 'the day editor re-binds the vendored editor palette (body text, code block); not ours to tokenize (AC-7)';
-const FILE_DROP = 'drawn over the terminal, which stays dark until FR-UIDS-019; FR-FEX-031 AC-1 pins the 15% yellow';
+const FILE_DROP = 'FR-FEX-031 AC-1 pins the 15% yellow over the terminal; the yellow label sits on --file-drop-label-bg, which the light theme darkens (FR-UIDS-019)';
 /** [file, rule selector, colour, reason]: the inline colours that stay. */
 const ALLOWED: ReadonlyArray<readonly [string, string, string, string]> = [
   ['components/editor/EditorWindow.css', ".editor-window-surface [data-theme='light'] .atomic-cm-editor", '#000000', VENDORED_RE_BIND],
@@ -369,7 +372,6 @@ const ALLOWED: ReadonlyArray<readonly [string, string, string, string]> = [
   ['components/Todo/TodoPanel.css', '.todo-check:checked', '#3a5675', 'the edge of the same filled box'],
   ['components/Terminal/terminalFileDrop.css', '.terminal-file-drop-overlay', 'rgba(255, 214, 0, 0.15)', FILE_DROP],
   ['components/Terminal/terminalFileDrop.css', '.terminal-file-drop-overlay', 'rgba(255, 214, 0, 0.7)', FILE_DROP],
-  ['components/Terminal/terminalFileDrop.css', '.terminal-file-drop-overlay-label', 'rgba(0, 0, 0, 0.6)', FILE_DROP],
   ['components/Terminal/terminalFileDrop.css', '.terminal-file-drop-overlay-label', '#ffd600', FILE_DROP],
   ['styles/globals.css', '.no-session', '#6e6e6e', 'a dead rule: no element carries .no-session'],
 ];

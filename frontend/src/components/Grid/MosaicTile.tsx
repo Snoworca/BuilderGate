@@ -88,7 +88,7 @@ export function MosaicTile({
           justifyContent: 'center',
           width: '100%',
           height: '100%',
-          backgroundColor: 'var(--terminal-bg, #1e1e1e)',
+          backgroundColor: 'var(--terminal-bg)',
           boxSizing: 'border-box',
         }}
       />
@@ -117,7 +117,7 @@ export function MosaicTile({
         flexDirection: 'column',
         width: '100%',
         height: '100%',
-        backgroundColor: 'var(--terminal-bg, #1e1e1e)',
+        backgroundColor: 'var(--terminal-bg)',
         overflow: 'hidden',
         '--tab-color': tabColor,
       } as React.CSSProperties}

@@ -73,11 +73,50 @@ export function resolveTheme(preference: ThemePreference, prefersDark: boolean):
   return preference;
 }
 
+type AppliedThemeListener = (theme: ResolvedTheme) => void;
+
+const appliedThemeListeners = new Set<AppliedThemeListener>();
+
+function defaultRoot(): Pick<HTMLElement, 'dataset'> | null {
+  return typeof document === 'undefined' ? null : document.documentElement;
+}
+
+// @req FR-UIDS-019 AC-3
+/** The theme on the root element now, as theme-boot.js or applyTheme put it there. */
+export function readAppliedTheme(root: Pick<HTMLElement, 'dataset'> | null = defaultRoot()): ResolvedTheme {
+  return root?.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
+// @req FR-UIDS-019 AC-3
+/**
+ * Calls `listener` with each theme applyTheme puts on the root from now on, which is
+ * how the open terminals repaint without a reload. Returns the unsubscribe.
+ */
+export function subscribeAppliedTheme(listener: AppliedThemeListener): () => void {
+  appliedThemeListeners.add(listener);
+  return () => {
+    appliedThemeListeners.delete(listener);
+  };
+}
+
 // @req FR-UIDS-018 AC-1
-/** Puts the theme on the root element, where tokens.css reads it (`:root[data-theme="light"]`). */
+// @req FR-UIDS-019 AC-3
+/**
+ * Puts the theme on the root element, where tokens.css reads it (`:root[data-theme="light"]`),
+ * and tells the subscribers when it changed. A failing subscriber is reported and
+ * skipped, so one terminal cannot keep the others or the page on the old theme.
+ */
 export function applyTheme(
   theme: ResolvedTheme,
   root: Pick<HTMLElement, 'dataset'> = document.documentElement,
 ): void {
+  if (root.dataset.theme === theme) return;
   root.dataset.theme = theme;
+  for (const listener of [...appliedThemeListeners]) {
+    try {
+      listener(theme);
+    } catch (error) {
+      console.warn('[theme] a theme listener failed', error);
+    }
+  }
 }

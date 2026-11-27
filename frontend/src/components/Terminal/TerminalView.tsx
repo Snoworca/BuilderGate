@@ -113,8 +113,9 @@ import {
 } from '../../utils/terminalPasteLimits';
 import {
   resolveTerminalXtermOptions,
-  TERMINAL_XTERM_THEME,
+  resolveTerminalXtermThemeOptions,
 } from '../../utils/terminalViewAttributes';
+import { readAppliedTheme, subscribeAppliedTheme } from '../../theme/appTheme';
 
 type OutputFifoProbeResult = TerminalOutputFifoProbeSettlement | 'failed';
 import {
@@ -3584,6 +3585,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
     }, [rejectPendingInputQueue, sessionId]);
 
+    // @req FR-UIDS-019 AC-3
+    // A theme switch repaints this terminal in place: xterm redraws every row from the
+    // new palette and answers later colour queries (OSC 10/11/4) from it (AC-4). The
+    // terminal is read from xtermRef, so one already replaced or closed is left alone.
+    useEffect(function repaintTerminalOnThemeChange() {
+      return subscribeAppliedTheme((theme) => {
+        const term = xtermRef.current;
+        if (!term) return;
+        const { theme: palette, minimumContrastRatio } = resolveTerminalXtermThemeOptions(theme);
+        term.options.theme = palette;
+        term.options.minimumContrastRatio = minimumContrastRatio;
+      });
+    }, []);
+
     useEffect(function mountTerminalRuntime() {
       if (!terminalRef.current) return;
       void terminalRuntimeRevision;
@@ -3602,7 +3617,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         cursorBlink: true,
         fontSize: initialFontSize,
         fontFamily: '"Cascadia Code", "Fira Code", Consolas, monospace',
-        theme: TERMINAL_XTERM_THEME,
+        // @req FR-UIDS-019 AC-1 AC-2
+        // The palette of the theme on <html> now; a later switch repaints in place
+        // (repaintTerminalOnThemeChange).
+        ...resolveTerminalXtermThemeOptions(readAppliedTheme()),
         ...resolveTerminalXtermOptions(getTerminalResourceLimits()),
         convertEol: false,
         disableStdin: true,
@@ -4497,10 +4515,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             syncInputReadiness('initial-fit');
             // term.focus() removed — focus only on user click (handleClick) to prevent
             // focus stealing when multiple terminals are mounted in grid mode (R7)
-
-            // Set terminal background as CSS variable from theme config
-            const bg = term.options.theme?.background || '#1e1e1e';
-            document.documentElement.style.setProperty('--terminal-bg', bg);
           });
         });
       });

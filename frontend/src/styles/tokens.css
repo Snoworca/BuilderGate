@@ -235,11 +235,17 @@
   --drop-preview-bg: rgba(100, 149, 237, 0.15);
   --drop-preview-line: rgba(100, 149, 237, 0.5);
   --toolbar-float-bg: rgba(47, 47, 47, 0.9);
-  /* Drawn on the terminal, which stays dark until FR-UIDS-019: the focus frame
-   * and the toasts. */
+  /* @req FR-UIDS-019 AC-3 */
+  /* The terminal and what is drawn on it: the focus frame, the toasts and the
+   * label of a file drop. --terminal-bg is the background of the xterm palette
+   * of each theme (TERMINAL_XTERM_THEME and TERMINAL_XTERM_LIGHT_THEME in
+   * utils/terminalViewAttributes.ts), so the padding around the canvas and the
+   * grid cell behind it match the terminal. */
+  --terminal-bg: #1e1e1e;
   --tile-focus: #ffffff;
   --toast-bg: rgba(0, 0, 0, 0.8);
   --toast-fg: #ffffff;
+  --file-drop-label-bg: rgba(0, 0, 0, 0.6);
   /* Messenger pills and banners, and the kind of a loop step. */
   --ok-line: rgba(76, 195, 138, 0.4);
   --warn-line: rgba(216, 165, 52, 0.4);
@@ -483,6 +489,12 @@
   --split-line: rgba(0, 0, 0, 0.06);
   --grid-bg: rgba(0, 0, 0, 0.03);
   --toolbar-float-bg: rgba(241, 241, 241, 0.92);
+  /* @req FR-UIDS-019 AC-3 */
+  /* The white terminal: a dark focus frame, and a darker backing under the
+   * yellow file-drop label so it keeps 4.5:1 over the light canvas. */
+  --terminal-bg: #ffffff;
+  --tile-focus: #1f1f1f;
+  --file-drop-label-bg: rgba(0, 0, 0, 0.75);
   --ok-line: rgba(26, 127, 55, 0.4);
   --warn-line: rgba(154, 103, 0, 0.4);
   --msgr-on-warn: #ffffff;
