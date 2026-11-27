@@ -1,118 +1,118 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-27T05:14:14.403Z",
+  "generatedAt": "2026-11-27T07:17:39.439Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "4b599995ecbf708df2444551e2d357ae93f99006d66b1b1ff9044062e7398876",
+    "value": "445862b9b018062e24bad4042b5994cd5a8281b3969fd24bdb13e28f27c0c201",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "2d54852f5d9616165fcf62d26e7359bc1879f9bdbb58799b62b60507a482231f",
-        "size": 18383,
-        "mtimeMs": 1795756444001.3628
+        "sha256": "af169042a6e25c81977cc1be22e9a45a26287754ed6947537d11dd176cf63f73",
+        "size": 18614,
+        "mtimeMs": 1795763843673.0188
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "0d9b2ad50e423faf97e112c432a682aa92a114c871c522d1cca205413c32410c",
-        "size": 101988,
-        "mtimeMs": 1795752968959.3032
+        "sha256": "f31cca004f95108f31f814174a60cbda169820b23cb5e231ffb7c057a7516a0f",
+        "size": 103257,
+        "mtimeMs": 1795752010734.042
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "3cb58126b860de1eb63c7bd37540b3c8bb9595c632109e060da18ff3c33710d8",
-        "size": 143124,
-        "mtimeMs": 1795752968959.3032
+        "sha256": "9c67eaa9c13babb240944e7c7787d921e189bf27e11a5c0026d65c89ff8a4916",
+        "size": 145042,
+        "mtimeMs": 1795752010735.042
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "973d0a7e8dfe3c5b2eb8c809ce65c24da0d53ef9b2a19d7cd7431cfd13ad758a",
-        "size": 1600865,
-        "mtimeMs": 1795756444010.5295
+        "sha256": "111bba5b2a5687ba15bb9cc4dc30ca440b09d5d3353adebb1954c3ee7f5aad9b",
+        "size": 1612725,
+        "mtimeMs": 1795763843680.018
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "cdb00639fd60a88558010add696434f7ae4b39ddc3754d4ebe2890a37c71ee55",
-        "size": 234771,
-        "mtimeMs": 1795753419569.429
+        "sha256": "0063f992b82e4453c55fb0d8f6dad08a1956db79a54ca0a97eb3579092dd6446",
+        "size": 237621,
+        "mtimeMs": 1795763843681.0188
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "60b94310049c937101521d5ea7a844184626fed721b2b3dea13b04b8019519df",
-        "size": 333415,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "d0b5ed317870ada005a98d41473d2354c004bfb592f3bf70398f9a61eea56117",
+        "size": 336787,
+        "mtimeMs": 1795752010744.554
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "c1063dfeef1c8418597d2521002aa9e0040d78bf1a14ebd0308cae396d2991ff",
-        "size": 160990,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "3d66febabcb69a028cf5350f8971e0f36e6c3bd069bc7c4277a7d09ed7a23d0e",
+        "size": 163221,
+        "mtimeMs": 1795752010744.554
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
-        "size": 72202,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "e1b4dee877c0c3c4683dc69232d63e46db92483ed76583073b5fd04f59cde905",
+        "size": 73052,
+        "mtimeMs": 1795752010745.5542
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "5ee46f279c8c8fa45d5949db028c21e955bf2011f9710607cfb935ae6094ce1e",
-        "size": 50695,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "99c4a43b747ce1f7b9cd67a542d81b43e1d36d41296d233cc4a4bf9cca18a465",
+        "size": 54977,
+        "mtimeMs": 1795763843809.2737
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
-        "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
-        "size": 18127,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "45f355e7d7204a7597cc5e7884ac1b322556feb5885f193aadad1f552bc5f4d1",
+        "size": 18716,
+        "mtimeMs": 1795752010745.5542
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
-        "sha256": "455b912fbf1e37cf1dbc4ce5e0ec9f28c1a538e1d2f2595f36323424e2abecf2",
-        "size": 91478,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "5aaa6451cdc2ceb22f9cee5da348a5b31060e8770c372083c89692aa5337274f",
+        "size": 92609,
+        "mtimeMs": 1795752010746.555
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
-        "sha256": "d8638d2992a44f146cf0d27b5535174632232a38b806bb7020c14fec1ba1ddb4",
-        "size": 43252,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "280aaf6e9d9c221c2c6007dbcb698c4577bb8405e8d4da0919bdd52da36a9e16",
+        "size": 44270,
+        "mtimeMs": 1795752010746.555
       },
       {
         "path": "docs/spec/48.loop-scheduler.srs.md",
-        "sha256": "3ef5110ce579a60a90778015b89ee3ecd14e2cbfecdc29aab8161133d0cdac04",
-        "size": 29900,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "01148009d544cc981ddde2b01f9214d27082e15143886433602e1a7f983d82c9",
+        "size": 30429,
+        "mtimeMs": 1795752010747.5537
       },
       {
         "path": "docs/spec/49.usage-limits.srs.md",
-        "sha256": "2311c7bbe32b2976fd6131df77d4ce9383f56cd73d89d19c7e46406b1c9c9129",
-        "size": 22975,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "6c9601badc53e60b5d59d1a10cedd10b196c22162d452c78f37362d1ace3a4c8",
+        "size": 23461,
+        "mtimeMs": 1795752010747.5537
       },
       {
         "path": "docs/spec/50.messenger.srs.md",
-        "sha256": "7211c47e24601d102b42aac8d1778c1d2665f2bcb3603d060a9c66b366510dce",
-        "size": 47855,
-        "mtimeMs": 1795756444056.3628
+        "sha256": "b5ce10c0b04848382cec8df7b574299231c469167e9e946222466c7f509d5d53",
+        "size": 48840,
+        "mtimeMs": 1795763843683.0188
       },
       {
         "path": "docs/spec/51.session-composer.srs.md",
-        "sha256": "957e1d8f97609a0ffbfb608c9acac204e9129b27c4249616c68bab80cee9f893",
-        "size": 8333,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "d8b2f0a1e8bd99f5851b9cd62550fda8eaf532061a216aa04551a7bbcdac97c4",
+        "size": 8536,
+        "mtimeMs": 1795752010748.554
       },
       {
         "path": "docs/spec/52.todo-panel.srs.md",
-        "sha256": "f4fd14cb80e27fb251003a2698dd461d40e3ec591369b3a1ac0edbdf29cf54f9",
-        "size": 24694,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "8a3a98cbbdd4a087004245a8d1aa4b40087ce243d0a62fed9a6350a382b015ab",
+        "size": 25165,
+        "mtimeMs": 1795763843683.0188
       },
       {
         "path": "docs/spec/90.appendix.md",
-        "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
-        "size": 121,
-        "mtimeMs": 1795752968968.3032
+        "sha256": "feaa2ea621cc7f9585b3f6e2a258d70a49bae19271a81384f88af71d7f041693",
+        "size": 126,
+        "mtimeMs": 1795752010748.554
       }
     ]
   },
@@ -125,7 +125,7 @@
       "MDE": 34,
       "FEX": 33,
       "FOP": 8,
-      "UIDS": 15,
+      "UIDS": 16,
       "MKB": 15,
       "GIT": 13,
       "LOOP": 8,

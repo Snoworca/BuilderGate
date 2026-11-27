@@ -960,6 +960,8 @@
   "workspace.move.tabCount": "탭 {count}/{max}개",
   "workspace.move.title": "Workspace 이동",
   "workspace.sidebar.add": "Workspace 추가",
+  "workspace.sidebar.collapse": "사이드바 접기",
+  "workspace.sidebar.expand": "사이드바 펼치기",
   "workspace.sidebar.version": "BuilderGate {label}",
   "workspace.tabBar.closeTab": "탭 닫기",
   "workspace.tabBar.recoveryCommand": "복구 명령: {command}",
