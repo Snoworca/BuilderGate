@@ -55,9 +55,10 @@ test('FR-MSG-014 AC-2: turning it on opens the listener, saves the choice, and a
 
   const again = fakeOpener();
   const restarted = createLanReceiver({ path: lanPath, defaultPort: 3334, open: again.open });
-  assert.deepEqual(restarted.status(), { receiving: true, port: 3334, protocol: 'http', allowList: INTERNAL });
   await restarted.startFromSaved();
   assert.deepEqual(again.opened, [3334]);
+  // FR-MSG-014 AC-6: receiving is reported once the listener is open.
+  assert.deepEqual(restarted.status(), { receiving: true, port: 3334, protocol: 'http', allowList: INTERNAL });
 });
 
 test('FR-MSG-014: a busy port answers LAN_PORT_IN_USE with the port and stays off', async () => {
@@ -331,4 +332,139 @@ test('FR-MSG-014 AC-3: a settings file saved before the protocol choice keeps ht
 
 test('FR-MSG-014 AC-4: the default allow list is exactly the three private ranges; loopback is allowed outside the list', () => {
   assert.deepEqual(INTERNAL, ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
+});
+
+// ---- FR-MSG-014 AC-6 (#266, #267): a listener that cannot open ----
+
+/** Timers that run only when the test fires them. */
+function fakeTimer() {
+  let nextId = 1;
+  const pending = new Map<number, { fn: () => void; ms: number }>();
+  return {
+    pending,
+    setTimeout: (fn: () => void, ms: number) => {
+      const id = nextId++;
+      pending.set(id, { fn, ms });
+      return id;
+    },
+    clearTimeout: (id: unknown) => { pending.delete(id as number); },
+    /** Runs the one pending timer and lets the open it starts finish. */
+    async fire() {
+      assert.equal(pending.size, 1, 'one retry waits');
+      const [id, timer] = [...pending.entries()][0]!;
+      pending.delete(id);
+      timer.fn();
+      for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve));
+      return timer.ms;
+    },
+  };
+}
+
+async function savedOn(dir: string) {
+  const lanPath = path.join(dir, 'lan.json');
+  await fs.writeFile(lanPath, JSON.stringify({ version: 1, receiving: true, port: 3334, protocol: 'http', allowList: INTERNAL }));
+  return lanPath;
+}
+
+const savedReceiving = async (lanPath: string) => (JSON.parse(await fs.readFile(lanPath, 'utf8')) as { receiving: boolean }).receiving;
+
+test('FR-MSG-014 AC-6: a listener that cannot open at boot is not receiving, names the cause, and keeps the saved choice', async () => {
+  const lanPath = await savedOn(await tempDir());
+  const opener = fakeOpener();
+  opener.busy.add(3334);
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open, timer: fakeTimer() });
+  assert.deepEqual(await receiver.startFromSaved(), { ok: false, code: 'LAN_PORT_IN_USE', port: 3334 });
+  assert.deepEqual(receiver.status(), { receiving: false, port: 3334, protocol: 'http', allowList: INTERNAL, error: 'LAN_PORT_IN_USE' });
+  assert.equal(await savedReceiving(lanPath), true);
+});
+
+test('FR-MSG-014 AC-6: a listener that failed at boot tries again, waiting longer each time, and is receiving once it opens', async () => {
+  const lanPath = await savedOn(await tempDir());
+  const opener = fakeOpener();
+  opener.busy.add(3334);
+  const timer = fakeTimer();
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open, timer });
+  await receiver.startFromSaved();
+  const first = await timer.fire();
+  assert.equal(receiver.status().error, 'LAN_PORT_IN_USE');
+  const second = await timer.fire();
+  assert.ok(second > first, `the wait grows: ${first} then ${second}`);
+  opener.busy.delete(3334);
+  await timer.fire();
+  assert.deepEqual(receiver.status(), { receiving: true, port: 3334, protocol: 'http', allowList: INTERNAL });
+  assert.deepEqual(opener.opened, [3334]);
+  assert.equal(timer.pending.size, 0, 'no more tries once open');
+});
+
+test('FR-MSG-014 AC-6: while it cannot open, a settings change keeps the choice on and keeps trying; turning it off stops trying', async () => {
+  const lanPath = await savedOn(await tempDir());
+  const opener = fakeOpener();
+  opener.busy.add(3334);
+  const timer = fakeTimer();
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open, timer });
+  await receiver.startFromSaved();
+  // L2: a list-only change does not reopen; it is saved and answers what the listener is doing.
+  assert.deepEqual(await receiver.set({ receiving: true, allowList: ['10.0.0.0/8'] }), { ok: true, receiving: false, port: 3334, protocol: 'http', allowList: ['10.0.0.0/8'], error: 'LAN_PORT_IN_USE' });
+  assert.equal(await savedReceiving(lanPath), true);
+  assert.deepEqual(receiver.status(), { receiving: false, port: 3334, protocol: 'http', allowList: ['10.0.0.0/8'], error: 'LAN_PORT_IN_USE' });
+  assert.equal(timer.pending.size, 1);
+  assert.deepEqual(await receiver.set({ receiving: false }), { ok: true, receiving: false, port: 3334, protocol: 'http', allowList: ['10.0.0.0/8'] });
+  assert.equal(timer.pending.size, 0);
+  assert.equal(await savedReceiving(lanPath), false);
+});
+
+test('FR-MSG-014 AC-6 (M2): opening on a retry, and a change that falls back to retrying, are reported once each so an open dialog refreshes', async () => {
+  const lanPath = await savedOn(await tempDir());
+  const opener = fakeOpener();
+  const timer = fakeTimer();
+  let changes = 0;
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open, timer, onChange: () => { changes += 1; } });
+  await receiver.startFromSaved();
+  assert.equal(changes, 0, 'opening at boot changes nothing anyone is looking at');
+  opener.busy.add(4000);
+  await receiver.set({ receiving: true, port: 4000 });
+  assert.equal(changes, 1, 'a port change that could not open now retries');
+  await timer.fire();
+  assert.equal(changes, 1, 'another failed try is no news');
+  opener.busy.delete(4000);
+  await timer.fire();
+  assert.equal(changes, 2, 'opening on a retry');
+  assert.equal(receiver.status().receiving, true);
+});
+
+test('FR-MSG-014 AC-6 (L1): a retry that was already due when the listener stopped does not open it again', async () => {
+  const lanPath = await savedOn(await tempDir());
+  const opener = fakeOpener();
+  opener.busy.add(3334);
+  const timer = fakeTimer();
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open: opener.open, timer });
+  await receiver.startFromSaved();
+  const due = [...timer.pending.values()][0]!.fn;
+  opener.busy.delete(3334);
+  const stopped = receiver.stop();
+  due();
+  await stopped;
+  for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(opener.opened, []);
+  assert.equal(receiver.status().receiving, false);
+});
+
+test('FR-MSG-014 AC-6 (L2): an allow-list change while retrying saves the list without trying to open, and a new apply starts the wait over', async () => {
+  const lanPath = await savedOn(await tempDir());
+  const opener = fakeOpener();
+  let tries = 0;
+  const open = async (options: { port: number; protocol: LanProtocol }) => { tries += 1; return opener.open(options); };
+  opener.busy.add(3334);
+  const timer = fakeTimer();
+  const receiver = createLanReceiver({ path: lanPath, defaultPort: 3334, open, timer });
+  await receiver.startFromSaved();
+  await timer.fire();
+  await timer.fire();
+  const before = tries;
+  assert.equal((await receiver.set({ receiving: true, allowList: ['192.168.0.0/16'] })).ok, true);
+  assert.equal(tries, before, 'no open for a list change');
+  assert.deepEqual(JSON.parse(await fs.readFile(lanPath, 'utf8')).allowList, ['192.168.0.0/16']);
+  opener.busy.add(4000);
+  await receiver.set({ receiving: true, port: 4000 });
+  assert.equal([...timer.pending.values()][0]!.ms, 5_000, 'the wait starts over after a new apply');
 });

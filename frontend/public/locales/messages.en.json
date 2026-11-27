@@ -1915,6 +1915,7 @@
   "messenger.lan.offTitle": "For another PC to connect to this one, turn on Accept company-network connections.",
   "messenger.lan.offBody": "Right now this PC accepts connections from itself only.",
   "messenger.lan.onTitle": "Accepting company-network connections · port {port}",
+  "messenger.lan.failedTitle": "Accept company-network connections is on, but it could not start. It keeps trying by itself.",
   "messenger.lan.turnOn": "Turn on",
   "messenger.lan.turnOff": "Turn off",
   "messenger.lan.tlsUnavailable": "Could not turn it on: receiving over HTTPS needs a server certificate. To go without one, switch the protocol to HTTP.",

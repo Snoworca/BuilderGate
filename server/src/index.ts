@@ -1005,7 +1005,14 @@ function setupRoutes(): void {
     const net = messengerNetRef;
     app.use('/api/messenger', authMiddleware, createMessengerRoutes({
       rooms: messengerRoomsRef,
-      ...(net ? { net, lan: async () => ({ receiving: (await net.lan()).receiving }) } : {}),
+      ...(net ? {
+        net,
+        lan: async () => {
+          const { receiving, error } = await net.lan();
+          // FR-MSG-014 AC-6: the window sees why receiving that is on is not open.
+          return { receiving, ...(error ? { error } : {}) };
+        },
+      } : {}),
     }));
   }
   const terminalShortcutRoutes = createTerminalShortcutRoutes(terminalShortcutService);
@@ -1854,6 +1861,8 @@ async function startServer(): Promise<void> {
         accept: (socket, request) => peerLinkManager.accept(socket, request),
         contactRequest: (req, res) => contactRequests(req, res),
       }),
+      // FR-MSG-014 AC-6 (M2): an open contacts window refreshes when a retry opens the listener.
+      onChange: () => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll('messenger:changed', { reason: 'lan-changed' }),
     });
     messengerLanRef = messengerLan;
     const messengerNet = createMessengerNet({

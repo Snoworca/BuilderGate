@@ -129,3 +129,11 @@ test('FR-MSG-014 AC-3/AC-4: turning receiving on or off sends no unapplied proto
   assert.deepEqual(lanPatchBody({ receiving: true, port: undefined, changes, withSettings: true }), { receiving: true, protocol: 'https', allowList: ['bad'] });
   assert.deepEqual(lanPatchBody({ receiving: true, port: undefined, changes: null, withSettings: true }), { receiving: true });
 });
+
+import { lanMode } from '../../src/components/Messenger/messengerWindowModel.ts';
+
+test('FR-MSG-014 AC-6: a listener that is on but could not open is told apart from one that is off, and stays on', () => {
+  assert.equal(lanMode({ receiving: true }), 'receiving');
+  assert.equal(lanMode({ receiving: false }), 'off');
+  assert.equal(lanMode({ receiving: false, error: 'LAN_PORT_IN_USE' }), 'failing');
+});

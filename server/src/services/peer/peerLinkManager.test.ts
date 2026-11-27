@@ -619,3 +619,37 @@ test('review H2/M4: a room link gives the other side room scope only, and the ac
   assert.deepEqual(corp.calls[0]!.actor.scopes, ['mcp:room']);
   assert.deepEqual(corp.calls[0]!.actor.linkScopes, ['mcp:room']);
 });
+
+// ---- #267 review: a hello never takes the place of a link this server dials (guards HEAD) ----
+
+/** A server that refuses every connection: the real azure is offline. */
+const OFFLINE = { manager: { accept: (socket: { close(): void }) => { setImmediate(() => socket.close()); return { onText() {}, onClose() {} }; } } } as unknown as Node;
+
+test('FR-MCP-016 AC-6: a hello under the name of a link this server dials is refused with PEER_NAME_IN_USE, so another holder of a valid key never gets its traffic', async () => {
+  const clock = new FakeClock();
+  const { corp, azure } = pair(clock);
+  corp.manager.start();
+  await clock.advance(2_000);
+  const impostor = makeNode(clock, { name: 'azure', acceptor: () => corp, settings: { links: [{ ...LINK, name: 'corp' }] } });
+  impostor.manager.start();
+  await clock.advance(10 * 60_000);
+  assert.equal((await corp.manager.sendMessage({ peer: 'azure', args: { target: 'w', prompt: 'secret' }, scopes: ALL, hasKeys: false })).status, 'delivered');
+  assert.equal(azure.calls.length, 1);
+  assert.equal(impostor.calls.length, 0);
+  assert.equal(statusOf(impostor.manager, 'corp')?.lastError, 'PEER_NAME_IN_USE');
+});
+
+test('FR-MCP-016 AC-6: while that link is down, a hello under its name is still refused and the queued message waits for the real server', async () => {
+  const clock = new FakeClock();
+  let corp: Node | undefined;
+  corp = makeNode(clock, { name: 'corp', acceptor: () => OFFLINE, settings: { links: [LINK] } });
+  corp.manager.start();
+  await clock.advance(2_000);
+  const impostor = makeNode(clock, { name: 'azure', acceptor: () => corp!, settings: { links: [{ ...LINK, name: 'corp' }] } });
+  impostor.manager.start();
+  await clock.advance(10 * 60_000);
+  assert.equal((await corp.manager.sendMessage({ peer: 'azure', args: { target: 'w', prompt: 'secret' }, scopes: ALL, hasKeys: false })).status, 'queued');
+  await clock.advance(5_000);
+  assert.equal(impostor.calls.length, 0);
+  assert.equal(statusOf(impostor.manager, 'corp')?.lastError, 'PEER_NAME_IN_USE');
+});

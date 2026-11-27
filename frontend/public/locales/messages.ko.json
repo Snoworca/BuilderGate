@@ -1863,6 +1863,7 @@
   "messenger.lan.offTitle": "다른 PC가 이 PC에 연결하려면 「사내망 연결 받기」를 켜야 합니다.",
   "messenger.lan.offBody": "지금은 이 PC 안에서만 받도록 되어 있습니다.",
   "messenger.lan.onTitle": "사내망 연결 받기 켜짐 · 포트 {port}",
+  "messenger.lan.failedTitle": "「사내망 연결 받기」가 켜져 있지만 시작하지 못했습니다. 계속 자동으로 다시 시도합니다.",
   "messenger.lan.turnOn": "켜기",
   "messenger.lan.turnOff": "끄기",
   "messenger.lan.tlsUnavailable": "켜지 못했습니다. HTTPS 로 받으려면 서버 인증서가 필요합니다. 인증서 없이 쓰려면 프로토콜을 HTTP 로 바꾸세요.",

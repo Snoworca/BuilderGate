@@ -249,8 +249,29 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
     return result.ok === false ? { ok: false, code: 'LINK_SAVE_FAILED', fieldErrors: result.fieldErrors } : { ok: true };
   };
 
+  // FR-MSG-008 AC-8: a room link's name stays free; adding that person as a contact converts the link.
+  /** FR-MSG-008 AC-8 (M1): host:port a link reaches -- its own address and the other addresses of its code. */
+  const serverAddresses = (link: PeerLinkEntry): string[] =>
+    [link.url, ...(state.candidates[link.name]?.urls ?? [])].map(addressOfUrl).filter((address): address is string => address !== undefined);
+
+  /**
+   * FR-MSG-008 AC-8 (M1): whether `link` reaches the server described by `other`: the same pinned
+   * certificate, or a shared host:port (a bare host, as a request's source address, matches its host).
+   */
+  const reaches = (link: PeerLinkEntry, other: { addresses: string[]; fp?: string }) => {
+    if (other.fp && link.tlsFingerprintSha256 === other.fp) return true;
+    const mine = serverAddresses(link);
+    return other.addresses.some((address) => mine.some((own) => own === address || hostOf(own) === address));
+  };
+
+  /** FR-MSG-008 AC-8 (M1): a room link named `name` that goes to another server than `other`. */
+  const roomLinkElsewhere = (name: string, other: { addresses: string[]; fp?: string }) => {
+    const link = findLink(name);
+    return link?.kind === 'room' && !reaches(link, other);
+  };
+
   const takenNames = () => [
-    ...links().map((link) => link.name),
+    ...contactLinks().map((link) => link.name),
     ...deps.keys.contactNodes(),
     ...state.outgoing.map((request) => request.name),
   ];
@@ -309,7 +330,9 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
     const listed = (name: string) => view.some((contact) => sameName(contact.name, name));
     for (const node of deps.keys.contactNodes()) {
       if (listed(node)) continue;
-      view.push({ name: node, state: statusOf(node, 'inbound')?.state === 'connected' ? 'connected' : 'disconnected', ...seenOf(node) });
+      // FR-MSG-008 AC-8: a contact I also hold a room link to is reached over that link (an outbound peer).
+      const connected = deps.peers.list().some((peer) => sameName(peer.name, node) && peer.state === 'connected');
+      view.push({ name: node, state: connected ? 'connected' : 'disconnected', ...seenOf(node) });
     }
     for (const request of state.outgoing) {
       if (listed(request.name)) continue;
@@ -372,7 +395,10 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
     }
     if (sameName(name, myName())) return { ok: false, code: 'NAME_IS_SELF' };
     const fingerprint = typeof payload.fp === 'string' ? normalizeFingerprint(payload.fp) : undefined;
-    const link: PeerLinkEntry = { name, url: urls[0]!, accessKey: token, enabled: true, ...(fingerprint ? { tlsFingerprintSha256: fingerprint } : {}) };
+    const codeAddresses = urls.map(addressOfUrl).filter((address): address is string => address !== undefined);
+    if (roomLinkElsewhere(name, { addresses: codeAddresses, fp: fingerprint })) return { ok: false, code: 'NAME_TAKEN' };
+    // FR-MSG-008 AC-8: an explicit kind, so a room link of the same name it replaces does not pass on 'room'.
+    const link: PeerLinkEntry = { name, url: urls[0]!, accessKey: token, enabled: true, kind: 'contact', ...(fingerprint ? { tlsFingerprintSha256: fingerprint } : {}) };
     const saved = await saveLinks([...links().filter((entry) => !sameName(entry.name, name)), link]);
     if (!saved.ok) return saved;
     state.outgoing = state.outgoing.filter((request) => !sameName(request.name, name));
@@ -398,6 +424,7 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
     const parsed = parseAddress(input.address);
     if (!parsed) return { ok: false, code: 'ADDRESS_INVALID' };
     const { address } = parsed;
+    if (roomLinkElsewhere(input.name, { addresses: [address] })) return { ok: false, code: 'NAME_TAKEN' };
     let secret = random();
     // FR-MSG-008 AC-7: a written scheme is the only one tried; otherwise http first, then https.
     let scheme: LanProtocol = parsed.scheme ?? 'http';
@@ -456,15 +483,23 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
     const key = body.key;
     const saved = await serially(async () => {
       const fingerprint = scheme === 'https' ? normalizeFingerprint(request.fp) : undefined;
+      // FR-MSG-008 AC-8 (P4): a link is named by the remote's own name, so its hello finds the link;
+      // the typed name stays when that name is someone else's (H1) or a room link to another server.
+      const remoteName = typeof body.name === 'string' && PEER_NAME_PATTERN.test(body.name) && !sameName(body.name, myName()) ? body.name : request.name;
+      const takenByOthers = takenNames().filter((taken) => !sameName(taken, request.name));
+      const remoteFree = !takenByOthers.some((taken) => sameName(taken, remoteName))
+        && !roomLinkElsewhere(remoteName, { addresses: [request.address], fp: fingerprint });
+      const name = remoteFree ? remoteName : request.name;
       const link: PeerLinkEntry = {
-        name: request.name,
+        name,
         url: `${scheme === 'https' ? 'wss' : 'ws'}://${request.address}/mcp/peer`,
         accessKey: key,
         enabled: true,
+        kind: 'contact',
         ...(fingerprint ? { tlsFingerprintSha256: fingerprint } : {}),
       };
-      const result = await saveLinks([...links().filter((entry) => !sameName(entry.name, request.name)), link]);
-      if (result.ok) setCandidates(request.name, []);
+      const result = await saveLinks([...links().filter((entry) => !sameName(entry.name, name)), link]);
+      if (result.ok) setCandidates(name, []);
       return result;
     });
     if (!saved.ok) {
@@ -622,11 +657,21 @@ export function createMessengerNet(deps: MessengerNetDeps): MessengerNet {
     void serially(async () => {
       const link = links().find((entry) => entry.name === name);
       if (!link || link.kind === 'room') return;
-      if (sameName(remoteNode, myName()) || links().some((entry) => sameName(entry.name, remoteNode))) return;
-      const saved = await saveLinks(links().map((entry) => (entry === link ? { ...entry, name: remoteNode } : entry)));
+      // FR-MSG-008 AC-8 (H1): the remote's name never takes the name of another contact or request.
+      if (sameName(remoteNode, myName()) || takenNames().some((taken) => sameName(taken, remoteNode))) return;
+      // FR-MSG-008 AC-8: a room link to the same server merges into this messenger contact link (M1).
+      const roomLink = links().find((entry) => sameName(entry.name, remoteNode));
+      const merges = roomLink?.kind === 'room' && link.kind === 'contact'
+        && reaches(roomLink, { addresses: serverAddresses(link), fp: link.tlsFingerprintSha256 });
+      if (roomLink && !merges) return;
+      const renamed = links()
+        .filter((entry) => entry !== roomLink)
+        .map((entry) => (entry === link ? { ...entry, name: remoteNode } : entry));
+      const saved = await saveLinks(renamed);
       if (!saved.ok) return;
       const candidates = state.candidates[name];
       delete state.candidates[name];
+      if (roomLink) delete state.candidates[roomLink.name];
       if (candidates) state.candidates[remoteNode] = candidates;
       moveSeen(name, remoteNode);
       save();
@@ -740,6 +785,10 @@ function addressOfUrl(url: string): string | undefined {
   if (!URL.canParse(url)) return undefined;
   const parsed = new URL(url);
   return `${parsed.hostname}:${parsed.port || DEFAULT_LAN_PORT}`;
+}
+
+function hostOf(address: string): string {
+  return address.slice(0, address.lastIndexOf(':'));
 }
 
 function sameName(a: string, b: string): boolean {

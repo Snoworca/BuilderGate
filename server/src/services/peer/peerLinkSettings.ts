@@ -12,7 +12,10 @@ export interface PeerLinkEntry {
   /** SHA-256 of the remote certificate, 64 lower-case hex digits; remembered on first use (FR-MCP-024 AC-3). */
   tlsFingerprintSha256?: string;
   enabled: boolean;
-  /** FR-MSG-009: 'room' is a link opened with a room ticket, hidden from contact lists. Absent means contact. */
+  /**
+   * FR-MSG-009: 'room' is a link opened with a room ticket, hidden from contact lists; 'contact' a
+   * messenger contact link. Absent (a link from the MCP panel) is listed as a contact too.
+   */
   kind?: PeerLinkKind;
 }
 
@@ -224,7 +227,8 @@ function validateLink(
     accessKey,
     ...(tlsFingerprintSha256 ? { tlsFingerprintSha256 } : {}),
     enabled: record.enabled !== false,
-    ...(kind === 'room' ? { kind } : {}),
+    // FR-MSG-008 AC-8 (M1): a messenger link says so; a link without a kind is one set up in the MCP panel.
+    ...(kind === 'room' || kind === 'contact' ? { kind } : {}),
   };
 }
 

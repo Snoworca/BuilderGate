@@ -15,7 +15,7 @@ import {
 } from './contacts.js';
 import { DEFAULT_PEER_LINK_SETTINGS, validatePeerLinkSettings, type PeerLinkSettings } from '../peer/peerLinkSettings.js';
 import type { PeerStatus } from '../peer/peerLinkManager.js';
-import type { LanProtocol } from './lanListener.js';
+import { createLanReceiver, type LanProtocol } from './lanListener.js';
 
 type Rec = Record<string, unknown>;
 const FP_A = 'aa'.repeat(32);
@@ -44,10 +44,12 @@ async function makeSide(name: string, opts: {
   receiving?: boolean;
   protocol?: LanProtocol;
   dir?: string;
+  /** Links saved before the test, e.g. one set up in the MCP panel. */
+  links?: PeerLinkSettings['links'];
 } = {}): Promise<Side> {
   const dir = opts.dir ?? await tempDir();
   const clock = opts.clock ?? { t: 0 };
-  let current: PeerLinkSettings = { ...DEFAULT_PEER_LINK_SETTINGS, nodeName: name };
+  let current: PeerLinkSettings = { ...DEFAULT_PEER_LINK_SETTINGS, nodeName: name, links: opts.links ?? [] };
   const peers: PeerStatus[] = [];
   const dropped: string[] = [];
   const notes: string[] = [];
@@ -163,7 +165,7 @@ test('FR-MSG-008 AC-4: redeeming a connection code adds a contact link with the 
   assert.equal(link.name, 'alice');
   assert.equal(link.url, 'wss://192.168.0.5:3334/mcp/peer');
   assert.equal(link.tlsFingerprintSha256, FP_A);
-  assert.equal(link.kind, undefined);
+  assert.equal(link.kind, 'contact', 'FR-MSG-008 AC-8 (M1): a messenger contact link is told apart from an MCP link');
   assert.deepEqual(alice.keys.authenticate(link.accessKey, 'bob'), { kind: 'contact', scopes: CONTACT_SCOPES });
   assert.deepEqual(bob.net.contactsView(), [{ name: 'alice', state: 'disconnected', address: '192.168.0.5:3334' }]);
   bob.peers.push({ name: 'alice', direction: 'outbound', state: 'connected', queued: 0 });
@@ -523,10 +525,21 @@ test('review L2: a request that failed is still dropped after 24 hours', async (
   assert.deepEqual(alice.net.contactsView(), []);
 });
 
-test('review L3: a contact name equal to a room link name is NAME_TAKEN', async () => {
-  const alice = await makeSide('alice');
-  await alice.net.ensureRoomLink({ hostNode: 'host1', urls: ['wss://10.0.0.7:3333/mcp/peer'], fp: FP_A, token: 't' });
-  assert.deepEqual(await alice.net.addContactByAddress({ name: 'HOST1', address: '10.0.0.7' }), { ok: false, code: 'NAME_TAKEN' });
+test('FR-MSG-008 AC-8 (supersedes review L3): adding by address someone I hold a room link to turns that link into a contact link', async () => {
+  let bob: Side;
+  const alice = await makeSide('alice', { http: wireTo(() => bob, { value: FP_B }) });
+  bob = await makeSide('bob', { protocol: 'http' });
+  await alice.net.ensureRoomLink({ hostNode: 'bob', urls: ['ws://192.168.0.9:3334/mcp/peer'], fp: '', token: 'ticket-1' });
+  const added = await alice.net.addContactByAddress({ name: 'BOB', address: '192.168.0.9:3334' });
+  assert.equal(added.ok, true, JSON.stringify(added));
+  await bob.net.acceptRequest(bob.net.requestsView()[0]!.id);
+  await alice.net.tick();
+  await alice.net.whenIdle();
+  const links = alice.settings().links;
+  assert.equal(links.length, 1, JSON.stringify(links));
+  assert.notEqual(links[0]!.kind, 'room');
+  assert.notEqual(links[0]!.accessKey, 'ticket-1');
+  assert.equal(alice.net.isContact('bob'), true);
 });
 
 test('review H4 / FR-MSG-008 AC-2: my name cannot change while a contact link, contact key or room link exists', async () => {
@@ -595,4 +608,185 @@ test('FR-MSG-008 AC-7: the https retry sends a fresh secret, not the one that we
   await alice.net.addContactByAddress({ name: 'bob', address: '192.168.0.9:3334' });
   assert.equal(secrets.length, 2);
   assert.notEqual(secrets[0], secrets[1]);
+});
+
+// ---- FR-MSG-008 AC-8 (#267): one link per remote server ----
+
+test('FR-MSG-008 AC-8: redeeming the code of someone I hold a room link to turns that link into a contact link', async () => {
+  const alice = await makeSide('alice');
+  const bob = await makeSide('bob');
+  await bob.net.ensureRoomLink({ hostNode: 'alice', urls: ['wss://10.0.0.7:3333/mcp/peer'], fp: FP_A, token: 'ticket-1' });
+  assert.equal((await bob.net.redeemCode(alice.net.connectionCode().code)).ok, true);
+  const links = bob.settings().links;
+  assert.equal(links.length, 1);
+  assert.notEqual(links[0]!.kind, 'room');
+  assert.notEqual(links[0]!.accessKey, 'ticket-1');
+  assert.equal(bob.net.isContact('alice'), true);
+  assert.deepEqual(bob.net.contactsView().map((contact) => contact.name), ['alice']);
+});
+
+test('FR-MSG-008 AC-8: accepting the request of someone I hold a room link to keeps one link, does not give the room key contact scope, and shows them as a connected contact', async () => {
+  const alice = await makeSide('alice');
+  await alice.net.ensureRoomLink({ hostNode: 'bob', urls: ['ws://10.0.0.7:3334/mcp/peer'], fp: '', token: 'ticket-1' });
+  const answer = await postRequest(alice, 'bob', 'secret-1234', '10.0.0.7');
+  assert.equal(answer.status, 200);
+  assert.equal((await alice.net.acceptRequest((answer.body as Rec).id as string)).ok, true);
+  assert.equal((await poll(alice, (answer.body as Rec).id as string, 'secret-1234')).status, 200, 'bob collects its contact key');
+  await alice.net.whenIdle();
+  const links = alice.settings().links;
+  assert.equal(links.length, 1);
+  assert.equal(links[0]!.kind, 'room', 'the link still holds a room ticket, so it keeps room scope until a contact key arrives');
+  // My room link to bob is up: bob is shown connected.
+  alice.peers.push({ name: 'bob', direction: 'outbound', state: 'connected', queued: 0 });
+  assert.deepEqual(alice.net.contactsView().map((contact) => [contact.name, contact.state]), [['bob', 'connected']]);
+});
+
+test('FR-MSG-008 AC-8: a contact link renamed to the remote\'s own name merges with my room link of that name to the same server', async () => {
+  const alice = await makeSide('alice');
+  const bobOld = await makeSide('bob-pc', { protocol: 'http' });
+  // The code's addresses are 192.168.0.5 and 10.1.2.3; the room ticket named the second one.
+  await alice.net.redeemCode(bobOld.net.connectionCode().code);
+  await alice.net.ensureRoomLink({ hostNode: 'bob', urls: ['ws://10.1.2.3:3334/mcp/peer'], fp: '', token: 'ticket-1' });
+  assert.equal(alice.settings().links.length, 2);
+  const contactLink = alice.settings().links.find((link) => link.name === 'bob-pc')!;
+  alice.net.onPeerConnected({ name: 'bob-pc', direction: 'outbound', remoteNode: 'bob' });
+  await alice.net.whenIdle();
+  const links = alice.settings().links;
+  assert.equal(links.length, 1, JSON.stringify(links));
+  assert.equal(links[0]!.name, 'bob');
+  assert.equal(links[0]!.url, contactLink.url);
+  assert.equal(links[0]!.accessKey, contactLink.accessKey);
+  assert.notEqual(links[0]!.kind, 'room');
+  assert.equal(alice.net.isContact('bob'), true);
+});
+
+test('FR-MSG-008 AC-8: a contact link is not merged into another contact link that already has the remote\'s name', async () => {
+  const alice = await makeSide('alice');
+  const bob = await makeSide('bob');
+  const carol = await makeSide('carol');
+  await bob.net.redeemCode(alice.net.connectionCode().code);
+  await bob.net.redeemCode(carol.net.connectionCode().code);
+  bob.net.onPeerConnected({ name: 'carol', direction: 'outbound', remoteNode: 'alice' });
+  await bob.net.whenIdle();
+  assert.deepEqual(bob.settings().links.map((link) => link.name), ['alice', 'carol']);
+});
+
+test('FR-MSG-014 AC-6: while the listener failed to open there are no addresses to hand out, and a connection code answers LAN_OFF', async () => {
+  const dir = await tempDir();
+  const lanPath = path.join(dir, 'lan.json');
+  await fs.writeFile(lanPath, JSON.stringify({ version: 1, receiving: true, port: 3334, protocol: 'http', allowList: ['10.0.0.0/8'] }));
+  const lan = createLanReceiver({
+    path: lanPath,
+    defaultPort: 3334,
+    open: async () => ({ ok: false, code: 'LAN_PORT_IN_USE' }),
+    timer: { setTimeout: () => 0, clearTimeout: () => {} },
+  });
+  await lan.startFromSaved();
+  const net = createMessengerNet({
+    keys: createMessengerKeys({ path: path.join(dir, 'keys.json') }),
+    peers: { nodeName: () => 'alice', list: () => [], dropPeer: () => {} },
+    peerSettings: { get: () => ({ ...DEFAULT_PEER_LINK_SETTINGS, nodeName: 'alice' }), update: async () => ({ ok: true }) },
+    lan,
+    certificateFingerprint: () => '',
+    lanAddresses: () => ['192.168.0.5'],
+    http: async () => ({ status: 0, body: {}, fingerprint: '' }),
+    dataPath: path.join(dir, 'contacts.json'),
+  });
+  assert.deepEqual(net.connectInfo().urls, []);
+  assert.deepEqual(net.connectionCode(), { ok: false, code: 'LAN_OFF' });
+  assert.equal((await net.lan()).error, 'LAN_PORT_IN_USE');
+});
+
+// ---- second review round (#267): same server only, real names ----
+
+test('FR-MSG-008 AC-8 (P4): a contact added by address is named by the remote\'s own name once it accepts', async () => {
+  let bob: Side;
+  const alice = await makeSide('alice', { http: wireTo(() => bob, { value: FP_B }) });
+  bob = await makeSide('bob', { protocol: 'http' });
+  await alice.net.addContactByAddress({ name: 'bobby', address: '192.168.0.9:3334' });
+  await bob.net.acceptRequest(bob.net.requestsView()[0]!.id);
+  await alice.net.tick();
+  await alice.net.whenIdle();
+  assert.deepEqual(alice.settings().links.map((link) => link.name), ['bob']);
+  assert.deepEqual(alice.net.contactsView().map((contact) => contact.name), ['bob']);
+});
+
+test('FR-MSG-008 AC-8 (M1): the remote\'s name is not taken from a room link to another server; the typed name stays', async () => {
+  let bob: Side;
+  const alice = await makeSide('alice', { http: wireTo(() => bob, { value: FP_B }) });
+  bob = await makeSide('bob', { protocol: 'http' });
+  await alice.net.ensureRoomLink({ hostNode: 'bob', urls: ['ws://10.0.0.7:3334/mcp/peer'], fp: '', token: 'ticket-1' });
+  await alice.net.addContactByAddress({ name: 'bobby', address: '192.168.0.9:3334' });
+  await bob.net.acceptRequest(bob.net.requestsView()[0]!.id);
+  await alice.net.tick();
+  await alice.net.whenIdle();
+  assert.deepEqual(alice.settings().links.map((link) => [link.name, link.kind]), [['bob', 'room'], ['bobby', 'contact']]);
+});
+
+test('FR-MSG-008 AC-8 (M1): a typed name equal to a room link to another server is NAME_TAKEN', async () => {
+  const alice = await makeSide('alice');
+  await alice.net.ensureRoomLink({ hostNode: 'host1', urls: ['wss://10.0.0.7:3333/mcp/peer'], fp: FP_A, token: 't' });
+  assert.deepEqual(await alice.net.addContactByAddress({ name: 'HOST1', address: '10.0.0.8' }), { ok: false, code: 'NAME_TAKEN' });
+});
+
+test('FR-MSG-008 AC-8 (M1): a connection code does not replace a room link of the same name to another server', async () => {
+  const alice = await makeSide('alice', { fp: FP_B });
+  const bob = await makeSide('bob');
+  await bob.net.ensureRoomLink({ hostNode: 'alice', urls: ['wss://10.0.0.7:3333/mcp/peer'], fp: FP_A, token: 'ticket-1' });
+  assert.deepEqual(await bob.net.redeemCode(alice.net.connectionCode().code), { ok: false, code: 'NAME_TAKEN' });
+  assert.deepEqual(bob.settings().links.map((link) => [link.name, link.accessKey]), [['alice', 'ticket-1']]);
+});
+
+test('FR-MSG-008 AC-8 (M1): no merge with a room link to another server, and an MCP link without a messenger kind is never merged', async () => {
+  const alice = await makeSide('alice');
+  const bobOld = await makeSide('bob-pc');
+  await alice.net.redeemCode(bobOld.net.connectionCode().code);
+  await alice.net.ensureRoomLink({ hostNode: 'bob', urls: ['wss://10.0.0.99:3334/mcp/peer'], fp: FP_B, token: 'ticket-1' });
+  alice.net.onPeerConnected({ name: 'bob-pc', direction: 'outbound', remoteNode: 'bob' });
+  await alice.net.whenIdle();
+  assert.deepEqual(alice.settings().links.map((link) => link.name), ['bob-pc', 'bob']);
+
+  // An MCP-configured link (no messenger kind) to the very server of a room link.
+  const carol = await makeSide('carol', { links: [{ name: 'dave-mcp', url: 'wss://10.0.0.7:3334/mcp/peer', accessKey: 'fixed', enabled: true }] });
+  await carol.net.ensureRoomLink({ hostNode: 'dave', urls: ['wss://10.0.0.7:3334/mcp/peer'], fp: FP_A, token: 'ticket-2' });
+  carol.net.onPeerConnected({ name: 'dave-mcp', direction: 'outbound', remoteNode: 'dave' });
+  await carol.net.whenIdle();
+  assert.deepEqual(carol.settings().links.map((link) => [link.name, link.kind]), [['dave-mcp', undefined], ['dave', 'room']]);
+});
+
+// ---- third review round (#267): a remote never names a link after someone else ----
+
+async function holdContactKey(side: Side, node: string) {
+  const request = await postRequest(side, node, 'secret-1234', '10.0.0.5');
+  const id = String((request.body as Rec).id);
+  await side.net.acceptRequest(id);
+  await poll(side, id, 'secret-1234');
+}
+
+test('FR-MSG-008 AC-8 (H1): a server added by address that calls itself after an existing contact keeps the typed name', async () => {
+  let mallory: Side;
+  const alice = await makeSide('alice', { http: wireTo(() => mallory, { value: FP_B }) });
+  await holdContactKey(alice, 'carol');
+  mallory = await makeSide('carol', { protocol: 'http' });
+  assert.equal((await alice.net.addContactByAddress({ name: 'mallory', address: '192.168.0.66:3334' })).ok, true);
+  await mallory.net.acceptRequest(mallory.net.requestsView()[0]!.id);
+  await alice.net.tick();
+  await alice.net.whenIdle();
+  assert.deepEqual(alice.settings().links.map((link) => link.name), ['mallory']);
+});
+
+test('FR-MSG-008 AC-8 (H1): a link is not renamed on connection after an existing contact', async () => {
+  const alice = await makeSide('alice');
+  await holdContactKey(alice, 'carol');
+  await alice.net.redeemCode((await makeSide('bob')).net.connectionCode().code);
+  alice.net.onPeerConnected({ name: 'bob', direction: 'outbound', remoteNode: 'carol' });
+  await alice.net.whenIdle();
+  assert.deepEqual(alice.settings().links.map((link) => link.name), ['bob']);
+});
+
+test('FR-MSG-008 AC-8 (M2): a link set up in the MCP panel keeps having no messenger kind when renamed on connection', async () => {
+  const carol = await makeSide('carol', { links: [{ name: 'dave-mcp', url: 'wss://10.0.0.7:3334/mcp/peer', accessKey: 'fixed', enabled: true }] });
+  carol.net.onPeerConnected({ name: 'dave-mcp', direction: 'outbound', remoteNode: 'dave' });
+  await carol.net.whenIdle();
+  assert.deepEqual(carol.settings().links.map((link) => [link.name, link.kind]), [['dave', undefined]]);
 });

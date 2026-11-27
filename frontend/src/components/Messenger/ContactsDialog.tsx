@@ -8,8 +8,9 @@ import { t } from '../../i18n/i18n.ts';
 import { messengerApi, MessengerError } from '../../services/api.ts';
 import { copyTextToClipboard } from '../../utils/clipboardCopy.ts';
 import { classifyContactInput, connectFailureKey, validatePersonName } from './messengerModel.ts';
-import { lanAllowListText, lanPatchBody, lanSettingsChanges, lanWarnings, parseLanPort, visibleConnectionCode, type LanProtocol } from './messengerWindowModel.ts';
+import { lanAllowListText, lanMode, lanPatchBody, lanSettingsChanges, lanWarnings, parseLanPort, visibleConnectionCode, type LanProtocol } from './messengerWindowModel.ts';
 import { errorText } from './messengerFormat.ts';
+import { messengerErrorKey } from './messengerErrors.ts';
 import { contactDot, contactStateText } from './RoomList.tsx';
 import type { Invite, LanStatus, MessengerState } from './messengerTypes.ts';
 
@@ -102,6 +103,7 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
     setCopied(false);
   });
 
+  // FR-MSG-014 AC-6 (M2): read again when the server reports a change (a retry opened the listener).
   useEffect(() => {
     let alive = true;
     messengerApi.lan().then((next) => {
@@ -109,7 +111,7 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
       showLan(next);
     }).catch(() => undefined);
     return () => { alive = false; };
-  }, []);
+  }, [state.lan.receiving, state.lan.error]);
 
   // Mockup ④ shows my code at once; each call makes a fresh one-time code. A code needs the
   // company-network listener, so it waits until that is on.
@@ -124,6 +126,9 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
     if (next.allowList !== undefined) setAllowListText(lanAllowListText(next.allowList));
   };
 
+  const mode = lanMode(lan);
+  // FR-MSG-014 AC-6: on but not open still counts as on, so the switch and Apply keep the choice.
+  const lanOn = mode !== 'off';
   const port = parseLanPort(portText);
   const portChanged = port.ok && port.port !== undefined && port.port !== lan.port;
   const settingsChanges = lanSettingsChanges({ protocol: lan.protocol ?? 'http', allowList: lan.allowList ?? [] }, protocol, allowListText);
@@ -135,7 +140,11 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
       port: port.ok && portChanged ? port.port : undefined,
       changes: settingsChanges,
       withSettings,
-    }));
+    })).catch((reason: unknown) => {
+      // FR-MSG-014 AC-6 (M2): a failed apply may have left receiving on and retrying; show what the server reports.
+      void messengerApi.lan().then(showLan, () => undefined);
+      throw reason;
+    });
     showLan(next);
     // D3: a code made while receiving stops working when it is off; one made over the other protocol
     // carries the wrong addresses, so a fresh one is made at once.
@@ -219,20 +228,22 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
           <div className="msgr-banner msgr-banner-info">
             <span aria-hidden="true">ⓘ</span>
             <span>
-              {lan.receiving
-                ? <><b>{t('messenger.lan.onTitle', { port: String(lan.port ?? '') })}</b><br />{t('messenger.lan.firewallHint')}</>
-                : <><b>{t('messenger.lan.offTitle')}</b><br />{t('messenger.lan.offBody')}</>}
+              {mode === 'receiving' && <><b>{t('messenger.lan.onTitle', { port: String(lan.port ?? '') })}</b><br />{t('messenger.lan.firewallHint')}</>}
+              {mode === 'failing' && (
+                <><b>{t('messenger.lan.failedTitle')}</b><br />{t(messengerErrorKey(lan.error) ?? 'messenger.error.INTERNAL_ERROR', { port: String(lan.port ?? '') })}</>
+              )}
+              {mode === 'off' && <><b>{t('messenger.lan.offTitle')}</b><br />{t('messenger.lan.offBody')}</>}
             </span>
             <span className="msgr-lan-actions">
               <label className="msgr-lan-port">
                 <span>{t('messenger.lan.port')}</span>
                 <TextInput mono inputMode="numeric" value={portText} className={port.ok ? undefined : 'is-bad'} onChange={(event) => setPortText(event.target.value)} />
               </label>
-              {lan.receiving && portChanged && (
+              {lanOn && portChanged && (
                 <Button size="sm" variant="secondary" disabled={busy} onClick={() => void applyLan(true)}>{t('messenger.lan.applyPort')}</Button>
               )}
-              <Button size="sm" variant={lan.receiving ? 'secondary' : 'primary'} disabled={busy || !port.ok} onClick={() => void applyLan(!lan.receiving)}>
-                {lan.receiving ? t('messenger.lan.turnOff') : t('messenger.lan.turnOn')}
+              <Button size="sm" variant={lanOn ? 'secondary' : 'primary'} disabled={busy || !port.ok} onClick={() => void applyLan(!lanOn)}>
+                {lanOn ? t('messenger.lan.turnOff') : t('messenger.lan.turnOn')}
               </Button>
             </span>
           </div>
@@ -265,7 +276,7 @@ export function ContactsDialog({ state, initialName, onInvite, onClose, onChange
               )}
               {settingsChanges !== null && (
                 <div className="msgr-row">
-                  <Button size="sm" variant="primary" disabled={busy || !port.ok} onClick={() => void applyLan(lan.receiving, true)}>{t('messenger.lan.applySettings')}</Button>
+                  <Button size="sm" variant="primary" disabled={busy || !port.ok} onClick={() => void applyLan(lanOn, true)}>{t('messenger.lan.applySettings')}</Button>
                 </div>
               )}
             </div>

@@ -14,13 +14,16 @@ import { publishStoreAtomically } from '../../utils/atomicStoreWrite.js';
 import type { SSLConfig } from '../../types/config.types.js';
 import { closeMcpNodeHttpListener, createMcpNodeHttpListener } from '../McpNodeHttpListener.js';
 import { isValidAddressAllowList, matchesWhitelist } from '../McpSecurityContract.js';
-import type { PeerAcceptHandlers, PeerSocket } from '../peer/peerLinkManager.js';
+import { systemPeerClock, type PeerAcceptHandlers, type PeerClock, type PeerSocket } from '../peer/peerLinkManager.js';
 import { createPeerUpgradeHandler } from '../peer/peerWsTransport.js';
 
 /** Loopback plus the private IPv4 ranges. */
 /** FR-MSG-014 AC-4: the default allow list, the internal network. Loopback is allowed outside any list. */
 export const LAN_WHITELIST: readonly string[] = Object.freeze(['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
 export const DEFAULT_LAN_SETTINGS_PATH = './data/messenger/lan.json';
+/** FR-MSG-014 AC-6: a listener that is on but cannot open tries again after this, doubling up to the max. */
+export const LAN_RETRY_MIN_MS = 5_000;
+export const LAN_RETRY_MAX_MS = 60_000;
 
 export interface LanListenerHandle {
   close(): Promise<void>;
@@ -37,6 +40,8 @@ export type LanStatus = {
   port: number;
   protocol: LanProtocol;
   allowList: string[];
+  /** FR-MSG-014 AC-6: why a listener that is on is not open; it is being tried again. */
+  error?: string;
 };
 
 export type LanSetResult = ({ ok: true } & LanStatus) | { ok: false; code: string; port?: number };
@@ -69,11 +74,21 @@ export function createLanReceiver(deps: {
   path?: string;
   defaultPort: number;
   open: (options: { port: number; protocol: LanProtocol }) => Promise<LanOpenResult>;
+  timer?: Pick<PeerClock, 'setTimeout' | 'clearTimeout'>;
+  /** FR-MSG-014 AC-6 (M2): receiving opened on a retry, or fell back to retrying; nobody asked, so tell. */
+  onChange?: () => void;
 }): LanReceiver {
   const filePath = path.resolve(deps.path ?? DEFAULT_LAN_SETTINGS_PATH);
+  const timer = deps.timer ?? systemPeerClock;
+  /** The saved choice; whether the listener is open is `handle`. */
   let state: LanStatus = loadLanStatus(filePath, deps.defaultPort);
   let handle: LanListenerHandle | undefined;
   let chain: Promise<unknown> = Promise.resolve();
+  let openError: string | undefined;
+  let retry: unknown;
+  let retryMs = LAN_RETRY_MIN_MS;
+  /** L1: set by stop(), so a retry that was already due does not open the listener after shutdown. */
+  let stopped = false;
 
   const save = () => publishStoreAtomically(filePath, JSON.stringify({ version: 1, ...state }, null, 2), { writeBackup: false, ensureDirectory: true });
 
@@ -90,6 +105,36 @@ export function createLanReceiver(deps: {
     return { ok: true, ...state, receiving: true, port, protocol };
   };
 
+  const stopRetrying = () => {
+    if (retry !== undefined) timer.clearTimeout(retry);
+    retry = undefined;
+    retryMs = LAN_RETRY_MIN_MS;
+    openError = undefined;
+  };
+
+  /** FR-MSG-014 AC-6: a listener that is on but cannot open says why and tries again later. */
+  const retryLater = (code: string) => {
+    openError = code;
+    if (retry !== undefined) timer.clearTimeout(retry);
+    retry = timer.setTimeout(() => {
+      retry = undefined;
+      void serially(async () => {
+        if (stopped) return;
+        await openSaved();
+        if (handle !== undefined) deps.onChange?.();
+      });
+    }, retryMs);
+    retryMs = Math.min(retryMs * 2, LAN_RETRY_MAX_MS);
+  };
+
+  const openSaved = async (): Promise<LanSetResult> => {
+    if (!state.receiving || handle) return { ok: true, ...state };
+    const opened = await openOn(state.port, state.protocol);
+    if (opened.ok) stopRetrying();
+    else retryLater(opened.code);
+    return opened;
+  };
+
   const apply = async (input: LanSetInput): Promise<LanSetResult> => {
     const port = input.port ?? state.port;
     const protocol = input.protocol ?? state.protocol;
@@ -97,24 +142,40 @@ export function createLanReceiver(deps: {
     if (!Number.isInteger(port) || port < 1 || port > 65_535) return { ok: false, code: 'LAN_PORT_INVALID' };
     if (!LAN_PROTOCOLS.includes(protocol)) return { ok: false, code: 'LAN_PROTOCOL_INVALID' };
     if (!isValidAddressAllowList(allowList)) return { ok: false, code: 'LAN_ALLOW_LIST_INVALID' };
-    // The allow list is read per request, so changing it alone never reopens the listener.
+    // FR-MSG-014 AC-6 (L2): each apply starts the retry wait over.
+    retryMs = LAN_RETRY_MIN_MS;
+    // The allow list is read per request, so changing it alone never reopens the listener -- nor
+    // tries to open one that is on and being retried (FR-MSG-014 AC-6, L2).
+    const retrying = openError !== undefined;
     const listenerUnchanged = input.receiving === state.receiving && port === state.port && protocol === state.protocol
-      && (handle !== undefined) === input.receiving;
+      && ((handle !== undefined) === input.receiving || (input.receiving && retrying));
     if (!listenerUnchanged) {
       await close();
       if (input.receiving) {
         const opened = await openOn(port, protocol);
         if (!opened.ok) {
-          state = { ...state, receiving: false };
+          // FR-MSG-014 AC-6: a choice that is already on stays on and keeps trying; turning it on fails off.
+          const keepOn = state.receiving;
+          state = keepOn ? { receiving: true, port, protocol, allowList: [...allowList] } : { ...state, receiving: false };
           await save();
+          if (keepOn) {
+            retryLater(opened.code);
+            deps.onChange?.();
+          } else {
+            stopRetrying();
+          }
           return opened;
         }
       }
+      stopRetrying();
     }
     state = { receiving: input.receiving, port, protocol, allowList: [...allowList] };
     await save();
-    return { ok: true, ...state, allowList: [...state.allowList] };
+    return { ok: true, ...view() };
   };
+
+  // FR-MSG-014 AC-6: receiving means the listener is open, not only that it was turned on.
+  const view = (): LanStatus => ({ ...state, receiving: handle !== undefined, allowList: [...state.allowList], ...(openError ? { error: openError } : {}) });
 
   const serially = <T>(fn: () => Promise<T>): Promise<T> => {
     const run = chain.then(fn);
@@ -123,11 +184,18 @@ export function createLanReceiver(deps: {
   };
 
   return {
-    status: () => ({ ...state, allowList: [...state.allowList] }),
+    status: view,
     set: (input) => serially(() => apply(input)),
     isAllowed: (remoteAddress) => lanAddressAllowed(remoteAddress, state.allowList),
-    startFromSaved: () => serially(async () => (state.receiving && !handle ? openOn(state.port, state.protocol) : { ok: true, ...state })),
-    stop: () => serially(close),
+    startFromSaved: () => serially(async () => {
+      stopped = false;
+      return openSaved();
+    }),
+    stop: () => serially(async () => {
+      stopped = true;
+      stopRetrying();
+      await close();
+    }),
   };
 }
 

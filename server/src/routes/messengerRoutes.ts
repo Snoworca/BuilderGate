@@ -9,7 +9,7 @@ type Rec = Record<string, unknown>;
 export interface MessengerRoutesDeps {
   rooms: RoomService;
   net?: { contactsView(): unknown[]; requestsView(): unknown[] };
-  lan?: () => { receiving: boolean } | Promise<{ receiving: boolean }>;
+  lan?: () => { receiving: boolean; error?: string } | Promise<{ receiving: boolean; error?: string }>;
 }
 
 const STATUS_BY_CODE: Record<string, number> = {

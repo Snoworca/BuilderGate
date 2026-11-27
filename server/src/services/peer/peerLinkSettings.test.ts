@@ -113,3 +113,11 @@ test('review H3: a link saved without kind keeps the kind it has (the MCP panel 
   assert.equal(result.ok, true, JSON.stringify(result));
   if (result.ok) assert.equal(result.settings.links[0]!.kind, 'room');
 });
+
+test('FR-MSG-008 AC-8 (M1): a messenger contact link keeps kind contact; a link saved without one stays without', () => {
+  const result = validatePeerLinkSettings({ links: [{ ...link, kind: 'contact' }, { ...link, name: 'mcp1' }] }, DEFAULT_PEER_LINK_SETTINGS);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.settings.links[0]!.kind, 'contact');
+  assert.equal(result.settings.links[1]!.kind, undefined);
+});

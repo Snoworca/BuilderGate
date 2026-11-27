@@ -147,6 +147,8 @@ export interface LanStatus {
   port?: number;
   protocol?: 'http' | 'https';
   allowList?: string[];
+  /** FR-MSG-014 AC-6: why receiving that is on is not open; the server keeps trying. */
+  error?: string;
 }
 
 export interface MessengerState {

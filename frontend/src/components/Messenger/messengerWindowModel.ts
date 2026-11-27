@@ -118,6 +118,15 @@ export function lanPatchBody(input: {
   };
 }
 
+/**
+ * FR-MSG-014 AC-6: company-network receiving is open, turned on but not open (the server names the
+ * cause and keeps trying), or off.
+ */
+export function lanMode(lan: { receiving: boolean; error?: string }): 'receiving' | 'failing' | 'off' {
+  if (lan.receiving) return 'receiving';
+  return lan.error === undefined ? 'off' : 'failing';
+}
+
 /** D3: my connection code is shown only while company-network connections are accepted. */
 export function visibleConnectionCode(code: string | null, receiving: boolean): string | null {
   return receiving ? code : null;
