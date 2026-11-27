@@ -68,7 +68,13 @@ test('FR-TODO-003 AC-10..AC-12: the panel draws the tree, the status icon and th
   const css = readFileSync(new URL('../../src/components/Todo/TodoPanel.css', import.meta.url), 'utf-8');
   assert.match(css, /\.todo-tree-lines path\s*\{[^}]*stroke-dasharray/);
   assert.match(css, /\.todo-check\s*\{[^}]*appearance:\s*none/);
-  assert.match(css, /\.todo-check:checked\s*\{[^}]*#2c4058/);
+  // FR-TODO-003 AC-12 with FR-UIDS-018: the checked box reads its colours from tokens; dark keeps #2c4058.
+  const checked = css.match(/\.todo-check:checked\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.match(checked, /background-color:\s*var\(--todo-check-on-bg\)/);
+  assert.match(checked, /border-color:\s*var\(--todo-check-on-line\)/);
+  assert.match(checked, /background-image:\s*var\(--todo-check-mark\)/);
+  const tokens = readFileSync(new URL('../../src/styles/tokens.css', import.meta.url), 'utf-8');
+  assert.equal(tokens.match(/--todo-check-on-bg:\s*([^;]+);/)?.[1], '#2c4058', 'the first (dark) declaration');
   assert.match(css, /\.todo-check:focus-visible\s*\{[^}]*box-shadow/);
   assert.match(css, /\.todo-row--d1 \.todo-row__title\s*\{[^}]*calc\(var\(--todo-font-size\) \+ 4px\)/);
 });

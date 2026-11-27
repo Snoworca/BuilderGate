@@ -323,6 +323,8 @@ const REPLACED: ReadonlyArray<readonly [token: string, literal: string, files: r
   ['--todo-note-hidden', '#8fb4ff', ['components/Todo/TodoPanel.css']],
   ['--todo-scroll-thumb', '#4a5468', ['components/Todo/TodoPanel.css']],
   ['--todo-clear', '#f08a8a', ['components/Todo/TodoPanel.css']],
+  ['--todo-check-on-bg', '#2c4058', ['components/Todo/TodoPanel.css']],
+  ['--todo-check-on-line', '#3a5675', ['components/Todo/TodoPanel.css']],
 ];
 
 test('FR-UIDS-018 AC-2: each token that replaced an inline colour holds exactly that colour in dark', () => {
@@ -368,8 +370,6 @@ const ALLOWED: ReadonlyArray<readonly [string, string, string, string]> = [
   ['components/editor/EditorWindow.css', ".editor-window-surface [data-theme='light'] .atomic-cm-editor", '#000000', VENDORED_RE_BIND],
   ['components/editor/EditorWindow.css', ".editor-window-surface [data-theme='light'] .atomic-cm-editor", '#eef0f2', VENDORED_RE_BIND],
   ['components/editor/EditorWindow.css', ".editor-window-surface [data-theme='light'] .atomic-cm-editor", '#c9ced4', VENDORED_RE_BIND],
-  ['components/Todo/TodoPanel.css', '.todo-check:checked', '#2c4058', 'FR-TODO-003 pins #2c4058; a dark filled box with its light check reads on either theme'],
-  ['components/Todo/TodoPanel.css', '.todo-check:checked', '#3a5675', 'the edge of the same filled box'],
   ['components/Terminal/terminalFileDrop.css', '.terminal-file-drop-overlay', 'rgba(255, 214, 0, 0.15)', FILE_DROP],
   ['components/Terminal/terminalFileDrop.css', '.terminal-file-drop-overlay', 'rgba(255, 214, 0, 0.7)', FILE_DROP],
   ['components/Terminal/terminalFileDrop.css', '.terminal-file-drop-overlay-label', '#ffd600', FILE_DROP],
@@ -458,4 +458,21 @@ test('FR-UIDS-018 AC-7: a night editor under the light app falls back to the ven
   const reset = ruleOf(read('components/editor/EditorWindow.css'), ':root[data-theme="light"] [data-theme="dark"] .atomic-cm-editor');
   assert.deepEqual(vendored.filter((name) => reset.get(name) !== 'initial'), [], 'vendored light variables a night editor would still take');
   assert.deepEqual([...reset.keys()].filter((name) => !vendored.includes(name)), [], 'only the vendored light variables are reset');
+});
+
+// 2026-11-27 on the test server: the checked todo box stayed a dark navy square in light,
+// because it had been left out as "reads on either theme". Light fills it with the panel's
+// accent and draws a white check.
+test('FR-UIDS-018 AC-1 AC-4 FR-TODO-003 AC-12: the checked todo box follows the theme', () => {
+  assert.equal(normalize(dark('--todo-check-on-bg')), normalize('#2c4058'));
+  assert.equal(normalize(light('--todo-check-on-bg')), normalize('#2f6fd0'));
+  assert.ok(LIGHT.has('--todo-check-mark'), 'light draws its own check mark');
+  // The dark mark is the exact data URI the rule drew before; light is the same shape, white.
+  assert.equal(dark('--todo-check-mark'), "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%239fbbe0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")", 'dark keeps its light-blue check');
+  assert.equal(light('--todo-check-mark'), dark('--todo-check-mark').replace("stroke='%239fbbe0'", "stroke='%23ffffff'"), 'light draws the same check in white');
+  assert.equal(normalize(light('--todo-check-on-line')), normalize(light('--todo-check-on-bg')), 'the light box has no darker edge');
+  const mark = ratio('#ffffff', light('--todo-check-on-bg'));
+  assert.ok(mark >= 4.5, `white check on the light fill: ${mark.toFixed(2)}`);
+  const box = ratio(light('--todo-check-on-bg'), light('--bg-panel'));
+  assert.ok(box >= 3, `light fill against the panel: ${box.toFixed(2)}`);
 });

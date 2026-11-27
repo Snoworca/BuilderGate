@@ -336,9 +336,9 @@
 }
 
 .todo-check:checked {
-  background-color: #2c4058;
-  border-color: #3a5675;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%239fbbe0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-color: var(--todo-check-on-bg);
+  border-color: var(--todo-check-on-line);
+  background-image: var(--todo-check-mark);
 }
 
 .todo-check:focus-visible {

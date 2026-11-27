@@ -313,6 +313,10 @@
   --todo-note-hidden: #8fb4ff;
   --todo-scroll-thumb: #4a5468;
   --todo-clear: #f08a8a;
+  /* The checked box (FR-TODO-003 AC-12). */
+  --todo-check-on-bg: #2c4058;
+  --todo-check-on-line: #3a5675;
+  --todo-check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%239fbbe0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 /* For people who would rather see more rows than hit them accurately. */
@@ -558,4 +562,7 @@
   --todo-note-hidden: #2f6fd0;
   --todo-scroll-thumb: #b4bccb;
   --todo-clear: #b3261e;
+  --todo-check-on-bg: #2f6fd0;
+  --todo-check-on-line: #2f6fd0;
+  --todo-check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }

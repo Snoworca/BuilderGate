@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-27T13:48:47.076Z",
+  "generatedAt": "2026-11-27T14:28:45.644Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "0cc2f6543dc862d7ac0a9706ef3e5131a4128a45dfd05486e1e7be72b1d3bc46",
+    "value": "99c715d10d2649d3b4eac8c50067afc4b7de8a15d1af5f5dbedbecea4f4ef3d7",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -56,9 +56,9 @@
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "f1aa27edeff76bc38cefe065c05d85c5b70d53882a5a7edfae46b2545cca8fac",
-        "size": 69126,
-        "mtimeMs": 1795786624770.5435
+        "sha256": "2733fa622c513d5123740eefaa25eb2ec7ca993100b92243e33494b3732bd29a",
+        "size": 71034,
+        "mtimeMs": 1795789708377.6138
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
@@ -104,9 +104,9 @@
       },
       {
         "path": "docs/spec/52.todo-panel.srs.md",
-        "sha256": "d21d4afe5eadb6008a152b41ce53a41969487e2c749753e053d8ebfc0cb7795c",
-        "size": 28116,
-        "mtimeMs": 1795764955975.9478
+        "sha256": "747a8f5b9592873620d4caeca30dd4a8ee55b24e418e88a92d7b4f653581053c",
+        "size": 28486,
+        "mtimeMs": 1795789723692.48
       },
       {
         "path": "docs/spec/90.appendix.md",
