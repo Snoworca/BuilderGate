@@ -215,6 +215,8 @@ function AppContent() {
     const onKeyDown = (event: KeyboardEvent) => {
       const shortcut = appShortcutForWindowKey(event, terminalShortcutStateRef.current);
       if (shortcut === null) return;
+      // A tab made behind a modal dialog or the settings screen would open out of sight.
+      if (shortcut === 'new-tab' && (screenRef.current !== 'workspace' || document.querySelector('[aria-modal="true"]') !== null)) return;
       event.preventDefault();
       if (shortcut === 'new-tab') requestNewTab();
       else todoPanelStore.toggle();
@@ -223,6 +225,8 @@ function AppContent() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
   const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const { isMobile, isTouchInput, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
@@ -695,8 +699,11 @@ function AppContent() {
   const handleDropTabOnWorkspace = useCallback((tabId: string, workspaceId: string) => {
     const tab = wmRef.current.tabs.find(item => item.id === tabId);
     if (!tab || !canDropTabOnWorkspace(workspaceId)) return;
-    // moveTab reports a failure through the manager's error state.
-    void wmRef.current.moveTab(tab.workspaceId, tabId, workspaceId).catch(() => undefined);
+    // A failed move opens the move dialog for this tab with the error, so it is seen and can be retried.
+    void wmRef.current.moveTab(tab.workspaceId, tabId, workspaceId).catch((error: unknown) => {
+      setPendingWorkspaceMove({ sourceWorkspaceId: tab.workspaceId, tabId });
+      setWorkspaceMoveError(error instanceof Error ? error.message : String(error));
+    });
   }, [canDropTabOnWorkspace]);
 
   const handleSelectTab = useCallback((tabId: string) => {

@@ -74,3 +74,31 @@ export function findWorkspaceDropId(element: { closest?: (selector: string) => u
   const item = element.closest('[data-workspace-drop-id]') as DropIdElement | null;
   return item?.dataset?.workspaceDropId ?? null;
 }
+
+export interface TabBarDropPointInput {
+  /** The sidebar workspace under the pointer, or null. */
+  hoveredWorkspaceId: string | null;
+  /** Whether that workspace takes the dragged tab. */
+  canDrop: (workspaceId: string) => boolean;
+  tabBarRect: { left: number; right: number; top: number; bottom: number } | undefined;
+  x: number;
+  y: number;
+  /** How far above or below the tab bar a release still reorders. */
+  slackPx: number;
+}
+
+/**
+ * FR-ARCH-019 AC-1: what a tab released at (x, y) does. Over a workspace that takes it, it moves;
+ * over the tab bar strip (its width, its height plus the slack) it reorders; anywhere else,
+ * including a sidebar workspace that refuses it, nothing happens.
+ */
+export function resolveTabBarDropPoint(input: TabBarDropPointInput): { targetId: string | null; overList: boolean } {
+  const { hoveredWorkspaceId, canDrop, tabBarRect: rect, x, y, slackPx } = input;
+  if (hoveredWorkspaceId !== null) {
+    return { targetId: canDrop(hoveredWorkspaceId) ? hoveredWorkspaceId : null, overList: false };
+  }
+  const overList = rect !== undefined
+    && x >= rect.left && x <= rect.right
+    && y >= rect.top - slackPx && y <= rect.bottom + slackPx;
+  return { targetId: null, overList };
+}

@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import type { TerminalShortcutKeyDescriptor, TerminalShortcutState } from '../../src/types/terminalShortcut.ts';
 import {
   appShortcutForWindowKey,
+  isAppShortcutRepeat,
   resolveTerminalShortcut,
 } from '../../src/utils/terminalShortcutBindings.ts';
 import { actionLabel } from '../../src/components/TerminalShortcutManager/shortcutBindingViewModel.ts';
@@ -13,6 +14,7 @@ import { resolveNewTabRequest } from '../../src/hooks/newTabRequest.ts';
 import { requestNewTab, subscribeNewTabRequests } from '../../src/utils/newTabRequests.ts';
 import { koCatalog } from './i18nTestSetup.ts';
 
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const now = '2026-11-26T00:00:00.000Z';
 const state: TerminalShortcutState = { version: 1, lastUpdated: now, profileSelections: [{ scope: 'global', profile: 'xterm-default', updatedAt: now }], bindings: [] };
 const tuiState: TerminalShortcutState = { ...state, profileSelections: [{ scope: 'global', profile: 'ai-tui-compat', updatedAt: now }] };
@@ -123,4 +125,27 @@ test('FR-ARCH-018 AC-1: a new-tab request reaches every subscriber until it unsu
   off();
   requestNewTab();
   assert.equal(calls, 1);
+});
+
+test('FR-ARCH-018 AC-1: a held-down app key in a terminal is swallowed, not repeated into the program', () => {
+  const held = resolveTerminalShortcut({ event: altShiftT({ repeat: true }), state, workspaceId: 'ws', sessionId: 's', imeActive: false, hasSelection: false });
+  assert.equal(isAppShortcutRepeat(held), true);
+  const heldTodo = resolveTerminalShortcut({ event: altShiftT({ key: 't', shiftKey: false, repeat: true }), state, workspaceId: 'ws', sessionId: 's', imeActive: false, hasSelection: false });
+  assert.equal(isAppShortcutRepeat(heldTodo), true);
+  // A send binding without repeat keeps its old pass-through.
+  const send: TerminalShortcutState = { ...state, bindings: [{
+    id: 'u1', scope: 'global', profile: 'xterm-default', enabled: true, allowRepeat: false, matchByKeyFallback: false, sortOrder: 0,
+    key: 'J', code: 'KeyJ', ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, location: 0,
+    action: { type: 'send', data: 'x' }, createdAt: now, updatedAt: now,
+  } as TerminalShortcutState['bindings'][number]] };
+  const heldSend = resolveTerminalShortcut({ event: { key: 'j', code: 'KeyJ', ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, location: 0, repeat: true }, state: send, workspaceId: 'ws', sessionId: 's', imeActive: false, hasSelection: false });
+  assert.equal(heldSend.kind, 'skipped');
+  assert.equal(isAppShortcutRepeat(heldSend), false);
+  const view = read('../../src/components/Terminal/TerminalView.tsx');
+  assert.match(view, /if \(isAppShortcutRepeat\(shortcutResolution\)\) \{\n\s*ev\.preventDefault\(\);\n\s*return false;/u);
+});
+
+test('FR-ARCH-018 AC-2: no tab is made behind a modal dialog or on the settings screen', () => {
+  const app = read('../../src/App.tsx');
+  assert.match(app, /shortcut === 'new-tab' && \(screenRef\.current !== 'workspace' \|\| document\.querySelector\('\[aria-modal="true"\]'\) !== null\)/u);
 });

@@ -193,7 +193,8 @@ test('disabled binding, repeat-disabled, location mismatch, and key fallback are
     imeActive: false,
     hasSelection: false,
   });
-  assert.deepEqual(repeat, { kind: 'skipped', reason: 'repeat-disabled' });
+  // FR-ARCH-018 AC-1: the skip carries the binding's action, so the terminal can swallow a held app key.
+  assert.deepEqual(repeat, { kind: 'skipped', reason: 'repeat-disabled', action: binding().action });
 
   const mismatch = resolveTerminalShortcut({
     event: descriptor({ location: 1 }),

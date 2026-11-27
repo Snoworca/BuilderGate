@@ -171,6 +171,7 @@ import {
 import {
   buildTerminalShortcutKeyDescriptor,
   describeTerminalShortcutKey,
+  isAppShortcutRepeat,
   resolveTerminalShortcut,
 } from '../../utils/terminalShortcutBindings';
 import type { TerminalShortcutState } from '../../types';
@@ -4417,6 +4418,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             ...shortcutDetails,
             reason: shortcutResolution.reason,
           });
+          // FR-ARCH-018 AC-1: a held app key ran its action once; its repeats reach nothing.
+          if (isAppShortcutRepeat(shortcutResolution)) {
+            ev.preventDefault();
+            return false;
+          }
         } else if (shortcutResolution.reason === 'action-pass-through') {
           recordTerminalDebugEvent(sessionId, 'shortcut_binding_passed_through', {
             ...shortcutDetails,

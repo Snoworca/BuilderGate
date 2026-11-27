@@ -14,7 +14,7 @@ import './WorkspaceTabBar.css';
 import { t, tn } from '../../i18n/i18n.ts';
 import { roomDotLabelInput } from '../Messenger/messengerWindowModel.ts';
 import { TabAwaitingInputBadge } from './AwaitingInputBadge.tsx';
-import { findWorkspaceDropId } from './workspaceMoveTargets.ts';
+import { findWorkspaceDropId, resolveTabBarDropPoint } from './workspaceMoveTargets.ts';
 import { tabDragStore } from './tabDragStore.ts';
 
 interface Props {
@@ -82,23 +82,23 @@ export function WorkspaceTabBar({
   // FR-ARCH-019 AC-1: over a sidebar workspace that takes the tab, releasing moves it there;
   // over the tab bar it reorders; anywhere else it does nothing.
   const externalDrop = onMoveTabToWorkspace ? {
-    resolve: (clientX: number, clientY: number) => {
-      const hovered = findWorkspaceDropId(document.elementFromPoint(clientX, clientY));
-      const targetId = hovered !== null && (canDropOnWorkspace?.(hovered) ?? true) ? hovered : null;
-      const rect = tabBarRef.current?.getBoundingClientRect();
-      const overList = rect !== undefined
-        && clientY >= rect.top - TAB_BAR_REORDER_SLACK_PX
-        && clientY <= rect.bottom + TAB_BAR_REORDER_SLACK_PX;
-      return { targetId, overList };
-    },
+    resolve: (clientX: number, clientY: number) => resolveTabBarDropPoint({
+      hoveredWorkspaceId: findWorkspaceDropId(document.elementFromPoint(clientX, clientY)),
+      canDrop: workspaceId => canDropOnWorkspace?.(workspaceId) ?? true,
+      tabBarRect: tabBarRef.current?.getBoundingClientRect(),
+      x: clientX,
+      y: clientY,
+      slackPx: TAB_BAR_REORDER_SLACK_PX,
+    }),
     onStart: (fromIndex: number) => {
       const tab = sorted[fromIndex];
       if (tab) tabDragStore.begin({ tabId: tab.id, sourceWorkspaceId: tab.workspaceId });
     },
     onHover: (workspaceId: string | null) => tabDragStore.hover(workspaceId),
-    onDrop: (fromIndex: number, workspaceId: string) => {
-      const tab = sorted[fromIndex];
-      if (tab) onMoveTabToWorkspace(tab.id, workspaceId);
+    // The tab picked up, by id: tabs closed during the drag shift the indexes.
+    onDrop: (_fromIndex: number, workspaceId: string) => {
+      const tabId = tabDragStore.getState().tabId;
+      if (tabId !== null) onMoveTabToWorkspace(tabId, workspaceId);
     },
     onEnd: () => tabDragStore.end(),
   } : undefined;

@@ -8,7 +8,8 @@ import type {
 
 export type TerminalShortcutResolution =
   | { kind: 'matched'; bindingId: string; action: TerminalShortcutAction; source: 'user' | 'profile' }
-  | { kind: 'skipped'; reason: 'ime-active' | 'reserved' | 'repeat-disabled' | 'disabled' | 'not-loaded' }
+  | { kind: 'skipped'; reason: 'ime-active' | 'reserved' | 'disabled' | 'not-loaded' }
+  | { kind: 'skipped'; reason: 'repeat-disabled'; action: TerminalShortcutAction }
   | { kind: 'pass-through'; reason: 'no-match' | 'action-pass-through' };
 
 interface ResolveTerminalShortcutInput {
@@ -127,7 +128,7 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
       return { kind: 'skipped', reason: 'disabled' };
     }
     if (event.repeat && !userBinding.allowRepeat) {
-      return { kind: 'skipped', reason: 'repeat-disabled' };
+      return { kind: 'skipped', reason: 'repeat-disabled', action: userBinding.action };
     }
     return actionResolution(userBinding.id, userBinding.action, 'user');
   }
@@ -136,7 +137,7 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
     ?? matchBuiltInGlobalShortcut(event);
   if (builtInBinding) {
     if (event.repeat && !builtInBinding.allowRepeat) {
-      return { kind: 'skipped', reason: 'repeat-disabled' };
+      return { kind: 'skipped', reason: 'repeat-disabled', action: builtInBinding.action };
     }
     return actionResolution(builtInBinding.id, builtInBinding.action, 'profile');
   }
@@ -273,6 +274,19 @@ export function appShortcutForWindowKey(event: WindowShortcutKeyEvent, state: Te
   });
   if (result.kind !== 'matched') return null;
   return result.action.type === 'toggle-todo' || result.action.type === 'new-tab' ? result.action.type : null;
+}
+
+const APP_SHORTCUT_ACTIONS: ReadonlySet<TerminalShortcutAction['type']> = new Set(['redraw', 'toggle-composer', 'toggle-todo', 'new-tab']);
+
+/**
+ * FR-ARCH-018 AC-1: a held-down key bound to an app action. The first press ran the action; the
+ * repeats must not reach the program as the raw key either, so the terminal swallows them. A held
+ * send binding without repeat keeps its pass-through.
+ */
+export function isAppShortcutRepeat(resolution: TerminalShortcutResolution): boolean {
+  return resolution.kind === 'skipped'
+    && resolution.reason === 'repeat-disabled'
+    && APP_SHORTCUT_ACTIONS.has(resolution.action.type);
 }
 
 export function getBuiltInProfileBindings(profile: TerminalShortcutProfile): TerminalShortcutBinding[] {

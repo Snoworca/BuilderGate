@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import {
   findWorkspaceDropId,
   isTabMovable,
+  resolveTabBarDropPoint,
   resolveWorkspaceDropTarget,
 } from '../../src/components/Workspace/workspaceMoveTargets.ts';
 import { resolveDragRelease } from '../../src/hooks/useDragReorder.ts';
@@ -100,6 +101,35 @@ test('FR-ARCH-019 AC-3: the move dialog offers moving into a new workspace', () 
   assert.match(app, /onMoveToNewWorkspace=\{handleMoveTabToNewWorkspace\}/u);
   const manager = read('../../src/hooks/useWorkspaceManager.ts');
   assert.match(manager, /const moveTabToNewWorkspace = useCallback\(/u);
+});
+
+test('FR-ARCH-019 AC-1: only the tab bar strip reorders; a sidebar workspace never does, even one that refuses the tab', () => {
+  const tabBarRect = { left: 220, right: 1900, top: 60, bottom: 96 };
+  const base = { tabBarRect, slackPx: 40, canDrop: (id: string) => id === 'ws-3' };
+  // Over the tab bar, or just below it.
+  assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: null, x: 500, y: 80 }), { targetId: null, overList: true });
+  assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: null, x: 500, y: 130 }), { targetId: null, overList: true });
+  // A workspace that takes the tab.
+  assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: 'ws-3', x: 100, y: 120 }), { targetId: 'ws-3', overList: false });
+  // The first sidebar workspace sits level with the tab bar: refusing it is not a reorder.
+  assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: 'ws-1', x: 100, y: 80 }), { targetId: null, overList: false });
+  // Left of the tab bar at the same height, off every workspace.
+  assert.deepEqual(resolveTabBarDropPoint({ ...base, hoveredWorkspaceId: null, x: 100, y: 80 }), { targetId: null, overList: false });
+  assert.deepEqual(resolveTabBarDropPoint({ ...base, tabBarRect: undefined, hoveredWorkspaceId: null, x: 500, y: 80 }), { targetId: null, overList: false });
+});
+
+test('FR-ARCH-019 AC-1: the dropped tab is the one picked up, not whatever now sits at its index', () => {
+  const tabBar = read('../../src/components/Workspace/WorkspaceTabBar.tsx');
+  assert.match(tabBar, /resolveTabBarDropPoint\(\{/u);
+  assert.match(tabBar, /const tabId = tabDragStore\.getState\(\)\.tabId;\n\s*if \(tabId !== null\) onMoveTabToWorkspace\(tabId, workspaceId\);/u);
+});
+
+test('FR-ARCH-019 AC-1: a failed drag move opens the move dialog with the error, like the dialog move', () => {
+  const app = read('../../src/App.tsx');
+  const handler = app.slice(app.indexOf('const handleDropTabOnWorkspace'), app.indexOf('const handleSelectTab'));
+  assert.doesNotMatch(handler, /catch\(\(\) => undefined\)/u);
+  assert.match(handler, /setPendingWorkspaceMove\(\{ sourceWorkspaceId: tab\.workspaceId, tabId \}\);/u);
+  assert.match(handler, /setWorkspaceMoveError\(error instanceof Error \? error\.message : String\(error\)\);/u);
 });
 
 function workspace(id: string, sortOrder: number): Workspace {
