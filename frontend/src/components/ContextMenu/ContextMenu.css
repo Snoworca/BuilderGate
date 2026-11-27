@@ -134,7 +134,8 @@
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.42);
+  /* @req FR-UIDS-018 AC-4 */
+  background: var(--scrim-dialog);
   display: flex;
   align-items: flex-end;
   justify-content: center;

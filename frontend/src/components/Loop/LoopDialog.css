@@ -181,8 +181,9 @@
   font-size: var(--fs-xs);
 }
 .loop-kind::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.loop-kind-command { color: #6cb6ff; }
-.loop-kind-prompt { color: #c586c0; }
+/* @req FR-UIDS-018 AC-4 */
+.loop-kind-command { color: var(--accent-text); }
+.loop-kind-prompt { color: var(--loop-prompt-text); }
 .loop-kind-delay { color: var(--warn); }
 .loop-kind-end { color: var(--danger); }
 .loop-step-body { min-width: 0; }

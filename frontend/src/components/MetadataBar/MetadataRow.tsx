@@ -250,12 +250,14 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
   const color = TAB_COLORS[tab.colorIndex] || TAB_COLORS[0];
   const recoveryIconLabel = getSafeRecoveryIconLabel(tab.recoveryIcon);
 
+  // The row's colours are tokens from tokens.css, which the light theme re-binds.
+  // @req FR-UIDS-018 AC-4
   return (
     <div ref={rowRef} data-git-row={gitEnabled ? "" : undefined} style={{
       display: 'flex',
       alignItems: 'center',
       height: '28px',
-      backgroundColor: '#2a2a2a',
+      backgroundColor: 'var(--meta-bg)',
       fontSize: '13px',
       padding: '0 8px 0 0',
     }}>
@@ -272,7 +274,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
         <span
           title={tab.recoveryCommand ? t('metadata.recoveryCommand', { command: tab.recoveryCommand }) : t('metadata.recovery')}
           style={{
-            color: '#d7d7d7',
+            color: 'var(--meta-fg-dim)',
             marginLeft: '8px',
             fontSize: '11px',
             lineHeight: 1,
@@ -291,10 +293,10 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
           onKeyDown={rename.handleKeyDown}
           onBlur={rename.handleBlur}
           style={{
-            color: '#fff',
+            color: 'var(--meta-strong)',
             marginLeft: recoveryIconLabel ? '4px' : '8px',
             background: 'transparent',
-            border: '1px solid #555',
+            border: '1px solid var(--meta-line)',
             borderRadius: '2px',
             fontSize: '13px',
             width: '120px',
@@ -307,7 +309,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
           ref={nameRef}
           onDoubleClick={onRename ? () => rename.startEdit(tab.name) : undefined}
           style={{
-            color: '#fff',
+            color: 'var(--meta-strong)',
             marginLeft: recoveryIconLabel ? '4px' : '8px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -362,7 +364,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
           }}
           title={copyOutcome === 'copied' ? t('metadata.copied') : copyOutcome === 'failed' ? t('metadata.copyFailed') : (tab.cwd || '')}
           style={{
-            color: copyOutcome === 'copied' ? '#22c55e' : copyOutcome === 'failed' ? '#ef4444' : '#e0e0e0',
+            color: copyOutcome === 'copied' ? 'var(--meta-copied)' : copyOutcome === 'failed' ? 'var(--meta-copy-failed)' : 'var(--meta-fg)',
             marginLeft: 'auto',
             cursor: 'pointer',
             overflow: 'hidden',
@@ -371,7 +373,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
             fontFamily: '"Cascadia Code", "Fira Code", Consolas, "Courier New", monospace',
             fontSize: '12px',
             textDecorationLine: 'underline',
-            textDecorationColor: '#666',
+            textDecorationColor: 'var(--meta-underline)',
             textDecorationStyle: 'solid' as const,
             textUnderlineOffset: '3px',
             letterSpacing: '0.5px',
@@ -386,7 +388,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
       {/* Separator */}
       {displayPath && view.showCwd && view.showTime && (
         <span style={{
-          color: '#555',
+          color: 'var(--meta-line)',
           margin: '0 3px',
           flexShrink: 0,
           fontSize: '16px',
@@ -418,8 +420,9 @@ function ElapsedTime({ createdAt, marginLeft }: { createdAt: string; marginLeft:
     const timer = setInterval(() => setElapsed(formatElapsed(createdAt)), 1000);
     return () => clearInterval(timer);
   }, [createdAt]);
+  // @req FR-UIDS-018 AC-4
   return (
-    <span style={{ color: '#e0e0e0', marginLeft, fontFamily: 'monospace', fontSize: '12px', flexShrink: 0 }}>
+    <span style={{ color: 'var(--meta-fg)', marginLeft, fontFamily: 'monospace', fontSize: '12px', flexShrink: 0 }}>
       {elapsed}
     </span>
   );

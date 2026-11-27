@@ -1,4 +1,6 @@
 /* FR-TODO-002: a tall column at the right of .main; the whole screen on a phone. */
+/* The colours are tokens from tokens.css, which the light theme re-binds (FR-UIDS-018). */
+/* @req FR-UIDS-018 AC-4 */
 .todo-panel {
   position: relative;
   flex-shrink: 0;
@@ -6,9 +8,9 @@
   flex-direction: column;
   box-sizing: border-box;
   min-width: 0;
-  background-color: #1f1f1f;
-  border-left: 1px solid #3a3a3a;
-  color: #ddd;
+  background-color: var(--bg-panel);
+  border-left: 1px solid var(--line);
+  color: var(--todo-fg);
   /* FR-TODO-002 AC-5: set by the panel's font buttons. */
   --todo-font-size: 13px;
   font-size: var(--todo-font-size);
@@ -35,7 +37,7 @@
 }
 
 .todo-panel__resize:hover {
-  background-color: rgba(120, 160, 255, 0.35);
+  background-color: var(--todo-resize-hover);
 }
 
 .todo-panel__header {
@@ -44,7 +46,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  border-bottom: 1px solid #3a3a3a;
+  border-bottom: 1px solid var(--line);
 }
 
 .todo-panel__title {
@@ -57,26 +59,26 @@
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  border: 1px solid #444;
+  border: 1px solid var(--todo-chip-line);
   border-radius: 12px;
   background: transparent;
-  color: #aaa;
+  color: var(--todo-chip-fg);
   font-size: 12px;
   cursor: pointer;
 }
 
 .todo-panel__done-toggle.is-on {
-  color: #7fd17f;
-  border-color: #4a7a4a;
+  color: var(--todo-done-on);
+  border-color: var(--todo-done-on-line);
 }
 
 .todo-panel__icon {
-  color: #bbb;
+  color: var(--todo-icon);
 }
 
 .todo-panel__error {
   padding: 4px 10px;
-  color: #f87171;
+  color: var(--error-text);
   font-size: 12px;
 }
 
@@ -90,7 +92,7 @@
 
 .todo-panel__empty {
   padding: 16px 12px;
-  color: #888;
+  color: var(--todo-empty);
 }
 
 .todo-row {
@@ -121,25 +123,25 @@
 }
 
 .todo-row:hover {
-  background-color: #2a2a2a;
+  background-color: var(--todo-row-hover);
 }
 
 .todo-row.is-selected {
-  background-color: #2f3b52;
+  background-color: var(--todo-row-selected);
 }
 
 /* FR-TODO-006 AC-3: where a dragged entry would land. */
 .todo-row.is-drop-before {
-  box-shadow: inset 0 2px 0 #6f95e6;
+  box-shadow: inset 0 2px 0 var(--todo-accent);
 }
 
 .todo-row.is-drop-after {
-  box-shadow: inset 0 -2px 0 #6f95e6;
+  box-shadow: inset 0 -2px 0 var(--todo-accent);
 }
 
 .todo-row.is-drop-inside {
-  background-color: #263452;
-  box-shadow: inset 0 0 0 1px #6f95e6;
+  background-color: var(--todo-drop-bg);
+  box-shadow: inset 0 0 0 1px var(--todo-accent);
 }
 
 .todo-row__action:disabled {
@@ -157,7 +159,7 @@
 /* FR-TODO-003 AC-6: a category reads as a heading. */
 .todo-row--d1 .todo-row__title {
   font-size: calc(var(--todo-font-size) + 4px);
-  color: #f0f2f5;
+  color: var(--todo-heading);
 }
 
 /* FR-TODO-003 AC-7: who added it. */
@@ -172,13 +174,13 @@
   font-size: 10px;
   font-weight: 400;
   line-height: 16px;
-  color: #9aa7c0;
-  background-color: #2a3242;
+  color: var(--todo-author-fg);
+  background-color: var(--todo-author-bg);
 }
 
 .todo-row__author--session {
-  color: #c7b07a;
-  background-color: #3a3326;
+  color: var(--todo-author-session-fg);
+  background-color: var(--todo-author-session-bg);
 }
 
 /* FR-TODO-008 AC-1: each row's fold button is centred on the line from its parent's mark. */
@@ -201,7 +203,7 @@
 
 .todo-tree-lines path {
   fill: none;
-  stroke: #5b6578;
+  stroke: var(--todo-tree-line);
   stroke-width: 1;
   stroke-dasharray: 2 3;
 }
@@ -275,7 +277,7 @@
 }
 
 .todo-status:hover {
-  background-color: #2f2f2f;
+  background-color: var(--todo-status-hover);
 }
 
 .todo-status:focus-visible {
@@ -289,7 +291,7 @@
 
 .todo-status__check {
   fill: none;
-  stroke: #fff;
+  stroke: var(--accent-fg);
   stroke-width: 2.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -297,7 +299,7 @@
 
 .todo-status__ring {
   fill: none;
-  stroke: #3d6fa0;
+  stroke: var(--todo-status-ring);
   stroke-width: 2;
 }
 
@@ -307,7 +309,7 @@
 
 .todo-row__progress {
   flex: 0 0 auto;
-  color: #7a8aa8;
+  color: var(--todo-meta);
   font-size: 11px;
   font-weight: 400;
   white-space: nowrap;
@@ -345,18 +347,18 @@
 }
 
 .todo-row.is-done .todo-row__title {
-  color: #777;
+  color: var(--fg-dim);
   text-decoration: line-through;
 }
 
 .todo-row--d1.is-done .todo-row__title {
-  color: #8a9a8a;
+  color: var(--todo-heading-done);
   text-decoration: none;
 }
 
 .todo-row__id {
   flex: 0 0 auto;
-  color: #7a8aa8;
+  color: var(--todo-meta);
   font-family: ui-monospace, monospace;
   font-size: calc(var(--todo-font-size) - 2px);
   font-weight: 400;
@@ -398,13 +400,13 @@
 .todo-row:hover .todo-row__actions,
 .todo-row.is-selected .todo-row__actions {
   display: inline-flex;
-  background-color: #2a2a2a;
-  box-shadow: -10px 0 8px -4px #2a2a2a;
+  background-color: var(--todo-row-hover);
+  box-shadow: -10px 0 8px -4px var(--todo-row-hover);
 }
 
 .todo-row.is-selected .todo-row__actions {
-  background-color: #2f3b52;
-  box-shadow: -10px 0 8px -4px #2f3b52;
+  background-color: var(--todo-row-selected);
+  box-shadow: -10px 0 8px -4px var(--todo-row-selected);
 }
 
 .todo-panel--mobile .todo-row__actions {
@@ -417,11 +419,11 @@
 
 .todo-row__action,
 .todo-row__done-toggle {
-  color: #999;
+  color: var(--todo-action);
 }
 
 .todo-row__done-toggle.is-on {
-  color: #7fd17f;
+  color: var(--todo-done-on);
 }
 
 .todo-row__input {
@@ -429,10 +431,10 @@
   min-width: 0;
   box-sizing: border-box;
   padding: 3px 6px;
-  border: 1px solid #555;
+  border: 1px solid var(--todo-input-line);
   border-radius: 4px;
-  background-color: #141414;
-  color: #eee;
+  background-color: var(--bg-well);
+  color: var(--todo-input-fg);
   font: inherit;
   font-weight: 400;
 }
@@ -451,10 +453,10 @@
 .todo-detail {
   position: relative;
   padding: 6px 10px;
-  border-left: 2px solid #3b4a66;
+  border-left: 2px solid var(--todo-detail-line);
   border-radius: 0 4px 4px 0;
-  background-color: #232731;
-  color: #b8c0cf;
+  background-color: var(--todo-detail-bg);
+  color: var(--todo-detail-fg);
   font-size: calc(var(--todo-font-size) - 1px);
   line-height: 1.55;
   white-space: pre-wrap;
@@ -463,7 +465,7 @@
 }
 
 .todo-detail:hover {
-  background-color: #283040;
+  background-color: var(--todo-detail-hover);
 }
 
 /* FR-TODO-007 AC-4: only while the pointer is over the detail. */
@@ -474,8 +476,8 @@
   padding: 0 4px;
   border: none;
   border-radius: 3px;
-  background-color: #283040;
-  color: #7a8aa8;
+  background-color: var(--todo-detail-hover);
+  color: var(--todo-meta);
   font: inherit;
   font-size: 11px;
   cursor: pointer;
@@ -487,7 +489,7 @@
 }
 
 .todo-detail__hide:hover {
-  color: #c8d4ee;
+  color: var(--todo-detail-hide-hover);
 }
 
 .todo-row__note {
@@ -496,11 +498,11 @@
   padding: 0;
   border: none;
   background: none;
-  color: #7a8aa8;
+  color: var(--todo-meta);
 }
 
 .todo-row__note.is-hidden {
-  color: #8fb4ff;
+  color: var(--todo-note-hidden);
   cursor: pointer;
 }
 
@@ -523,10 +525,10 @@
   margin: 0;
   padding: 6px 10px;
   border: none;
-  border-left: 2px solid #6f95e6;
+  border-left: 2px solid var(--todo-accent);
   border-radius: 0 4px 4px 0;
-  background-color: #232731;
-  color: #e4e9f2;
+  background-color: var(--todo-detail-bg);
+  color: var(--todo-detail-edit-fg);
   font: inherit;
   font-weight: 400;
   font-size: calc(var(--todo-font-size) - 1px);
@@ -535,7 +537,7 @@
   overflow-y: auto;
   outline: none;
   scrollbar-width: thin;
-  scrollbar-color: #4a5468 transparent;
+  scrollbar-color: var(--todo-scroll-thumb) transparent;
 }
 
 .todo-detail-edit textarea::-webkit-scrollbar {
@@ -547,7 +549,7 @@
 }
 
 .todo-detail-edit textarea::-webkit-scrollbar-thumb {
-  background-color: #4a5468;
+  background-color: var(--todo-scroll-thumb);
   border-radius: 2px;
 }
 
@@ -559,14 +561,14 @@
 
 .todo-detail-edit__hint {
   flex: 1;
-  color: #777;
+  color: var(--fg-dim);
   font-size: 11px;
 }
 
 .todo-detail-edit__clear {
   border: none;
   background: none;
-  color: #f08a8a;
+  color: var(--todo-clear);
   font-size: 12px;
   cursor: pointer;
 }

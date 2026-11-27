@@ -8,8 +8,9 @@
   top: 66%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  /* @req FR-UIDS-018 AC-4 */
+  background-color: var(--toast-bg);
+  color: var(--toast-fg);
   padding: 12px 20px;
   border-radius: 8px;
   font-size: 15px;

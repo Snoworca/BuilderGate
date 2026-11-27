@@ -79,8 +79,8 @@
   left: 0;
   width: 10%;
   height: 2px;
-  background: color-mix(in srgb, var(--tab-color, var(--accent)) 45%, white);
-  box-shadow: 0 0 4px color-mix(in srgb, var(--tab-color, var(--accent)) 60%, white);
+  background: color-mix(in srgb, var(--tab-color, var(--accent)) 45%, var(--tab-activity-mix));
+  box-shadow: 0 0 4px color-mix(in srgb, var(--tab-color, var(--accent)) 60%, var(--tab-activity-mix));
   pointer-events: none;
   will-change: transform;
   animation: workspace-tab-activity 1.4s ease-in-out infinite alternate;
@@ -212,7 +212,8 @@
   flex: none;
   border-radius: 50%;
   background: var(--attention);
-  color: var(--bg-app);
+  /* @req FR-UIDS-018 AC-4 */
+  color: var(--on-signal);
   font-size: var(--fs-2xs);
   font-weight: var(--fw-semibold);
   line-height: 14px;

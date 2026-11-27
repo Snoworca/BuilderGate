@@ -3,14 +3,16 @@
  * Its height is set inline (the layout height); the pieces below share it in a column.
  * The sizes add up to sessionComposerModel.ts COMPOSER_CHROME_PX (24): 1px top border, 7px
  * handle, 6px bottom padding, 2px textarea border and 4px textarea padding; 20px per line.
+ * The colours are tokens from tokens.css, which the light theme re-binds (FR-UIDS-018).
  */
+/* @req FR-UIDS-018 AC-4 */
 .session-composer {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  background-color: #1f1f1f;
-  border-top: 1px solid #3a3a3a;
+  background-color: var(--bg-panel);
+  border-top: 1px solid var(--line);
   min-height: 0;
 }
 
@@ -30,11 +32,11 @@
   height: 3px;
   margin-left: -18px;
   border-radius: 2px;
-  background-color: #555;
+  background-color: var(--grip);
 }
 
 .session-composer__handle:hover::after {
-  background-color: #888;
+  background-color: var(--grip-hover);
 }
 
 .session-composer__error {
@@ -42,7 +44,7 @@
   line-height: 20px;
   padding: 0 10px;
   font-size: 12px;
-  color: #f87171;
+  color: var(--error-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -66,10 +68,10 @@
   resize: none;
   margin: 0;
   padding: 2px 6px;
-  border: 1px solid #3f3f3f;
+  border: 1px solid var(--composer-input-line);
   border-radius: 4px;
-  background-color: #141414;
-  color: #e6e6e6;
+  background-color: var(--bg-well);
+  color: var(--composer-input-fg);
   font-family: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
   font-size: 13px;
   line-height: 20px;
@@ -82,7 +84,7 @@
 }
 
 .session-composer__input::placeholder {
-  color: #6b6b6b;
+  color: var(--composer-placeholder);
 }
 
 .session-composer__send {
@@ -96,13 +98,13 @@
   border: none;
   border-radius: 4px;
   background-color: var(--tab-color, #4a9eff);
-  color: #fff;
+  color: var(--accent-fg);
   cursor: pointer;
 }
 
 .session-composer__send:disabled {
-  background-color: #3a3a3a;
-  color: #777;
+  background-color: var(--composer-send-off-bg);
+  color: var(--fg-dim);
   cursor: default;
 }
 
@@ -112,7 +114,7 @@
   z-index: 1000;
   box-sizing: border-box;
   border-top: 2px solid var(--tab-color, #4a9eff);
-  background-color: rgba(74, 158, 255, 0.08);
+  background-color: var(--composer-drag-bg);
   pointer-events: none;
 }
 
@@ -128,25 +130,25 @@
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: #bdbdbd;
+  color: var(--meta-toggle-fg);
   font-size: 12px;
   cursor: pointer;
   position: relative;
 }
 
 .metadata-composer-toggle:hover {
-  background-color: #383838;
-  color: #fff;
+  background-color: var(--meta-toggle-hover);
+  color: var(--meta-strong);
 }
 
 .metadata-composer-toggle[aria-pressed="true"] {
-  color: #fff;
-  border-color: #4a4a4a;
+  color: var(--meta-strong);
+  border-color: var(--line-strong);
 }
 
 .metadata-composer-toggle__dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #facc15;
+  background-color: var(--meta-toggle-dot);
 }

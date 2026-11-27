@@ -21,6 +21,17 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* FR-UIDS-018 AC-5: native controls and scroll bars follow the theme, light
+ * under the light theme. A night editor keeps dark ones there (AC-7). */
+/* @req FR-UIDS-018 AC-5 AC-7 */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='light'] [data-editor-theme='dark'] {
+  color-scheme: dark;
+}
+
 /* No min-height: 100vh here (FR-ARCH-011 AC-6). iOS Safari resolves vh to the
  * toolbar-collapsed height, which made the body taller than the screen and hid
  * the bottom of the app behind the toolbar; globals.css gives body 100%. */

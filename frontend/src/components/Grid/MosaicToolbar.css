@@ -32,7 +32,8 @@
   padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
-  background: rgba(47, 47, 47, 0.9);
+  /* @req FR-UIDS-018 AC-4 */
+  background: var(--toolbar-float-bg);
   color: var(--fg-muted);
   line-height: 0;
 }

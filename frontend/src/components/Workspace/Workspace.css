@@ -169,7 +169,8 @@
   flex-shrink: 0;
   margin-left: var(--sp-2);
   background: var(--attention);
-  color: var(--bg-app);
+  /* @req FR-UIDS-018 AC-4 */
+  color: var(--on-signal);
 }
 
 /* How many of the workspace's terminals are running. Amber rather than green:
@@ -179,7 +180,8 @@
   flex-shrink: 0;
   margin-left: var(--sp-2);
   background: var(--warn);
-  color: var(--bg-app);
+  /* @req FR-UIDS-018 AC-4 */
+  color: var(--on-signal);
 }
 
 /* ---------- FR-UIDS-016: the folded sidebar ---------- */
@@ -255,7 +257,8 @@
 .mobile-drawer-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  /* @req FR-UIDS-018 AC-4 */
+  background-color: var(--scrim);
   z-index: 998;
   opacity: 0;
   pointer-events: none;
@@ -327,7 +330,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--sp-3);
-  background-color: rgba(0, 0, 0, 0.7);
+  /* @req FR-UIDS-018 AC-4 */
+  background-color: var(--bg-veil);
   z-index: 10;
 }
 
