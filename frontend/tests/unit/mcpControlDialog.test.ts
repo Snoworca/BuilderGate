@@ -652,6 +652,24 @@ test('SEC-MCP-001 AC-9: choosing a bind mode moves a loopback or wildcard host a
   assert.equal(withMcpBindMode(loopback, 'whitelist').bindMode, 'whitelist');
 });
 
+test("SEC-MCP-001 AC-11: external mode fills an empty whitelist with '*' and warns; a typed list stays", async () => {
+  const { withMcpBindMode, mcpSecurityWarnings, validateMcpSecurityDraft } = await loadModel();
+  const loopback = externalDraft({ bindMode: 'loopback', host: '127.0.0.1', externalWhitelistText: '', transportSecurity: 'none' });
+  const opened = withMcpBindMode(loopback, 'whitelist');
+  assert.equal(opened.externalWhitelistText, '*');
+  assert.equal(validateMcpSecurityDraft(opened), null);
+  assert.ok(mcpSecurityWarnings(opened).includes('anyAddress'));
+  assert.equal(withMcpBindMode({ ...loopback, externalWhitelistText: '  ' }, 'whitelist').externalWhitelistText, '*');
+  assert.equal(withMcpBindMode({ ...loopback, externalWhitelistText: '203.0.113.7' }, 'whitelist').externalWhitelistText, '203.0.113.7');
+  assert.equal(withMcpBindMode(opened, 'loopback').externalWhitelistText, '*');
+});
+
+test('FR-MCP-020, FR-MCP-027: the peer link URL example uses http, the MCP default transport', () => {
+  const source = readSource('src/components/McpControlManager/PeerLinksPanel.tsx');
+  expectSource(source, /placeholder="http:\/\/10\.0\.1\.13:3333\/mcp"/, 'the peer link URL example is http');
+  assert.match(koCatalog['mcp.peers.link.urlHelp'], /http:\/\/10\.0\.1\.13:3333\/mcp/);
+});
+
 test('SEC-MCP-001 AC-9: the transport and bind mode options say what they do', () => {
   assert.equal(koCatalog['mcp.transport.none'], 'HTTP (암호화 없음)');
   assert.equal(koCatalog['mcp.transport.directTls'], 'HTTPS (직접 TLS)');

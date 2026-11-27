@@ -265,7 +265,12 @@ export function mcpSecurityWarnings(draft: McpSecurityDraft): McpSecurityWarning
  */
 export function withMcpBindMode(draft: McpSecurityDraft, bindMode: string): McpSecurityDraft {
   const host = draft.host.trim();
-  if (bindMode === 'whitelist' && (host === 'localhost' || isLoopbackAddress(host))) return { ...draft, bindMode, host: '0.0.0.0' };
+  if (bindMode === 'whitelist') {
+    // SEC-MCP-001 AC-11: an empty list opens to every address; the AC-8 warning says so.
+    const externalWhitelistText = draft.externalWhitelistText.trim() === '' ? MCP_ANY_ADDRESS : draft.externalWhitelistText;
+    const nextHost = host === 'localhost' || isLoopbackAddress(host) ? '0.0.0.0' : draft.host;
+    return { ...draft, bindMode, host: nextHost, externalWhitelistText };
+  }
   if (bindMode === 'loopback' && (host === '0.0.0.0' || host === '::')) return { ...draft, bindMode, host: '127.0.0.1' };
   return { ...draft, bindMode };
 }

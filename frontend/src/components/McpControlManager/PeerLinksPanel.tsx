@@ -186,7 +186,7 @@ export function PeerLinksPanel({ active }: { active: boolean }) {
               <TextInput id={`mcp-peers-link-name-${index}`} mono value={row.name} spellCheck={false} onChange={(event) => updateRow(index, { name: event.target.value })} />
             </Field>
             <Field label={t('mcp.peers.link.url')} htmlFor={`mcp-peers-link-url-${index}`} className="mcp-control-field mcp-peers-wide" help={t('mcp.peers.link.urlHelp')}>
-              <TextInput id={`mcp-peers-link-url-${index}`} mono value={row.url} placeholder="https://10.0.1.13:3333/mcp" spellCheck={false} onChange={(event) => updateRow(index, { url: event.target.value })} />
+              <TextInput id={`mcp-peers-link-url-${index}`} mono value={row.url} placeholder="http://10.0.1.13:3333/mcp" spellCheck={false} onChange={(event) => updateRow(index, { url: event.target.value })} />
             </Field>
             <Field
               label={t('mcp.peers.link.accessKey')}

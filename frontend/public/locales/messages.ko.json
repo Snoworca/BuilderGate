@@ -556,7 +556,7 @@
   "mcp.peers.linksEmpty": "원격이 없습니다. 추가하고 저장하면 연결을 시작합니다.",
   "mcp.peers.link.name": "이름",
   "mcp.peers.link.url": "MCP 주소",
-  "mcp.peers.link.urlHelp": "상대 MCP 설정 창 위쪽의 연결 주소를 그대로 붙여 넣습니다. 예: https://10.0.1.13:3333/mcp",
+  "mcp.peers.link.urlHelp": "상대 MCP 설정 창 위쪽의 연결 주소를 그대로 붙여 넣습니다. 예: http://10.0.1.13:3333/mcp",
   "mcp.peers.link.accessKey": "MCP 키",
   "mcp.peers.link.accessKeyStored": "저장됨. 비워 두면 그대로 씁니다.",
   "mcp.peers.link.enabled": "사용",

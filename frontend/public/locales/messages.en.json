@@ -566,7 +566,7 @@
   "mcp.peers.linksEmpty": "No remotes. Add one and save to start connecting.",
   "mcp.peers.link.name": "Name",
   "mcp.peers.link.url": "MCP address",
-  "mcp.peers.link.urlHelp": "Paste the address shown at the top of the remote's MCP settings, e.g. https://10.0.1.13:3333/mcp",
+  "mcp.peers.link.urlHelp": "Paste the address shown at the top of the remote's MCP settings, e.g. http://10.0.1.13:3333/mcp",
   "mcp.peers.link.accessKey": "MCP key",
   "mcp.peers.link.accessKeyStored": "Stored. Leave empty to keep it.",
   "mcp.peers.link.enabled": "Use",
