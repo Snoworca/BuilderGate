@@ -58,6 +58,12 @@ import {
   workspaceDeleteDialogProps,
   type WorkspaceDeleteState,
 } from './components/Workspace/workspaceDeleteFlow';
+import {
+  WORKSPACE_SIDEBAR_COLLAPSED_WIDTH,
+  WORKSPACE_SIDEBAR_WIDTH,
+  useWorkspaceSidebarCollapsed,
+  workspaceSidebarStore,
+} from './components/Workspace/workspaceSidebarStore.ts';
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { EditorWindowLayer, EDITOR_WINDOW_WAITING_RECT } from './components/editor/EditorWindowLayer';
@@ -226,6 +232,9 @@ function AppContent() {
   const screenRef = useRef(screen);
   screenRef.current = screen;
   const { isMobile, isTouchInput, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
+  // FR-UIDS-016: the desktop column folds to its circles, as this browser last left it.
+  // @req FR-UIDS-016 AC-2 AC-5 AC-7
+  const sidebarCollapsed = useWorkspaceSidebarCollapsed();
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
@@ -1191,6 +1200,9 @@ function AppContent() {
       onDelete={handleDeleteWorkspace}
       onAddTab={(wsId, shell) => wm.addTab(wsId, shell)}
       onReorder={(ids) => wm.reorderWorkspaces(ids)}
+      collapsible={!isMobile}
+      collapsed={sidebarCollapsed}
+      onCollapsedChange={workspaceSidebarStore.setCollapsed}
     />
   );
 
@@ -1236,7 +1248,7 @@ function AppContent() {
       <div className="main">
         {/* Desktop sidebar */}
         {!isMobile && (
-          <aside className="sidebar" style={{ width: '220px', flexShrink: 0 }}>
+          <aside className="sidebar" style={{ width: sidebarCollapsed ? WORKSPACE_SIDEBAR_COLLAPSED_WIDTH : WORKSPACE_SIDEBAR_WIDTH, flexShrink: 0 }}>
             {sidebarContent}
           </aside>
         )}

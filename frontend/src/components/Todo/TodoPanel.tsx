@@ -1,13 +1,13 @@
 // The to-do panel: a tall resizable column on the right (the whole screen on a phone) with the
 // server's list, a show/hide-completed toggle at the top and per category. Each entry's detail sits
 // right under it and is written in place; a right-click on a row opens its actions.
-// @req FR-TODO-002 FR-TODO-003 FR-TODO-006 FR-TODO-007
+// @req FR-TODO-002 FR-TODO-003 FR-TODO-006 FR-TODO-007 FR-TODO-008
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '../common';
 import { Button } from '../ui';
 import { ContextMenu } from '../ContextMenu';
 import { MessageBox } from '../dialog/MessageBox';
-import { t } from '../../i18n/i18n.ts';
+import { t, tn } from '../../i18n/i18n.ts';
 import { todoApi } from '../../services/api.ts';
 import { canAddTodoChild, categoryShowsDone, detailSaveRemoves, siblingMove, todoDescendantCount, todoListPlaceholder, siblingParentId, TODO_DETAIL_MAX, TODO_TITLE_MAX, todoAuthorLabel, todoDropMove, todoDropZone, todoRows, type TodoDropZone, type TodoItem, type TodoMove, type TodoRow } from './todoModel.ts';
 import { todoPanelStore, useTodoPanelState } from './todoPanelStore.ts';
@@ -145,6 +145,8 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
       const drop = dropFor(row, event);
       dragIdRef.current = null;
       setDropHint(null);
+      // @req FR-TODO-008 AC-4
+      if (drop?.zone === 'inside') todoPanelStore.setCollapsed(row.item.id, false);
       if (drop) move(drop.dragId, drop.to);
     },
     onDragEnd: () => {
@@ -211,7 +213,11 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
       setEditingTitleId(row.item.id);
     },
     addSibling: () => setAdding({ parentId: siblingParentId(row.item), anchorId: row.item.id, depth: row.depth }),
-    addChild: () => setAdding({ parentId: row.item.id, anchorId: row.item.id, depth: row.depth + 1 }),
+    addChild: () => {
+      // @req FR-TODO-008 AC-4
+      todoPanelStore.setCollapsed(row.item.id, false);
+      setAdding({ parentId: row.item.id, anchorId: row.item.id, depth: row.depth + 1 });
+    },
     move: (to) => move(row.item.id, to),
     toggleDone: () => void run(() => todoApi.update(row.item.id, { done: !row.item.done })),
     remove: () => remove(row.item),
@@ -263,6 +269,10 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
           const actions = actionsFor(row);
           const moveUp = siblingMove(items, row.item.id, -1);
           const moveDown = siblingMove(items, row.item.id, 1);
+          // @req FR-TODO-008 AC-1 AC-2
+          const fold = items.some((entry) => entry.parentId === row.item.id)
+            ? { folded: panel.collapsed[row.item.id] === true, count: todoDescendantCount(items, row.item.id) }
+            : null;
           return (
             <TodoRowView
               key={row.item.id}
@@ -271,13 +281,14 @@ export function TodoPanel({ isMobile }: TodoPanelProps) {
               categoryShowDone={row.depth === 1 ? categoryShowsDone(row.item.id, panel) : undefined}
               progress={row.depth === 1 ? todoProgress(items, row.item.id) : null}
               detailHidden={panel.hiddenDetails[row.item.id] === true}
+              fold={fold}
               editingDetail={editingDetailId === row.item.id}
               editingTitle={editingTitleId === row.item.id}
               addingDepth={adding !== null && adding.anchorId === row.item.id ? adding.depth : null}
               actions={actions}
               moveUp={moveUp}
               moveDown={moveDown}
-              onSubmitNew={(title) => { const parentId = adding?.parentId ?? null; setAdding(null); void add(parentId, title); }}
+              onSubmitNew={(title) => { const parentId = adding?.parentId ?? null; setAdding(null); if (parentId !== null) todoPanelStore.setCollapsed(parentId, false); void add(parentId, title); }}
               onCancelNew={() => setAdding(null)}
               onSaveTitle={(title) => {
                 setEditingTitleId(null);
@@ -354,6 +365,8 @@ interface TodoRowViewProps {
   /** FR-TODO-003 AC-11: set on a category. */
   progress: { done: number; total: number } | null;
   detailHidden: boolean;
+  /** FR-TODO-008 AC-1/AC-2: null when no entry is under this one; else whether it is folded and how many entries are under it. */
+  fold: { folded: boolean; count: number } | null;
   editingDetail: boolean;
   editingTitle: boolean;
   /** The depth of the new-entry box asked from this row, or null. */
@@ -380,13 +393,14 @@ interface TodoRowViewProps {
 }
 
 function TodoRowView({
-  row, selected, categoryShowDone, progress, detailHidden, editingDetail, editingTitle, addingDepth, actions, moveUp, moveDown,
+  row, selected, categoryShowDone, progress, detailHidden, fold, editingDetail, editingTitle, addingDepth, actions, moveUp, moveDown,
   onSubmitNew, onCancelNew, onSaveTitle, onCancelTitle, onSaveDetail, onCancelDetail, onContextMenu,
   dropZone, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: TodoRowViewProps) {
   const { item, depth } = row;
   const author = todoAuthorLabel(item.author);
   const hasDetail = item.detail.length > 0;
+  const folded = fold?.folded === true;
   const stop = (action: () => void) => (event: ReactMouseEvent) => { event.stopPropagation(); action(); };
   return (
     <>
@@ -405,6 +419,21 @@ function TodoRowView({
         onDrop={onDrop}
         onDragEnd={onDragEnd}
       >
+        {/* @req FR-TODO-008 AC-1 */}
+        {fold
+          ? (
+            <button
+              type="button"
+              className="todo-fold"
+              aria-expanded={!folded}
+              aria-label={folded ? t('todo.unfold') : t('todo.fold')}
+              title={folded ? t('todo.unfold') : t('todo.fold')}
+              onClick={stop(() => todoPanelStore.setCollapsed(item.id, !folded))}
+            >
+              <Icon name={folded ? 'chevron-right' : 'chevron-down'} size={14} />
+            </button>
+          )
+          : <span className="todo-fold-space" aria-hidden="true" />}
         {progress
           ? (
             // FR-TODO-003 AC-11: done is a V in a circle; in progress fills as its entries get done.
@@ -440,6 +469,10 @@ function TodoRowView({
         {editingTitle
           ? <TitleEditor title={item.title} onSave={onSaveTitle} onCancel={onCancelTitle} />
           : <span className="todo-row__title" title={item.title}>{item.title}</span>}
+        {/* @req FR-TODO-008 AC-2 */}
+        {fold?.folded && (
+          <span className="todo-row__folded" title={tn('todo.hiddenCount', fold.count)}>+{fold.count}</span>
+        )}
         {/* FR-TODO-007 AC-1/AC-4: there is a detail; when hidden, this shows it again. */}
         {hasDetail && (
           <button
@@ -619,6 +652,8 @@ function NewEntryInput({ depth, onSubmit, onCancel }: { depth: number; onSubmit:
   };
   return (
     <div className={`todo-row todo-row--d${Math.min(depth, 3)} todo-row--new`}>
+      {/* @req FR-TODO-008 AC-1 */}
+      <span className="todo-fold-space" aria-hidden="true" />
       <input
         className="todo-row__input"
         autoFocus

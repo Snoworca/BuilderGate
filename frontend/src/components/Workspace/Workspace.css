@@ -26,7 +26,8 @@
   color: var(--fg);
 }
 
-.workspace-sidebar-add {
+.workspace-sidebar-add,
+.workspace-sidebar-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -42,7 +43,8 @@
   line-height: 0;
 }
 
-.workspace-sidebar-add:hover:not(:disabled) {
+.workspace-sidebar-add:hover:not(:disabled),
+.workspace-sidebar-toggle:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--fg-strong);
 }
@@ -53,7 +55,8 @@
   cursor: not-allowed;
 }
 
-.workspace-sidebar-add:focus-visible {
+.workspace-sidebar-add:focus-visible,
+.workspace-sidebar-toggle:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
@@ -177,6 +180,75 @@
   margin-left: var(--sp-2);
   background: var(--warn);
   color: var(--bg-app);
+}
+
+/* ---------- FR-UIDS-016: the folded sidebar ---------- */
+/* @req FR-UIDS-016 AC-1 AC-2 AC-3 AC-4 */
+/* The title takes the slack, so the hamburger and the add button sit together
+ * at the right of the header. */
+.workspace-sidebar-title {
+  margin-right: auto;
+}
+
+/* AC-4: folded, the header holds the hamburger alone, centred in the column. */
+.workspace-sidebar.is-collapsed .workspace-sidebar-header {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* AC-2/AC-3: one circle per workspace. The two counts sit over the circle's
+ * upper corners, waiting on the left and running on the right, so they fit the
+ * narrow column; the row's padding keeps them clear of the letter. */
+.workspace-item.is-collapsed {
+  position: relative;
+  justify-content: center;
+  padding: var(--sp-2) 0;
+}
+
+.workspace-item-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  border: 2px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  overflow: hidden;
+}
+
+/* AC-2: the active workspace's circle takes the accent ring. */
+.workspace-item.active .workspace-item-initial {
+  border-color: var(--accent);
+  color: var(--fg-strong);
+}
+
+.workspace-item.is-collapsed .workspace-item-awaiting,
+.workspace-item.is-collapsed .workspace-item-running {
+  position: absolute;
+  top: 0;
+  margin-left: 0;
+}
+
+.workspace-item.is-collapsed .workspace-item-awaiting {
+  left: 0;
+}
+
+.workspace-item.is-collapsed .workspace-item-running {
+  right: 0;
+}
+
+/* The copy of a dragged row keeps to the folded width. */
+.workspace-sidebar.is-collapsed .workspace-item-ghost {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* ---------- Phone drawer ---------- */

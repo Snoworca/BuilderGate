@@ -979,6 +979,8 @@
   "workspace.move.tabCount": "{count}/{max} tabs",
   "workspace.move.title": "Move to Workspace",
   "workspace.sidebar.add": "Add Workspace",
+  "workspace.sidebar.collapse": "Collapse sidebar",
+  "workspace.sidebar.expand": "Expand sidebar",
   "workspace.sidebar.version": "BuilderGate {label}",
   "workspace.tabBar.closeTab": "Close tab",
   "workspace.tabBar.recoveryCommand": "Recovery command: {command}",
@@ -2117,5 +2119,9 @@
   "todo.editTitle": "Edit title",
   "todo.close": "Close",
   "todo.resize": "Resize the to-do panel",
-  "todo.error.load": "Could not load the to-do list."
+  "todo.error.load": "Could not load the to-do list.",
+  "todo.fold": "Collapse",
+  "todo.unfold": "Expand",
+  "todo.hiddenCount.one": "{count} entry hidden",
+  "todo.hiddenCount.other": "{count} entries hidden"
 }

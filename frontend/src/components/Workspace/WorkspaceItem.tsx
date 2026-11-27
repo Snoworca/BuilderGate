@@ -7,6 +7,7 @@ import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { workspaceActivity } from './workspaceActivity.ts';
 import { WorkspaceAwaitingInputBadge } from './AwaitingInputBadge.tsx';
 import { useTabDropHoverId } from './tabDragStore.ts';
+import { workspaceInitial } from './workspaceInitial.ts';
 import './Workspace.css';
 import { t } from '../../i18n/i18n.ts';
 
@@ -25,12 +26,16 @@ interface Props {
   maxTabs: number;
   dragHandlers?: { onPointerDown: (e: React.PointerEvent) => void };
   isDragTarget?: boolean;
+  /** FR-UIDS-016 AC-2: the folded sidebar draws the row as a circle with the name's first letter. */
+  collapsed?: boolean;
+  /** FR-UIDS-016 AC-6: unfolds the sidebar, since a rename needs the full row. */
+  onRequestExpand?: () => void;
 }
 
 export function WorkspaceItem({
   workspace, isActive, runningCount, awaitingCount, isLast,
   onClick, onRename, onDelete, onAddTab, tabCount, maxTabs,
-  dragHandlers, isDragTarget,
+  dragHandlers, isDragTarget, collapsed = false, onRequestExpand,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(workspace.name);
@@ -52,8 +57,15 @@ export function WorkspaceItem({
     setEditing(false);
   };
 
+  // @req FR-UIDS-016 AC-6
+  const startRename = () => {
+    onRequestExpand?.();
+    setEditName(workspace.name);
+    setEditing(true);
+  };
+
   const menuItems: ContextMenuItem[] = [
-    { label: t('common.rename'), onClick: () => { setEditName(workspace.name); setEditing(true); } },
+    { label: t('common.rename'), onClick: startRename },
     ...(!isLast ? [{ label: t('common.delete'), destructive: true, onClick: () => onDelete(workspace.id) }] : []),
     { separator: true },
     { label: t('common.addTerminal'), onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
@@ -67,23 +79,30 @@ export function WorkspaceItem({
       <div
         role="option"
         aria-selected={isActive}
-        className={`workspace-item ${isActive ? 'active' : ''} ${isDragTarget ? 'drag-target' : ''} ${isTabDropTarget ? 'tab-drop-target' : ''}`}
+        className={`workspace-item ${isActive ? 'active' : ''} ${isDragTarget ? 'drag-target' : ''} ${isTabDropTarget ? 'tab-drop-target' : ''} ${collapsed ? 'is-collapsed' : ''}`}
         data-workspace-drop-id={workspace.id}
         onClick={onClick}
         onContextMenu={(e) => { e.preventDefault(); ctx.open(e.clientX, e.clientY, workspace.id); }}
         onTouchStart={itemDoubleTap.onTouchStart}
         onTouchEnd={itemDoubleTap.onTouchEnd}
-        onDoubleClick={() => { setEditName(workspace.name); setEditing(true); }}
+        onDoubleClick={startRename}
         {...dragHandlers}
       >
         {/* FR-UIDS-005 AC-2: green while any of its sessions runs, grey otherwise. */}
-        <span
-          className={`workspace-item-dot${activity.running ? ' is-running' : ''}`}
-          role="img"
-          aria-label={activity.label}
-          title={activity.label}
-        />
-        {editing ? (
+        {!collapsed && (
+          <span
+            className={`workspace-item-dot${activity.running ? ' is-running' : ''}`}
+            role="img"
+            aria-label={activity.label}
+            title={activity.label}
+          />
+        )}
+        {/* FR-UIDS-016 AC-2: folded, a circle with the first letter, the full name as its title and label. */}
+        {collapsed ? (
+          <span className="workspace-item-initial" role="img" aria-label={workspace.name} title={workspace.name}>
+            {workspaceInitial(workspace.name)}
+          </span>
+        ) : editing ? (
           <input
             ref={inputRef}
             value={editName}

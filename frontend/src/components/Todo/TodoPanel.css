@@ -181,12 +181,13 @@
   background-color: #3a3326;
 }
 
+/* FR-TODO-008 AC-1: each row's fold button is centred on the line from its parent's mark. */
 .todo-row--d2 {
-  padding-left: 30px;
+  padding-left: 32px;
 }
 
 .todo-row--d3 {
-  padding-left: 52px;
+  padding-left: 54px;
 }
 
 /* FR-TODO-003 AC-10: under the rows, drawn from the marks' measured boxes. */
@@ -203,6 +204,53 @@
   stroke: #5b6578;
   stroke-width: 1;
   stroke-dasharray: 2 3;
+}
+
+/* @req FR-TODO-008 AC-1 */
+/* Left of the mark and over the parent's line; a row with nothing under it keeps the place empty. */
+.todo-fold,
+.todo-fold-space {
+  flex: 0 0 auto;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-top: calc((var(--row-line) - var(--icon-sm)) / 2);
+}
+
+.todo-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background-color: var(--bg-sunken);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.todo-row:hover > .todo-fold,
+.todo-row.is-selected > .todo-fold,
+.todo-row.is-drop-inside > .todo-fold {
+  background-color: inherit;
+}
+
+.todo-fold:hover {
+  color: var(--fg-strong);
+}
+
+.todo-fold:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* @req FR-TODO-008 AC-2 */
+.todo-row__folded {
+  flex: 0 0 auto;
+  line-height: var(--row-line);
+  color: var(--fg-muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-regular);
+  white-space: nowrap;
 }
 
 /* FR-TODO-003 AC-11: the category's status. */
@@ -396,9 +444,9 @@
   margin-bottom: 4px;
 }
 
-.todo-detail--d1 { margin-left: 36px; }
-.todo-detail--d2 { margin-left: 52px; }
-.todo-detail--d3 { margin-left: 74px; }
+.todo-detail--d1 { margin-left: 58px; }
+.todo-detail--d2 { margin-left: 76px; }
+.todo-detail--d3 { margin-left: 98px; }
 
 .todo-detail {
   position: relative;

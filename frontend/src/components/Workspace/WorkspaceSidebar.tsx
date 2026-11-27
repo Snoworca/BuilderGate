@@ -26,14 +26,23 @@ interface Props {
   onDelete: (id: string) => void;
   onAddTab: (id: string, shell?: string) => void;
   onReorder: (workspaceIds: string[]) => void;
+  /** FR-UIDS-016 AC-7: the desktop column may fold; the phone drawer leaves this off and always lists in full. */
+  collapsible?: boolean;
+  /** FR-UIDS-016 AC-2: folded to one circle per workspace. Honoured only while collapsible. */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 export function WorkspaceSidebar({
   workspaces, tabs, activeWorkspaceId, maxTabsPerWorkspace,
   availableShells,
   onSelect, onCreate, onRename, onDelete, onAddTab, onReorder,
+  collapsible = false, collapsed: collapsedProp = false, onCollapsedChange,
 }: Props) {
   const sorted = [...workspaces].sort((a, b) => a.sortOrder - b.sortOrder);
+  // @req FR-UIDS-016 AC-1 AC-4 AC-7
+  const collapsed = collapsible && collapsedProp;
+  const toggleLabel = t(collapsed ? 'workspace.sidebar.expand' : 'workspace.sidebar.collapse');
 
   const [shellMenuOpen, setShellMenuOpen] = useState(false);
   const [shellMenuPosition, setShellMenuPosition] = useState({ x: 0, y: 0 });
@@ -81,18 +90,34 @@ export function WorkspaceSidebar({
   }));
 
   return (
-    <div className="workspace-sidebar">
+    <div className={`workspace-sidebar${collapsed ? ' is-collapsed' : ''}`}>
       <div className="workspace-sidebar-header">
-        <span className="workspace-sidebar-title">Workspaces</span>
-        <button
-          type="button"
-          className="workspace-sidebar-add"
-          onClick={onCreate}
-          aria-label={t('workspace.sidebar.add')}
-          title={t('workspace.sidebar.add')}
-        >
-          <Icon name="plus" size={16} />
-        </button>
+        {/* FR-UIDS-016 AC-4: folded, the header holds the hamburger alone. */}
+        {!collapsed && <span className="workspace-sidebar-title">Workspaces</span>}
+        {/* FR-UIDS-016 AC-1: right of the title, beside the add button. The drawer has none (AC-7). */}
+        {collapsible && (
+          <button
+            type="button"
+            className="workspace-sidebar-toggle"
+            onClick={() => onCollapsedChange?.(!collapsed)}
+            aria-expanded={!collapsed}
+            aria-label={toggleLabel}
+            title={toggleLabel}
+          >
+            <Icon name="menu" size={16} />
+          </button>
+        )}
+        {!collapsed && (
+          <button
+            type="button"
+            className="workspace-sidebar-add"
+            onClick={onCreate}
+            aria-label={t('workspace.sidebar.add')}
+            title={t('workspace.sidebar.add')}
+          >
+            <Icon name="plus" size={16} />
+          </button>
+        )}
       </div>
 
       <div role="listbox" className="workspace-sidebar-list">
@@ -112,22 +137,27 @@ export function WorkspaceSidebar({
               maxTabs={maxTabsPerWorkspace}
               dragHandlers={drag.getTabHandlers(index)}
               isDragTarget={drag.dropTargetIndex === index}
+              collapsed={collapsed}
+              onRequestExpand={collapsed ? () => onCollapsedChange?.(false) : undefined}
             />
           </div>
         ))}
       </div>
 
-      {/* FR-USAGE-007: Claude and Codex usage limits, above the version line. */}
-      <UsageLimitsPanel />
+      {/* FR-USAGE-007: Claude and Codex usage limits, above the version line.
+          FR-UIDS-016 AC-4: neither the limits nor the version line is drawn while folded. */}
+      {!collapsed && <UsageLimitsPanel />}
 
       {/* FR-UIDS-012: which build this is, so an old dist left on a server shows. */}
-      <div
-        className="workspace-sidebar-version"
-        title={t('workspace.sidebar.version', { label: BUILD_LABEL })}
-        aria-label={t('workspace.sidebar.version', { label: BUILD_LABEL })}
-      >
-        {BUILD_LABEL}
-      </div>
+      {!collapsed && (
+        <div
+          className="workspace-sidebar-version"
+          title={t('workspace.sidebar.version', { label: BUILD_LABEL })}
+          aria-label={t('workspace.sidebar.version', { label: BUILD_LABEL })}
+        >
+          {BUILD_LABEL}
+        </div>
+      )}
 
       {drag.dragIndex !== null && drag.ghostStyle && (
         <div className="workspace-item-ghost" style={drag.ghostStyle}>
