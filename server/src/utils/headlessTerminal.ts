@@ -187,20 +187,34 @@ interface RetainedPhysicalRowMetric {
   utf8Bytes: number;
 }
 
-interface RetainedSourceMarker {
+/**
+ * A range of committed source records that touched one physical line of the normal buffer.
+ *
+ * PERF-BGSTAB-031: this used to hold an xterm marker. xterm tells every marker about every
+ * trimmed row, so with a range per scrollback row one scrolled line cost O(scrollback)
+ * (150 us at 10,000 rows). The range now keeps the line itself, counted from the first row the
+ * buffer ever held, which a trim does not change; the tracker applies the rules xterm applies
+ * to a marker -- a trim, an insert and a delete from the line-list events, and an erased line
+ * from Buffer.clearMarkers -- and drops every range when RIS replaces the buffer.
+ */
+interface RetainedSourceRange {
   /** Stream epoch for the source range. Ranges never coalesce across rollover. */
   streamEpoch: string;
   /** Oldest committed source identity known to have touched this physical line. */
   sourceSeq: string;
   /** Newest committed source identity coalesced into this physical-line range. */
   latestSourceSeq: string;
-  marker: {
-    readonly line: number;
-    readonly isDisposed: boolean;
-    onDispose(listener: () => void): { dispose(): void };
-    dispose(): void;
-  };
-  disposeListener: { dispose(): void };
+  /** Buffer line plus the rows trimmed before it was read; below the trimmed count means gone. */
+  absoluteLine: number;
+  disposed: boolean;
+}
+
+interface RetainedSourceRangeIndex {
+  bySequence: Map<string, RetainedSourceRange>;
+  /** Ranges per absolute line, in creation order. Rebuilt after an insert or a delete. */
+  byLine: Map<number, RetainedSourceRange[]>;
+  linesValid: boolean;
+  disposedPending: number;
 }
 
 interface RetainedHeadlessMetricsTracker {
@@ -211,13 +225,26 @@ interface RetainedHeadlessMetricsTracker {
    * Resize (reflow) and a shrinking buffer (scrollback clear) reset it to 0.
    */
   stableRows: number;
+  /**
+   * PERF-BGSTAB-031: running totals over `rows`, so a read does not walk the scrollback.
+   * `unwrappedRows` counts the rows that start a logical line of their own.
+   */
+  totalUtf8Bytes: number;
+  unwrappedRows: number;
   trimTrackingAvailable: boolean;
   evictedPhysicalRows: number;
   evictedLogicalRows: number;
   evictedUtf8Bytes: number;
   trimEvents: number;
   completeLogicalRowBoundary: boolean;
-  sourceMarkers: RetainedSourceMarker[];
+  /** False when xterm does not report what moves or removes a line's source range. */
+  lineEventsAvailable: boolean;
+  /** The normal buffer the listeners are on. RIS replaces it, and they are then moved. */
+  attachedBuffer: InternalNormalBuffer | undefined;
+  detachBuffer: () => void;
+  /** Live source ranges, oldest first. */
+  sourceMarkers: RetainedSourceRange[];
+  markerIndex: RetainedSourceRangeIndex;
   markerCoverage: 'complete' | 'partial' | 'none';
   disposables: Array<{ dispose(): void }>;
 }
@@ -352,6 +379,8 @@ export function readHeadlessTerminalText(state: HeadlessTerminalState, maxLines:
 }
 
 export function resizeHeadlessTerminal(state: HeadlessTerminalState, cols: number, rows: number): void {
+  // A reflow can trim rows that are still in the viewport, so they are measured first.
+  refreshRetainedPhysicalRows(state.retainedMetricsTracker, state.terminal);
   state.terminal.resize(cols, rows);
 }
 
@@ -530,32 +559,30 @@ export function markRetainedHeadlessSourceSequence(
 ): boolean {
   const tracker = state.retainedMetricsTracker;
   pruneDisposedSourceMarkers(tracker);
-  if (tracker.sourceMarkers.some(
-    entry => entry.streamEpoch === streamEpoch
-      && (entry.sourceSeq === sourceSeq || entry.latestSourceSeq === sourceSeq),
-  )) return true;
+  const index = tracker.markerIndex;
+  if (index.bySequence.has(markerKey(streamEpoch, sourceSeq))) return true;
 
   const normalBuffer = state.terminal.buffer.normal;
-  if (state.terminal.buffer.active.type !== 'normal') {
+  if (state.terminal.buffer.active.type !== 'normal' || !tracker.lineEventsAvailable) {
     tracker.markerCoverage = 'partial';
     return false;
   }
-  const currentPhysicalLine = normalBuffer.baseY + normalBuffer.cursorY;
-  const currentLineRange = tracker.sourceMarkers.find(
-    entry => entry.streamEpoch === streamEpoch && entry.marker.line === currentPhysicalLine,
-  );
+  const absoluteLine = normalBuffer.baseY + normalBuffer.cursorY + tracker.evictedPhysicalRows;
+  const currentLineRange = sourceRangesOnLine(tracker, absoluteLine)
+    ?.find(entry => entry.streamEpoch === streamEpoch);
   if (currentLineRange) {
+    if (currentLineRange.latestSourceSeq !== currentLineRange.sourceSeq) {
+      index.bySequence.delete(markerKey(streamEpoch, currentLineRange.latestSourceSeq));
+    }
     currentLineRange.latestSourceSeq = sourceSeq;
+    index.bySequence.set(markerKey(streamEpoch, sourceSeq), currentLineRange);
     return true;
   }
 
-  const marker = state.terminal.registerMarker(0);
-  if (!marker) {
-    tracker.markerCoverage = 'partial';
-    return false;
-  }
-  const disposeListener = marker.onDispose(() => undefined);
-  tracker.sourceMarkers.push({ streamEpoch, sourceSeq, latestSourceSeq: sourceSeq, marker, disposeListener });
+  const entry: RetainedSourceRange = { streamEpoch, sourceSeq, latestSourceSeq: sourceSeq, absoluteLine, disposed: false };
+  tracker.sourceMarkers.push(entry);
+  index.bySequence.set(markerKey(streamEpoch, sourceSeq), entry);
+  addSourceRangeToLine(index, entry);
   if (tracker.markerCoverage === 'none' && tracker.sourceMarkers.length === 1) {
     tracker.markerCoverage = 'complete';
   }
@@ -573,8 +600,9 @@ export function readRetainedHeadlessBufferMetrics(
   return {
     trimTracking: tracker.trimTrackingAvailable ? 'xterm-line-events' : 'unavailable',
     currentPhysicalRows: rows.length,
-    currentLogicalRows: countRetainedLogicalRows(rows),
-    currentUtf8Bytes: rows.reduce((total, row) => total + row.utf8Bytes, 0),
+    // The first row always starts a logical row, wrapped or not.
+    currentLogicalRows: rows.length === 0 ? 0 : tracker.unwrappedRows + (rows[0]!.wrapped ? 1 : 0),
+    currentUtf8Bytes: tracker.totalUtf8Bytes,
     leadingRowWrapped: rows[0]?.wrapped ?? false,
     evictedPhysicalRows: tracker.evictedPhysicalRows,
     evictedLogicalRows: tracker.evictedLogicalRows,
@@ -643,9 +671,7 @@ export function serializeHeadlessScreenRepair(
 }
 
 export function disposeHeadlessTerminal(state: HeadlessTerminalState): void {
-  for (const sourceMarker of state.retainedMetricsTracker.sourceMarkers) {
-    sourceMarker.disposeListener.dispose();
-  }
+  state.retainedMetricsTracker.sourceMarkers.length = 0;
   for (const disposable of state.retainedMetricsTracker.disposables) {
     disposable.dispose();
   }
@@ -670,16 +696,23 @@ function foldComparisonAxes(axes: RetainedHeadlessComparisonAxes): RetainedHeadl
 }
 
 function createRetainedMetricsTracker(terminal: HeadlessTerminalType): RetainedHeadlessMetricsTracker {
+  const rows = captureRetainedPhysicalRows(terminal.buffer.normal);
   return {
-    rows: captureRetainedPhysicalRows(terminal.buffer.normal),
+    rows,
     stableRows: Math.max(0, terminal.buffer.normal.length - terminal.rows),
+    totalUtf8Bytes: rows.reduce((total, row) => total + row.utf8Bytes, 0),
+    unwrappedRows: rows.reduce((total, row) => total + (row.wrapped ? 0 : 1), 0),
     trimTrackingAvailable: false,
     evictedPhysicalRows: 0,
     evictedLogicalRows: 0,
     evictedUtf8Bytes: 0,
     trimEvents: 0,
     completeLogicalRowBoundary: true,
+    lineEventsAvailable: false,
+    attachedBuffer: undefined,
+    detachBuffer: () => undefined,
     sourceMarkers: [],
+    markerIndex: { bySequence: new Map(), byLine: new Map(), linesValid: true, disposedPending: 0 },
     markerCoverage: 'none',
     disposables: [],
   };
@@ -687,19 +720,56 @@ function createRetainedMetricsTracker(terminal: HeadlessTerminalType): RetainedH
 
 function attachRetainedMetricsTracker(state: HeadlessTerminalState): void {
   const tracker = state.retainedMetricsTracker;
-  const lineList = readInternalNormalLineList(state.terminal);
-  if (lineList?.onTrim) {
-    tracker.trimTrackingAvailable = true;
-    tracker.disposables.push(lineList.onTrim((amount) => consumeRetainedTrim(tracker, amount)));
-  }
-  tracker.disposables.push(state.terminal.onScroll(() => {
+  attachRetainedNormalBuffer(tracker, state.terminal);
+  tracker.disposables.push({ dispose: () => tracker.detachBuffer() });
+  tracker.disposables.push(state.terminal.buffer.onBufferChange(() => {
+    // RIS (ESC c) builds a new normal buffer. Its rows and its line events are not the old ones:
+    // move the listeners, measure the new rows, and drop the ranges of the rows that are gone.
+    if (readInternalNormalBuffer(state.terminal) === tracker.attachedBuffer) return;
+    attachRetainedNormalBuffer(tracker, state.terminal);
+    for (const entry of tracker.sourceMarkers) {
+      if (!entry.disposed) disposeSourceRange(tracker.markerIndex, entry);
+    }
+    tracker.markerIndex.byLine.clear();
+    tracker.markerIndex.linesValid = true;
+    tracker.stableRows = 0;
     refreshRetainedPhysicalRows(tracker, state.terminal);
+  }));
+  tracker.disposables.push(state.terminal.onScroll(() => {
+    recordRetainedScroll(tracker, state.terminal);
   }));
   tracker.disposables.push(state.terminal.onResize(() => {
     // Reflow rewrites every row, so nothing is stable any more.
     tracker.stableRows = 0;
     refreshRetainedPhysicalRows(tracker, state.terminal);
   }));
+}
+
+function attachRetainedNormalBuffer(tracker: RetainedHeadlessMetricsTracker, terminal: HeadlessTerminalType): void {
+  tracker.detachBuffer();
+  const buffer = readInternalNormalBuffer(terminal);
+  const lineList = buffer?.lines;
+  const attached: Array<{ dispose(): void }> = [];
+  tracker.attachedBuffer = buffer;
+  tracker.detachBuffer = () => { for (const disposable of attached.splice(0)) disposable.dispose(); };
+  tracker.trimTrackingAvailable = false;
+  tracker.lineEventsAvailable = false;
+  if (!buffer || !lineList?.onTrim) return;
+  tracker.trimTrackingAvailable = true;
+  attached.push(lineList.onTrim((amount) => consumeRetainedTrim(tracker, amount)));
+  const clearMarkers = buffer.clearMarkers;
+  if (!lineList.onInsert || !lineList.onDelete || typeof clearMarkers !== 'function') return;
+  tracker.lineEventsAvailable = true;
+  attached.push(
+    lineList.onInsert(event => moveSourceRangesForInsert(tracker, event.index, event.amount)),
+    lineList.onDelete(event => moveSourceRangesForDelete(tracker, event.index, event.amount)),
+  );
+  // An erase (ED) removes the markers of each line it resets and reports it nowhere else.
+  buffer.clearMarkers = (line: number): void => {
+    clearMarkers.call(buffer, line);
+    disposeSourceRangesOnLine(tracker, line + tracker.evictedPhysicalRows);
+  };
+  attached.push({ dispose: () => { delete buffer.clearMarkers; } });
 }
 
 /**
@@ -712,19 +782,58 @@ function refreshRetainedPhysicalRows(
 ): void {
   const buffer = terminal.buffer.normal;
   const length = buffer.length;
+  const rows = tracker.rows;
   // A buffer shorter than what we believed final (e.g. a scrollback clear) invalidates it all.
-  const keep = length < tracker.stableRows ? 0 : Math.min(tracker.stableRows, tracker.rows.length, length);
-  const rows = keep === tracker.rows.length ? tracker.rows : tracker.rows.slice(0, keep);
-  for (let y = keep; y < length; y += 1) {
-    const line = buffer.getLine(y);
-    rows[y] = {
-      wrapped: line?.isWrapped ?? false,
-      utf8Bytes: Buffer.byteLength(line?.translateToString(true) ?? '', 'utf8'),
-    };
-  }
-  rows.length = length;
-  tracker.rows = rows;
+  const keep = length < tracker.stableRows ? 0 : Math.min(tracker.stableRows, rows.length, length);
+  for (let y = keep; y < rows.length; y += 1) forgetRetainedRow(tracker, rows[y]!);
+  rows.length = Math.min(rows.length, length);
+  for (let y = keep; y < length; y += 1) measureRetainedRow(tracker, buffer, y);
   tracker.stableRows = Math.max(0, length - terminal.rows);
+}
+
+/**
+ * PERF-BGSTAB-031: what a scroll has to record. A scroll makes the rows that left the viewport
+ * final, so those are measured now. The rows still in the viewport are measured again by the
+ * next read anyway; until then only a trim reads them, and a trim reaches no further than the
+ * first viewport row (a scrollback clear) while at least two rows are final. So this measures
+ * the rows that became final, the first viewport row, and the rows that are new -- instead of
+ * the whole viewport on every scrolled line. A reflow can trim further; resizeHeadlessTerminal
+ * refreshes before it.
+ */
+function recordRetainedScroll(
+  tracker: RetainedHeadlessMetricsTracker,
+  terminal: { buffer: { normal: RetainedBufferView }; rows: number },
+): void {
+  const buffer = terminal.buffer.normal;
+  const length = buffer.length;
+  const rows = tracker.rows;
+  const stable = Math.max(0, length - terminal.rows);
+  if (stable < 2 || tracker.stableRows > rows.length || rows.length > length || stable < tracker.stableRows) {
+    refreshRetainedPhysicalRows(tracker, terminal);
+    return;
+  }
+  for (let y = tracker.stableRows; y < length; y += 1) {
+    if (y > stable && y < rows.length) continue;
+    if (y < rows.length) forgetRetainedRow(tracker, rows[y]!);
+    measureRetainedRow(tracker, buffer, y);
+  }
+  tracker.stableRows = stable;
+}
+
+function measureRetainedRow(tracker: RetainedHeadlessMetricsTracker, buffer: RetainedBufferView, y: number): void {
+  const line = buffer.getLine(y);
+  const row = {
+    wrapped: line?.isWrapped ?? false,
+    utf8Bytes: Buffer.byteLength(line?.translateToString(true) ?? '', 'utf8'),
+  };
+  tracker.rows[y] = row;
+  tracker.totalUtf8Bytes += row.utf8Bytes;
+  if (!row.wrapped) tracker.unwrappedRows += 1;
+}
+
+function forgetRetainedRow(tracker: RetainedHeadlessMetricsTracker, row: RetainedPhysicalRowMetric): void {
+  tracker.totalUtf8Bytes -= row.utf8Bytes;
+  if (!row.wrapped) tracker.unwrappedRows -= 1;
 }
 
 function captureRetainedPhysicalRows(buffer: RetainedBufferView): RetainedPhysicalRowMetric[] {
@@ -742,63 +851,130 @@ function captureRetainedPhysicalRows(buffer: RetainedBufferView): RetainedPhysic
 function consumeRetainedTrim(tracker: RetainedHeadlessMetricsTracker, amount: number): void {
   if (!Number.isInteger(amount) || amount <= 0) return;
   tracker.trimEvents += 1;
+  disposeTrimmedSourceRanges(tracker, amount);
   tracker.evictedPhysicalRows += amount;
-  const knownCount = Math.min(amount, tracker.rows.length);
-  const removed = tracker.rows.slice(0, knownCount);
-  const firstRetained = tracker.rows[knownCount];
-  tracker.evictedUtf8Bytes += removed.reduce((total, row) => total + row.utf8Bytes, 0);
+  const rows = tracker.rows;
+  const knownCount = Math.min(amount, rows.length);
 
-  for (let index = 0; index < removed.length; index += 1) {
-    const next = removed[index + 1] ?? firstRetained;
+  // shift() and not splice(0, n): V8 moves the start of a large array for shift, but copies
+  // every remaining element for splice (43 us against 0.08 us per row at 10,000 rows).
+  for (let index = 0; index < knownCount; index += 1) {
+    const row = rows.shift()!;
+    tracker.evictedUtf8Bytes += row.utf8Bytes;
+    forgetRetainedRow(tracker, row);
+    const next = rows[0];
     if (!next || !next.wrapped) tracker.evictedLogicalRows += 1;
   }
-  if (knownCount < amount || firstRetained?.wrapped) {
+  if (knownCount < amount || rows[0]?.wrapped) {
     tracker.completeLogicalRowBoundary = false;
   }
-  tracker.rows = tracker.rows.slice(knownCount);
   tracker.stableRows = Math.max(0, tracker.stableRows - knownCount);
 }
 
-function countRetainedLogicalRows(rows: readonly RetainedPhysicalRowMetric[]): number {
-  if (rows.length === 0) return 0;
-  let count = 1;
-  for (let index = 1; index < rows.length; index += 1) {
-    if (!rows[index]!.wrapped) count += 1;
+function markerKey(streamEpoch: string, value: string): string {
+  return `${streamEpoch}\u0000${value}`;
+}
+
+function addSourceRangeToLine(index: RetainedSourceRangeIndex, entry: RetainedSourceRange): void {
+  if (!index.linesValid) return;
+  const onLine = index.byLine.get(entry.absoluteLine);
+  if (onLine) onLine.push(entry);
+  else index.byLine.set(entry.absoluteLine, [entry]);
+}
+
+/** The live ranges on a line, oldest first. */
+function sourceRangesOnLine(
+  tracker: RetainedHeadlessMetricsTracker,
+  absoluteLine: number,
+): RetainedSourceRange[] | undefined {
+  const index = tracker.markerIndex;
+  if (!index.linesValid) {
+    index.byLine.clear();
+    index.linesValid = true;
+    for (const entry of tracker.sourceMarkers) {
+      if (!entry.disposed) addSourceRangeToLine(index, entry);
+    }
   }
-  return count;
+  return index.byLine.get(absoluteLine);
+}
+
+function disposeSourceRange(index: RetainedSourceRangeIndex, entry: RetainedSourceRange): void {
+  entry.disposed = true;
+  index.disposedPending += 1;
+  index.bySequence.delete(markerKey(entry.streamEpoch, entry.sourceSeq));
+  index.bySequence.delete(markerKey(entry.streamEpoch, entry.latestSourceSeq));
+}
+
+function disposeSourceRangesOnLine(tracker: RetainedHeadlessMetricsTracker, absoluteLine: number): void {
+  const onLine = sourceRangesOnLine(tracker, absoluteLine);
+  if (!onLine) return;
+  for (const entry of onLine) disposeSourceRange(tracker.markerIndex, entry);
+  tracker.markerIndex.byLine.delete(absoluteLine);
+}
+
+/** xterm's marker rule for a trim: a range whose line was trimmed is gone. */
+function disposeTrimmedSourceRanges(tracker: RetainedHeadlessMetricsTracker, amount: number): void {
+  if (tracker.sourceMarkers.length === 0) return;
+  const first = tracker.evictedPhysicalRows;
+  for (let absoluteLine = first; absoluteLine < first + amount; absoluteLine += 1) {
+    disposeSourceRangesOnLine(tracker, absoluteLine);
+  }
+}
+
+/** xterm's marker rule for an insert: a range at or below the inserted rows moves down. */
+function moveSourceRangesForInsert(tracker: RetainedHeadlessMetricsTracker, index: number, amount: number): void {
+  const from = index + tracker.evictedPhysicalRows;
+  for (const entry of tracker.sourceMarkers) {
+    if (!entry.disposed && entry.absoluteLine >= from) entry.absoluteLine += amount;
+  }
+  tracker.markerIndex.linesValid = false;
+}
+
+/** xterm's marker rule for a delete: a range on a deleted row is gone, one below it moves up. */
+function moveSourceRangesForDelete(tracker: RetainedHeadlessMetricsTracker, index: number, amount: number): void {
+  const from = index + tracker.evictedPhysicalRows;
+  for (const entry of tracker.sourceMarkers) {
+    if (entry.disposed) continue;
+    if (entry.absoluteLine >= from && entry.absoluteLine < from + amount) disposeSourceRange(tracker.markerIndex, entry);
+    else if (entry.absoluteLine > from) entry.absoluteLine -= amount;
+  }
+  tracker.markerIndex.linesValid = false;
 }
 
 function pruneDisposedSourceMarkers(tracker: RetainedHeadlessMetricsTracker): void {
-  const previousCount = tracker.sourceMarkers.length;
-  const retained: RetainedSourceMarker[] = [];
-  for (const entry of tracker.sourceMarkers) {
-    if (entry.marker.isDisposed) {
-      entry.disposeListener.dispose();
-    } else {
-      retained.push(entry);
-    }
+  const index = tracker.markerIndex;
+  if (index.disposedPending === 0) return;
+  const markers = tracker.sourceMarkers;
+  // A trim disposes the oldest ranges, which are at the front; then nothing else has to move.
+  // shift() for the reason given in consumeRetainedTrim.
+  let removed = 0;
+  while (markers.length > 0 && markers[0]!.disposed) {
+    markers.shift();
+    removed += 1;
   }
-  tracker.sourceMarkers = retained;
-  if (previousCount > 0 && retained.length === 0) {
+  if (removed < index.disposedPending) tracker.sourceMarkers = markers.filter(entry => !entry.disposed);
+  index.disposedPending = 0;
+  if (tracker.sourceMarkers.length === 0) {
     tracker.markerCoverage = 'partial';
   }
 }
 
 interface InternalNormalLineList {
   onTrim?(listener: (amount: number) => void): { dispose(): void };
+  onInsert?(listener: (event: { index: number; amount: number }) => void): { dispose(): void };
+  onDelete?(listener: (event: { index: number; amount: number }) => void): { dispose(): void };
 }
 
-function readInternalNormalLineList(terminal: HeadlessTerminalType): InternalNormalLineList | undefined {
+interface InternalNormalBuffer {
+  lines?: InternalNormalLineList;
+  clearMarkers?: (line: number) => void;
+}
+
+function readInternalNormalBuffer(terminal: HeadlessTerminalType): InternalNormalBuffer | undefined {
   const internal = terminal as unknown as {
-    _core?: {
-      _bufferService?: {
-        buffers?: {
-          normal?: { lines?: InternalNormalLineList };
-        };
-      };
-    };
+    _core?: { _bufferService?: { buffers?: { normal?: InternalNormalBuffer } } };
   };
-  return internal._core?._bufferService?.buffers?.normal?.lines;
+  return internal._core?._bufferService?.buffers?.normal;
 }
 
 function buildViewportAnsiPatch(

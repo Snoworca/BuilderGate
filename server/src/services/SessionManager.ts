@@ -26,6 +26,7 @@ import {
 } from '../schemas/config.schema.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { takeFromFront } from '../utils/arrayFront.js';
 import { createCloseSignal, type CloseSignal } from '../utils/closeSignal.js';
 import {
   createHeadlessTerminalState,
@@ -3849,12 +3850,16 @@ export class SessionManager {
     if (!this.acceptRetainedTerminalMutationIdentity(data, retainedIdentity)) {
       return { ok: false, denialReason: 'mutation-identity-stale' };
     }
-    const inputDebugDetails: Record<string, InputDebugValue> = {
-      ...buildInputDebugDetails(input, clientMetadata),
-      ...(typeof inputSequence?.inputSeqStart === 'number' ? { inputSeqStart: inputSequence.inputSeqStart } : {}),
-      ...(typeof inputSequence?.inputSeqEnd === 'number' ? { inputSeqEnd: inputSequence.inputSeqEnd } : {}),
-    };
+    // PERF-BGSTAB-032 AC-1: only debug capture reads these, and building them (grapheme
+    // segmentation above all) was about half of this function's time per key press.
     const shouldCaptureInputDebug = this.isDebugCaptureEnabled(id);
+    const inputDebugDetails: Record<string, InputDebugValue> = shouldCaptureInputDebug
+      ? {
+          ...buildInputDebugDetails(input, clientMetadata),
+          ...(typeof inputSequence?.inputSeqStart === 'number' ? { inputSeqStart: inputSequence.inputSeqStart } : {}),
+          ...(typeof inputSequence?.inputSeqEnd === 'number' ? { inputSeqEnd: inputSequence.inputSeqEnd } : {}),
+        }
+      : {};
     if (shouldCaptureInputDebug) {
       this.captureDebugEvent(id, 'pty', 'input', inputDebugDetails, formatSafeInputPreview(input) ?? undefined);
     }
@@ -9124,7 +9129,7 @@ export class SessionManager {
     removeCount: number,
   ): void {
     if (removeCount <= 0) return;
-    const removedFacts = retained.facts.splice(0, removeCount);
+    const removedFacts = takeFromFront(retained.facts, removeCount);
     for (const fact of removedFacts) {
       retained.ledgerFactEncodedBytes = Math.max(
         0,
@@ -9157,7 +9162,7 @@ export class SessionManager {
     const { recordLimit, factLimit, ledgerByteLimit } = this.resolveRetainedTerminalLedgerPolicy(sessionData);
     if (retained.records.length > recordLimit) {
       const removeCount = retained.records.length - recordLimit;
-      const removedRecords = retained.records.splice(0, removeCount);
+      const removedRecords = takeFromFront(retained.records, removeCount);
       const removedRecordIds = new Set<string>();
       for (const record of removedRecords) {
         retained.ledgerRecordEncodedBytes = Math.max(
