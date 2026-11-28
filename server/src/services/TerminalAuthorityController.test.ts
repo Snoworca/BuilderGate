@@ -9719,7 +9719,8 @@ test('MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Code
     await new Promise<void>(resolve => setImmediate(resolve));
 
     assert.equal(sessionData.derivedState.ownership, 'foreground_app');
-    assert.equal(sessionData.derivedState.activity, 'repaint_only');
+    // FR-AITUI-010 AC-8: a chunk with no printable text leaves the activity as it was.
+    assert.equal(sessionData.derivedState.activity, 'waiting_input');
     assert.equal(sessionData.derivedState.foregroundAppId, 'codex');
   } finally {
     manager.deleteSession(SESSION_ID);

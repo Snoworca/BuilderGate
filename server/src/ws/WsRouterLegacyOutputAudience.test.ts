@@ -18,7 +18,7 @@ class FakeWebSocket {
   terminate(): void { this.readyState = WebSocket.CLOSED; }
 }
 
-function harness(viewMode: 'legacy' | 'checkpoint') {
+function harness(viewMode: 'legacy' | 'checkpoint', driverLeaseGeneration = '3') {
   const router = new WsRouter({} as AuthService, {
     getSession: (sessionId: string) => ({ id: sessionId }),
     isSessionReady: () => true,
@@ -47,7 +47,7 @@ function harness(viewMode: 'legacy' | 'checkpoint') {
       queryReplyCapability: 'terminal.query-reply-input.v1' as const,
       parserResponderCapability: 'terminal.parser-responder-disable.v1' as const,
       authorityStreamEpoch: '3',
-      driverLeaseGeneration: '3',
+      driverLeaseGeneration,
       acceptedViewAttributesGeneration: '3',
     }]]),
   };
@@ -61,19 +61,34 @@ function harness(viewMode: 'legacy' | 'checkpoint') {
 }
 
 // @req REL-BGSTAB-011
-test('#110 a negotiated view still in legacy authority mode receives legacy fallback output', () => {
+test('#110 a negotiated view the authority path does not deliver to receives legacy fallback output', () => {
   // Measured 2026-09-19 with a probe on both ends of the PTY: the shell echoed `codex`, codex
-  // emitted its queries and a 928-byte paint, and the browser rendered none of it. Every chunk
-  // was dropped at `audience === 'legacy-unnegotiated' && terminalAuthorityViewRegistrations.has(...)`
-  // with authorityStreamEpoch "3" and no active checkpoint ledger. All five callers that pass this
-  // audience are fallbacks -- one of them says so: "deliver this chunk so the user still sees it".
-  // Having merely negotiated is not having been delivered to.
-  const { router, socket } = harness('legacy');
+  // emitted its queries and a 928-byte paint, and the browser rendered none of it. All five
+  // callers that pass this audience are fallbacks -- one of them says so: "deliver this chunk so
+  // the user still sees it". Having merely negotiated is not having been delivered to.
+  //
+  // db17e853 (2026-09-20) made the skip follow the delivery set itself
+  // (getTerminalAuthorityResponderViews) instead of the view mode. A registration whose lease
+  // generation disagrees with its stream epoch is negotiated but not in that set.
+  const { router, socket } = harness('legacy', '2');
   try {
     router.routeSessionOutput('session-out', 'codex-paint', 7, {}, 'legacy-unnegotiated');
     const output = socket.frames.filter(frame => frame.type === 'output');
     assert.equal(output.length, 1, 'the chunk must reach the only subscriber');
     assert.equal(output[0]!.data, 'codex-paint');
+  } finally {
+    router.destroy();
+  }
+});
+
+// @req REL-BGSTAB-011
+test('#110 a legacy view the authority responder delivers to is skipped, so nothing double-delivers', () => {
+  // The other half of db17e853: a legacy view in the delivery set already got this chunk from
+  // the authority responder. The fallback copy made a 700-line producer leave about 1409 lines.
+  const { router, socket } = harness('legacy');
+  try {
+    router.routeSessionOutput('session-out', 'already-delivered', 7, {}, 'legacy-unnegotiated');
+    assert.equal(socket.frames.filter(frame => frame.type === 'output').length, 0);
   } finally {
     router.destroy();
   }

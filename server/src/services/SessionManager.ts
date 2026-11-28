@@ -2676,6 +2676,16 @@ export class SessionManager {
     if (retained.driverLease.state === 'active'
       && retained.driverLease.ownerClientId === clientId
       && retained.driverViewGeneration === viewGeneration) {
+      // #112 keeps a live legacy lease across a runtime detach, so a recreated runtime starts
+      // with no driver while the lease is still this client's. Bind the same lease to it again;
+      // a new generation would revoke a lease that is alive.
+      if (runtime.driver.active === null && runtime.driver.activeLeaseId === null) {
+        const generation = retained.driverLease.generation;
+        runtime.driver.active = 'legacy-browser';
+        runtime.driver.activeLeaseId = `retained-browser:${clientId}:${viewGeneration}:${generation}`;
+        runtime.suspendedBrowserDriver = { clientId, viewGeneration, leaseGeneration: generation };
+        this.maybeOpenTerminalAuthorityCompatibilityAdmission(runtime);
+      }
       return {
         ok: true,
         ownerClientId: clientId,

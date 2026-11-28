@@ -458,7 +458,10 @@ const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
     // the reservation -- prose naming the id while making the case for it -- and not a use:
     // nothing is passed, called or assigned. The id reaches production at exactly two sites,
     // this comment and the registry array, which is the claim the reservation rests on.
-    line: 1750,
+    // Re-anchored 1750 -> 1780 (2026-11-28). Six commits added 30 lines above the block
+    // (a7a15c9b .. 2dcb861f). Re-read: line 1780 is still the first line of the comment block
+    // that argues the reservation, and the windowSha256 is UNCHANGED.
+    line: 1780,
     windowSha256: 'e46973792896bd37f432e89e4ab478a09ea4d1983e6a3b786f9c18989421d098',
     occurrences: 1,
     covers: 'the mention in the comment block that argues this reservation, rewritten by #20 '
@@ -477,7 +480,9 @@ const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
     // three-line window includes those neighbouring lines. Re-read before re-anchoring: the
     // occurrence is still `consumerId: 'server.config.schema'` as a property of the
     // reservation entry -- a declaration of which id is reserved, not a use of it.
-    line: 1768,
+    // Re-anchored 1768 -> 1798 (2026-11-28), the same +30 shift as the sibling entry above.
+    // Re-read: still the `consumerId` property of the reservation entry; windowSha256 UNCHANGED.
+    line: 1798,
     windowSha256: 'b81ed7b53721a05d256326445a431e119cba2a9e3c9dea45759d338354fbdcde',
     occurrences: 1,
     covers: 'the consumerId property of the reservation entry itself, whose reason now records '

@@ -745,7 +745,7 @@ type GatedHeadlessWrites = ReturnType<typeof enableGatedHeadlessWrites> & {
 
 interface FixtureResourceLedger {
   markEmergencyFallbackUsed(): void;
-  assertReleased(): void;
+  assertReleased(): Promise<void>;
 }
 
 interface FixtureCwdWatchProbe {
@@ -779,12 +779,17 @@ function createFixtureResourceLedger(input: {
     markEmergencyFallbackUsed() {
       emergencyFallbackUsed = true;
     },
-    assertReleased() {
+    async assertReleased() {
       const sessions = (input.manager as unknown as {
         sessions: Map<string, ActualHeadlessSessionState>;
       }).sessions;
       assert.equal(sessions.has(input.sessionId), false, 'fixture session must be removed');
-      assert.equal(existsSync(input.cwdFilePath), false, 'fixture CWD file must be removed');
+      // deleteSession removes the CWD file without waiting for it (PERF-BGSTAB-025).
+      await waitForFixtureCondition(
+        () => !existsSync(input.cwdFilePath),
+        'fixture CWD file must be removed',
+        1_000,
+      );
       assert.equal(input.gatedWrites.pendingCallbacks, 0, 'held headless writes must be released');
       assert.equal(emergencyFallbackUsed, false, 'normal cleanup must not use the emergency fallback');
     },
@@ -997,7 +1002,7 @@ async function disposeFixture(fixture: GatedRealSessionFixture): Promise<void> {
   assert.equal(fixture.state.pendingHeadlessOutputs.size, 0,
     'all real PTY pending headless outputs must settle before public finalization');
   fixture.manager.deleteSession(fixture.sessionId);
-  fixture.ledger.assertReleased();
+  await fixture.ledger.assertReleased();
   await fixture.cwdWatchProbe.assertUnregistered();
 }
 
